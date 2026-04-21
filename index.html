@@ -997,12 +997,12 @@ async function verileriYukle() {
 // ── GİRİŞ ──
 function baslatWrapper() {
   console.log('Baslat tiklandi, aktifKalip:', aktifKalip?.kalip_kodu);
-  isEmriBaslat().catch(e => console.error('Baslat hata:', e));
+  Promise.resolve(isEmriBaslat()).catch(e => console.error('Baslat hata:', e));
 }
 
 function kaydetWrapper() {
   console.log('Kaydet tiklandi, aktifIsEmri:', aktifIsEmri?.is_emri_no);
-  isEmriKaydet().catch(e => console.error('Kaydet hata:', e));
+  Promise.resolve(isEmriKaydet()).catch(e => console.error('Kaydet hata:', e));
 }
 
 async function girisYap() {
