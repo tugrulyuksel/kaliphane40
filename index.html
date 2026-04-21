@@ -1346,17 +1346,10 @@ document.addEventListener('DOMContentLoaded', function(){
   var btnGiris = document.getElementById('btn-giris');
   if(btnGiris) btnGiris.addEventListener('click', girisYap);
 
-  // Enter ile giriş
   var pinInput = document.getElementById('login-pin');
   if(pinInput) pinInput.addEventListener('keypress', function(e){
     if(e.key === 'Enter') girisYap();
   });
-
-  var btnKapat = document.querySelector('.btn-kapat');
-  if(btnKapat) btnKapat.addEventListener('click', isEmriKaydet);
-
-  var btnBasla = document.querySelector('.btn-basla');
-  if(btnBasla) btnBasla.addEventListener('click', isEmriBaslat);
 
   sureyiBaslat();
 });
