@@ -496,7 +496,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
     <div style="height:80px"></div>
   </div>
   <div class="action-bar">
-    <div class="btn-basla" onclick="isEmriBaslat()">▶ Başlat</div>
+    <div class="btn-basla" onclick="baslatWrapper()">▶ Başlat</div>
   </div>
 </div>
 
@@ -630,7 +630,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
       </div>
     </div>
 
-    <div class="btn-kapat" onclick="isEmriBitir()">✓ Kaydet &amp; Kapat</div>
+    <div class="btn-kapat" onclick="kaydetWrapper()">✓ Kaydet &amp; Kapat</div>
     <div style="height:20px"></div>
   </div>
 </div>
@@ -995,6 +995,16 @@ async function verileriYukle() {
 }
 
 // ── GİRİŞ ──
+function baslatWrapper() {
+  console.log('Baslat tiklandi, aktifKalip:', aktifKalip?.kalip_kodu);
+  isEmriBaslat().catch(e => console.error('Baslat hata:', e));
+}
+
+function kaydetWrapper() {
+  console.log('Kaydet tiklandi, aktifIsEmri:', aktifIsEmri?.is_emri_no);
+  isEmriKaydet().catch(e => console.error('Kaydet hata:', e));
+}
+
 async function girisYap() {
   const pin = document.getElementById('login-pin').value;
   if (!pin) { alert('PIN girin.'); return; }
