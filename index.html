@@ -392,17 +392,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
     </div>
 
     <!-- Aktif iş emri -->
-    <div class="planli-card">
-      <div class="pc-hdr"><h3>Aktif İş Emirlerim</h3><span class="badge badge-green">1 Aktif</span></div>
-      <div class="planli-item" onclick="gosterEkran('screen-aktif')">
-        <div class="pi-top">
-          <span class="pi-kalip">ATROMIX ALT-ÜST KAPAK</span>
-          <span class="badge badge-amber">Devam Ediyor</span>
-        </div>
-        <div class="pi-bottom">
-          <span class="badge badge-red">⚠ Üretim Durdu</span>
-          <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--amber);margin-left:auto" id="sure-counter2">01:23:45</span>
-        </div>
+    <div class="planli-card" id="aktif-is-emirleri-kart">
+      <div class="pc-hdr"><h3>Aktif İş Emirlerim</h3><span class="badge badge-green" id="aktif-sayac">0 Aktif</span></div>
+      <div id="aktif-is-emirleri-liste">
+        <div style="padding:1rem;text-align:center;color:var(--muted);font-size:13px">Aktif iş emri yok</div>
       </div>
     </div>
 
