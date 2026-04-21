@@ -1216,35 +1216,7 @@ function chipSec(el,grup){
   else el.classList.add('selected');
 }
 
-function isEmriBaslat(){
-  let hata = '';
-
-  // Tür kontrolü (planlı modda gerek yok)
-  if(!planliMod){
-    const turSec = document.querySelector('#tur-section .chip.selected, #tur-section .chip.selected-red');
-    if(!turSec) hata += '• İş Emri Türü\n';
-  }
-
-  // Problem kontrolü
-  const problemSec = document.querySelector('#problem-section .chip.selected');
-  if(!problemSec) hata += '• Problem / Arıza\n';
-
-  // İşlem kontrolü
-  const islemSec = document.querySelector('#islem-section .chip.selected');
-  if(!islemSec) hata += '• Yapılan İşlem\n';
-
-  if(hata){
-    alert('⚠ Aşağıdaki alanlar zorunludur:\n\n' + hata + '\nLütfen seçim yapın.');
-    return;
-  }
-
-  const cl=document.getElementById('checklist-bolum');
-  cl.style.display=planliMod?'block':'none';
-  document.getElementById('aktif-tur-badge').textContent=planliMod?'Planlı Bakım':'Arıza';
-  document.getElementById('aktif-tur-badge').className='badge '+(planliMod?'badge-blue':'badge-red');
-  document.getElementById('aktif-kalip-adi').textContent=document.getElementById('form-kalip-adi').textContent;
-  gosterEkran('screen-aktif');
-}
+// isEmriBaslat - yukarida tanimli
 
 // Sayaç
 function sureyiBaslat(){
@@ -1300,13 +1272,7 @@ function isEmriBitir(){
   gosterEkran('screen-kapat');
 }
 
-function isEmriKaydet(){
-  clearInterval(sureInterval);
-  alert('✅ İş emri kapatıldı!\n\nSüre: 01:23:45\nEkip kaydedildi\nMalzemeler kaydedildi');
-  saniye=5025; durakladi=false;
-  sureyiBaslat();
-  gosterEkran('screen-usta');
-}
+// isEmriKaydet - yukarida tanimli
 
 // Malzeme kategorisi
 function catSec(btn,cat){
