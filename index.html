@@ -1320,21 +1320,96 @@ function qrOkut(tip){
 
 function kalipSec(kod, adi, tip, kalipId) {
   aktifKalip = tumKaliplar.find(k => k.id === kalipId) || {id: kalipId, kalip_kodu: kod, kalip_adi: adi};
-  document.getElementById('form-kalip-kodu').textContent = kod;
-  document.getElementById('form-kalip-adi').textContent = adi;
-  planliMod = (tip === 'planli');
-  const turSection = document.getElementById('tur-section');
-  if (planliMod) {
-    turSection.style.opacity = '.5';
-    turSection.style.pointerEvents = 'none';
-    const chips = turSection.querySelectorAll('.chip');
-    if (chips[0]) chips[0].classList.add('selected');
+
+  if (tip === 'planli') {
+    // Planlı bakımda direkt iş emri oluştur, form ekranı atla
+    planliMod = true;
+    Promise.resolve(planliIsEmriBaslat(kod, adi, kalipId)).catch(e => console.error(e));
   } else {
+    // Arıza için normal form ekranı
+    planliMod = false;
+    document.getElementById('form-kalip-kodu').textContent = kod;
+    document.getElementById('form-kalip-adi').textContent = adi;
+    const turSection = document.getElementById('tur-section');
     turSection.style.opacity = '1';
     turSection.style.pointerEvents = '';
     turSection.querySelectorAll('.chip').forEach(c => c.classList.remove('selected','selected-red'));
+    // Chip seçimlerini sıfırla
+    document.querySelectorAll('#problem-section .chip').forEach(c => c.classList.remove('selected'));
+    document.querySelectorAll('#islem-section .chip').forEach(c => c.classList.remove('selected'));
+    gosterEkran('screen-is-emri');
   }
-  gosterEkran('screen-is-emri');
+}
+
+// Planlı bakımda direkt iş emri aç
+async function planliIsEmriBaslat(kod, adi, kalipId) {
+  const isEmriNo = 'IE-' + Date.now();
+  try {
+    const yeni = await sbPost('is_emirleri', {
+      is_emri_no: isEmriNo,
+      kalip_id: kalipId,
+      acik_kapali: 'Acik',
+      tur: 'P',
+      problem: 'Periyodik bakim',
+      yapilan_islem: 'Planli Bakim',
+      uretim_durdu: false,
+      baslangic_zaman: new Date().toISOString(),
+      acik_eden_operator_id: aktifOperator?.id || null
+    });
+
+    if (yeni && yeni[0]) {
+      aktifIsEmri = yeni[0];
+      await sbPost('is_emri_operatorler', {
+        is_emri_id: aktifIsEmri.id,
+        operator_id: aktifOperator.id,
+        rol: 'ana'
+      });
+    }
+  } catch(e) {
+    console.warn('Planlı iş emri oluşturulamadı:', e);
+  }
+
+  // Aktif ekrana geç
+  document.getElementById('aktif-kalip-adi').textContent = adi;
+  document.getElementById('aktif-tur-badge').textContent = 'Planlı Bakım';
+  document.getElementById('aktif-tur-badge').className = 'badge badge-blue';
+
+  // Checklistı Supabase'den çek
+  await renderAktifChecklist(kalipId);
+
+  saniye = 0;
+  gosterEkran('screen-aktif');
+}
+
+// Aktif ekranda checklistı Supabase'den çek
+async function renderAktifChecklist(kalipId) {
+  const cl = document.getElementById('checklist-bolum');
+  const itemsEl = document.getElementById('checklist-items');
+  if (!cl || !itemsEl) return;
+
+  try {
+    const maddeler = await sbGet('checklist_sablonlar',
+      `kalip_id=eq.${kalipId}&aktif=eq.true&order=sira`);
+
+    if (!maddeler || maddeler.length === 0) {
+      cl.style.display = 'none';
+      return;
+    }
+
+    cl.style.display = 'block';
+    itemsEl.innerHTML = maddeler.map(m => `
+      <div class="checklist-item" onclick="checkToggle(this)" data-sablon-id="${m.id}">
+        <div class="check-box"></div>
+        <span class="check-text">${m.madde}</span>
+      </div>`).join('');
+
+    // Progress sıfırla
+    document.getElementById('checklist-ozet').textContent = '0/' + maddeler.length + ' tamamlandı';
+    document.getElementById('cl-bar').style.width = '0%';
+  } catch(e) {
+    console.warn('Checklist yüklenemedi:', e);
+    cl.style.display = 'none';
+  }
 }
 
 function chipSec(el,grup){
