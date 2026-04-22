@@ -345,7 +345,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         <h3>📅 Planlı Bakımlar</h3>
         <span class="badge badge-red">2 Gecikmiş</span>
       </div>
-      <div class="planli-item" onclick="planliDetayGoster('ON2E1412','ALARKO-ATROMIX KORDONLU KENETLEME','10.04.2025','gec')">
+      <div class="planli-item" onclick="Promise.resolve(planliDetayGoster('ON2E1412','ALARKO-ATROMIX KORDONLU KENETLEME','10.04.2025','gec')).catch(e=>console.error(e))">
         <div class="pi-top">
           <span class="pi-kalip">ALARKO-ATROMIX KORDONLU KENETLEME</span>
           <span class="badge badge-red">Gecikmiş</span>
@@ -356,7 +356,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
           <span class="pi-gun gec">11 gün geçti</span>
         </div>
       </div>
-      <div class="planli-item" onclick="planliDetayGoster('ON2E1404','ALARKO-ATROMIX KORDONLU AÇI VERME','15.04.2025','gec')">
+      <div class="planli-item" onclick="Promise.resolve(planliDetayGoster('ON2E1404','ALARKO-ATROMIX KORDONLU AÇI VERME','15.04.2025','gec')).catch(e=>console.error(e))">
         <div class="pi-top">
           <span class="pi-kalip">ALARKO-ATROMIX KORDONLU AÇI VERME</span>
           <span class="badge badge-red">Gecikmiş</span>
@@ -367,7 +367,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
           <span class="pi-gun gec">6 gün geçti</span>
         </div>
       </div>
-      <div class="planli-item" onclick="planliDetayGoster('ON2E1405','ATROMIX ALT-ÜST KAPAK SIVAMA','25.04.2025','yakin')">
+      <div class="planli-item" onclick="Promise.resolve(planliDetayGoster('ON2E1405','ATROMIX ALT-ÜST KAPAK SIVAMA','25.04.2025','yakin')).catch(e=>console.error(e))">
         <div class="pi-top">
           <span class="pi-kalip">ATROMIX ALT-ÜST KAPAK SIVAMA</span>
           <span class="badge badge-orange">Bu Hafta</span>
@@ -378,7 +378,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
           <span class="pi-gun yakin">4 gün kaldı</span>
         </div>
       </div>
-      <div class="planli-item" onclick="planliDetayGoster('ON2F0267','EMAS KORDONLU ÜK DELME FİKSTÜRÜ','15.05.2025','normal')">
+      <div class="planli-item" onclick="Promise.resolve(planliDetayGoster('ON2F0267','EMAS KORDONLU ÜK DELME FİKSTÜRÜ','15.05.2025','normal')).catch(e=>console.error(e))">
         <div class="pi-top">
           <span class="pi-kalip">EMAS KORDONLU ÜK DELME FİKSTÜRÜ</span>
           <span class="badge badge-blue">Gelecek Ay</span>
@@ -1501,13 +1501,15 @@ async function planliDetayGoster(kod, adi, tarih, durum) {
   gosterEkran('screen-planli-detay');
 }
 
-function planliBaslatWrapper() {
+async function planliBaslatWrapper() {
   if (!aktifKalip) return;
-  Promise.resolve(planliIsEmriBaslat(
-    aktifKalip.kalip_kodu,
-    aktifKalip.kalip_adi,
-    aktifKalip.id
-  )).catch(e => console.error(e));
+  try {
+    await planliIsEmriBaslat(
+      aktifKalip.kalip_kodu,
+      aktifKalip.kalip_adi,
+      aktifKalip.id
+    );
+  } catch(e) { console.error(e); }
 }
   const isEmriNo = 'IE-' + Date.now();
   try {
