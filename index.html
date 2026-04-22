@@ -6,6 +6,7 @@
 <title>Kalıphane 4.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <style>
 :root {
   --bg:#0f1117;--card:#1a1d27;--card2:#21253a;
@@ -287,9 +288,31 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 .step-lbl{font-size:11px;color:var(--muted);margin-left:auto;white-space:nowrap;}
 
 @media(max-width:768px){.stat-grid{grid-template-columns:1fr 1fr;}.grid3{grid-template-columns:1fr;}.yetki-grid{grid-template-columns:1fr;}.sidebar{display:none;}}
-</style>
+
+/* ── QR OKUMA ── */
+.qr-overlay{position:fixed;inset:0;background:#000;z-index:500;display:none;flex-direction:column;align-items:center;justify-content:center;}
+.qr-overlay.acik{display:flex;}
+.qr-video-wrap{position:relative;width:100%;max-width:400px;}
+.qr-video-wrap video{width:100%;display:block;border-radius:12px;}
+.qr-video-wrap canvas{display:none;}
+.qr-cerceve{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:200px;border:3px solid var(--accent);border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,0.6);}
+.qr-mesaj{color:#fff;font-size:15px;margin-top:1.5rem;text-align:center;padding:0 2rem;opacity:.8;}
+.qr-kapat{margin-top:1.5rem;padding:12px 32px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:10px;color:#fff;font-size:15px;cursor:pointer;}
+.qr-basarili{color:var(--green);font-size:18px;font-weight:700;margin-top:1rem;}</style>
 </head>
 <body>
+
+<!-- ══ QR OKUMA OVERLAY ══ -->
+<div class="qr-overlay" id="qr-overlay">
+  <div class="qr-video-wrap">
+    <video id="qr-video" autoplay playsinline muted></video>
+    <canvas id="qr-canvas"></canvas>
+    <div class="qr-cerceve"></div>
+  </div>
+  <div class="qr-mesaj" id="qr-mesaj">Kalıbın QR kodunu çerçeveye hizalayın</div>
+  <div class="qr-basarili" id="qr-basarili" style="display:none"></div>
+  <div class="qr-kapat" onclick="qrKapat()">✕ İptal</div>
+</div>
 
 <!-- ══ GİRİŞ ══ -->
 <div id="screen-login" class="screen active">
@@ -1522,9 +1545,68 @@ function gosterEkran(id){
 }
 function cikisYap(){gosterEkran('screen-login');}
 
-function qrOkut(tip){
-  alert('📷 Gerçek sistemde kamera açılır.\nSimülasyon: ON2E1405 seçildi.');
-  kalipSec('ON2E1405','ATROMIX ALT-ÜST KAPAK SIVAMA',tip);
+// ── QR OKUMA ──
+let qrStream = null;
+let qrInterval = null;
+let qrTip = 'ariza';
+
+async function qrOkut(tip) {
+  qrTip = tip || 'ariza';
+  try {
+    qrStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' }
+    });
+    const video = document.getElementById('qr-video');
+    video.srcObject = qrStream;
+    video.play();
+    document.getElementById('qr-overlay').classList.add('acik');
+    document.getElementById('qr-mesaj').textContent = 'Kalıbın QR kodunu çerçeveye hizalayın';
+    document.getElementById('qr-basarili').style.display = 'none';
+    qrInterval = setInterval(qrTara, 200);
+  } catch(e) {
+    console.warn('Kamera erişimi:', e);
+    alert('Kamera açılamadı. Manuel seçim kullanın.');
+  }
+}
+
+function qrTara() {
+  const video = document.getElementById('qr-video');
+  const canvas = document.getElementById('qr-canvas');
+  if (!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA) return;
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  if (typeof jsQR === 'undefined') return;
+  const code = jsQR(imageData.data, imageData.width, imageData.height, {inversionAttempts:'dontInvert'});
+  if (code && code.data) qrBulundu(code.data.trim().toUpperCase());
+}
+
+function qrBulundu(kalipKodu) {
+  clearInterval(qrInterval);
+  const kalip = tumKaliplar.find(k => k.kalip_kodu.toUpperCase() === kalipKodu || k.id === kalipKodu);
+  if (kalip) {
+    document.getElementById('qr-basarili').style.display = 'block';
+    document.getElementById('qr-basarili').textContent = '✓ ' + kalip.kalip_kodu + ' bulundu!';
+    document.getElementById('qr-mesaj').textContent = kalip.kalip_adi;
+    setTimeout(() => {
+      qrKapat();
+      kalipSec(kalip.kalip_kodu, kalip.kalip_adi, qrTip, kalip.id);
+    }, 1000);
+  } else {
+    document.getElementById('qr-mesaj').textContent = '⚠ "' + kalipKodu + '" sistemde bulunamadı.';
+    setTimeout(() => {
+      document.getElementById('qr-mesaj').textContent = 'Kalıbın QR kodunu çerçeveye hizalayın';
+      qrInterval = setInterval(qrTara, 200);
+    }, 2000);
+  }
+}
+
+function qrKapat() {
+  clearInterval(qrInterval);
+  if (qrStream) { qrStream.getTracks().forEach(t => t.stop()); qrStream = null; }
+  document.getElementById('qr-overlay').classList.remove('acik');
 }
 
 function kalipSec(kod, adi, tip, kalipId) {
