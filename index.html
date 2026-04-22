@@ -311,7 +311,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 <div id="screen-usta" class="screen">
   <div class="usta-header">
     <div class="logo">⚙️ Kalıphane 4.0 <span>USTA</span></div>
-    <div class="user-info"><strong id="usta-ad">Ahmet Yılmaz</strong>Usta · AY001</div>
+    <div class="user-info"><strong id="usta-ad">—</strong><span id="usta-rol-bilgi">— · —</span></div>
   </div>
   <div class="usta-body">
 
@@ -1131,7 +1131,9 @@ async function girisYap() {
   }
 
   aktifOperator = sonuc[0];
+  const rolTR = {yonetici:'Yönetici', usta:'Usta', cirak:'Çırak', cnc:'CNC Operatörü', muhendis:'Mühendis', formen:'Formen'};
   document.getElementById('usta-ad').textContent = aktifOperator.ad_soyad;
+  document.getElementById('usta-rol-bilgi').textContent = (rolTR[aktifOperator.rol] || aktifOperator.rol) + ' · ' + aktifOperator.operator_kodu;
 
   await verileriYukle();
 
@@ -1237,9 +1239,20 @@ function renderChipList(sectionId, liste, grup) {
   if (!section) return;
   const chipSelect = section.querySelector('.chip-select');
   if (!chipSelect) return;
-  chipSelect.innerHTML = liste.map(item =>
-    `<div class="chip" onclick="chipSec(this,'${grup}')" data-id="${item.id}">${item.ad}</div>`
-  ).join('');
+
+  // Yetkili işlemleri belirle
+  let yetkiler = [];
+  try { yetkiler = aktifOperator?.yetkiler ? JSON.parse(aktifOperator.yetkiler) : []; } catch(e) {}
+
+  chipSelect.innerHTML = liste.map(item => {
+    const yetkisiz = grup === 'islem' && yetkiler.length > 0 && !yetkiler.includes(item.id);
+    return `<div class="chip ${yetkisiz ? 'chip-yetkisiz' : ''}"
+      onclick="chipSec(this,'${grup}')"
+      data-id="${item.id}"
+      data-yetkisiz="${yetkisiz}"
+      style="${yetkisiz ? 'opacity:0.4;cursor:not-allowed;' : ''}"
+    >${yetkisiz ? '🔒 ' : ''}${item.ad}</div>`;
+  }).join('');
 }
 
 // ── YÖNETİCİ VERİLERİ ──
@@ -1351,6 +1364,18 @@ async function isEmriBaslat() {
   const islemSec = document.querySelector('#islem-section .chip.selected');
   if (!islemSec) hata += '• Yapılan İşlem\n';
   if (hata) { alert('⚠ Zorunlu alanlar:\n\n' + hata); return; }
+
+  // Yetki kontrolü
+  if (islemSec && aktifOperator) {
+    const islemId = islemSec.dataset.id;
+    let yetkiler = [];
+    try { yetkiler = aktifOperator.yetkiler ? JSON.parse(aktifOperator.yetkiler) : []; } catch(e) {}
+    // Yetki listesi doluysa kontrol et, boşsa kısıtlama yok
+    if (yetkiler.length > 0 && islemId && !yetkiler.includes(islemId)) {
+      alert('⛔ Bu işlem için yetkiniz yok.\n\n"' + islemSec.textContent + '" işlemini yapamazsınız.\nLütfen yöneticinizle iletişime geçin.');
+      return;
+    }
+  }
 
   const tur = 'C'; // Arıza formu her zaman C
   const problem = problemSec ? problemSec.textContent : '';
@@ -1658,9 +1683,13 @@ async function renderAktifChecklistBilgi(kalipId) {
   }
 }
 
-function chipSec(el,grup){
-  el.closest('.chip-select').querySelectorAll('.chip').forEach(c=>c.classList.remove('selected','selected-red'));
-  if(grup==='tur'&&el.dataset.val==='C') el.classList.add('selected-red');
+function chipSec(el, grup) {
+  if (el.dataset.yetkisiz === 'true') {
+    alert('⛔ Bu işlem için yetkiniz yok.');
+    return;
+  }
+  el.closest('.chip-select').querySelectorAll('.chip').forEach(c => c.classList.remove('selected','selected-red'));
+  if (grup === 'tur' && el.dataset.val === 'C') el.classList.add('selected-red');
   else el.classList.add('selected');
 }
 
