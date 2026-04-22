@@ -424,12 +424,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
       </div>
     </div>
 
-    <div class="form-section" id="tur-section">
+    <div class="form-section" id="tur-section" style="display:none">
       <div class="form-section-title">İş Emri Türü <span style="color:var(--red)">*</span></div>
       <div class="form-section-body">
         <div class="chip-select">
-          <div class="chip" onclick="chipSec(this,'tur')" data-val="P">📋 Planlı Bakım</div>
-          <div class="chip" onclick="chipSec(this,'tur')" data-val="C">⚠️ Arıza / Plansız</div>
+          <div class="chip selected-red" onclick="chipSec(this,'tur')" data-val="C">⚠️ Arıza / Plansız</div>
         </div>
       </div>
     </div>
@@ -506,9 +505,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
   <div class="form-body">
 
     <div class="sure-kart">
-      <div class="sure-display" id="aktif-sure">01:23:45</div>
+      <div class="sure-display" id="aktif-sure">00:00:00</div>
       <div class="sure-lbl">Net Çalışma Süresi</div>
-      <div class="sure-net">Toplam: <span>01:45:12</span> · Duraklatma: <span>21:27</span></div>
+      <div class="sure-net">Toplam: <span id="toplam-sure-lbl">—</span> · Duraklatma: <span id="duraklama-sure-lbl">—</span></div>
     </div>
 
     <div class="kontrol-butonlar">
@@ -517,35 +516,31 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
       <div id="bos-btn"></div>
     </div>
 
-    <div class="btn-uretim-durdu aktif" id="uretim-btn" onclick="toggleUretimAktif()">
-      🔴 Üretim Durdu — Tıkla: Üretime Devam
+    <!-- Üretim durdu — sadece arıza modunda görünür -->
+    <div class="btn-uretim-durdu" id="uretim-btn" onclick="toggleUretimAktif()" style="display:none">
+      ⚪ Üretim Devam Ediyor — Tıkla: Üretim Durdu
     </div>
 
-    <!-- Checklist (planlı bakımda görünür) -->
+    <!-- Checklist — planlı bakımda görünür, bilgi amaçlı (işaretlenemez) -->
     <div id="checklist-bolum" class="form-section" style="display:none">
       <div class="form-section-title">
-        Bakım Checklist
-        <span id="checklist-ozet" style="font-size:12px;color:var(--muted);font-weight:400">0/5 tamamlandı</span>
+        📋 Bakım Checklist
+        <span style="font-size:12px;color:var(--amber);font-weight:400">Kapatırken işaretleyeceksiniz</span>
       </div>
       <div class="form-section-body">
-        <div class="checklist-progress"><div class="checklist-progress-bar" id="cl-bar" style="width:0%"></div></div>
-        <div id="checklist-items">
-          <div class="checklist-item" onclick="checkToggle(this)"><div class="check-box"></div><span class="check-text">Yağlama noktalarını kontrol et ve yağla</span></div>
-          <div class="checklist-item" onclick="checkToggle(this)"><div class="check-box"></div><span class="check-text">Aşınma kontrolü yap — kritik parçalar</span></div>
-          <div class="checklist-item" onclick="checkToggle(this)"><div class="check-box"></div><span class="check-text">Tüm civataları kontrol et ve sık</span></div>
-          <div class="checklist-item" onclick="checkToggle(this)"><div class="check-box"></div><span class="check-text">Kalıp yüzeyini temizle ve kontrol et</span></div>
-          <div class="checklist-item" onclick="checkToggle(this)"><div class="check-box"></div><span class="check-text">Soğutma kanallarını kontrol et</span></div>
+        <div id="checklist-items-bilgi" style="display:flex;flex-direction:column;gap:8px">
+          <!-- Supabase'den doldurulacak -->
         </div>
       </div>
     </div>
 
     <div class="aktif-detay">
-      <div class="aktif-detay-row"><span class="adr-lbl">Kalıp</span><span class="adr-val">ON2E1405 · ATROMIX ALT-ÜST</span></div>
+      <div class="aktif-detay-row"><span class="adr-lbl">Kalıp</span><span class="adr-val" id="aktif-kalip-detay">—</span></div>
       <div class="aktif-detay-row"><span class="adr-lbl">Tür</span><span class="adr-val"><span class="badge badge-red" id="aktif-tur-badge">Arıza</span></span></div>
-      <div class="aktif-detay-row"><span class="adr-lbl">Başlangıç</span><span class="adr-val">21.04.2025 · 09:15</span></div>
+      <div class="aktif-detay-row"><span class="adr-lbl">Başlangıç</span><span class="adr-val" id="aktif-bas-zaman">—</span></div>
     </div>
 
-    <div class="btn-bitir" onclick="gosterEkran('screen-kapat')">■ İş Emrini Tamamla →</div>
+    <div class="btn-bitir" onclick="kapatEkraniHazirla()">■ İş Emrini Tamamla →</div>
     <div style="height:20px"></div>
   </div>
 </div>
@@ -566,8 +561,22 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 
     <div class="sure-kart" style="padding:1.25rem">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px">NET SÜRE</div><div style="font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--green)">01:23:45</div></div>
-        <div style="text-align:right"><div style="font-size:11px;color:var(--muted);margin-bottom:4px">TOPLAM GEÇEN</div><div style="font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--amber)">01:45:12</div></div>
+        <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px">NET SÜRE</div><div style="font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--green)" id="kapat-net-sure">—</div></div>
+        <div style="text-align:right"><div style="font-size:11px;color:var(--muted);margin-bottom:4px">TOPLAM GEÇEN</div><div style="font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--amber)" id="kapat-toplam-sure">—</div></div>
+      </div>
+    </div>
+
+    <!-- Checklist — sadece planlı bakımda görünür, kapatırken işaretlenir -->
+    <div id="kapat-checklist-bolum" class="form-section" style="display:none">
+      <div class="form-section-title">
+        ✅ Bakım Checklist
+        <span id="checklist-ozet" style="font-size:12px;color:var(--muted);font-weight:400">0/0 tamamlandı</span>
+      </div>
+      <div class="form-section-body">
+        <div class="checklist-progress"><div class="checklist-progress-bar" id="cl-bar" style="width:0%"></div></div>
+        <div id="checklist-items" style="display:flex;flex-direction:column;gap:8px">
+          <!-- Supabase'den doldurulacak -->
+        </div>
       </div>
     </div>
 
@@ -957,6 +966,7 @@ async function sbPatch(tablo, id, veri) {
 
 // ── UYGULAMA DEĞİŞKENLERİ ──
 let seciliRol='usta', durakladi=false, saniye=0;
+let aktifChecklistKalipId = null;
 let sureInterval, planliMod=false;
 let aktifOperator=null, aktifKalip=null, aktifIsEmri=null;
 let tumKaliplar=[], tumOperatorler=[], tumIsTipleri=[], tumProblemler=[];
@@ -1260,8 +1270,16 @@ async function isEmriBaslat() {
     console.error('Is emri hata:', e);
   }
 
+  // Üretim durdu - arıza modunda göster, planlıda gizle
+  const uretimBtn = document.getElementById('uretim-btn');
+  if (uretimBtn) {
+    uretimBtn.style.display = planliMod ? 'none' : 'flex';
+    uretimBtn.classList.remove('aktif');
+    uretimBtn.textContent = '⚪ Üretim Devam Ediyor — Tıkla: Üretim Durdu';
+  }
+
   const cl = document.getElementById('checklist-bolum');
-  cl.style.display = planliMod ? 'block' : 'none';
+  cl.style.display = 'none'; // Arıza modunda checklist yok
   document.getElementById('aktif-tur-badge').textContent = planliMod ? 'Planlı Bakım' : 'Arıza';
   document.getElementById('aktif-tur-badge').className = 'badge ' + (planliMod ? 'badge-blue' : 'badge-red');
   document.getElementById('aktif-kalip-adi').textContent = document.getElementById('form-kalip-adi').textContent;
@@ -1270,6 +1288,51 @@ async function isEmriBaslat() {
 }
 
 // ── İŞ EMRİ KAPAT ──
+async function kapatEkraniHazirla() {
+  // Süreleri güncelle
+  const h = Math.floor(saniye/3600).toString().padStart(2,'0');
+  const m = Math.floor((saniye%3600)/60).toString().padStart(2,'0');
+  const s = (saniye%60).toString().padStart(2,'0');
+  const netEl = document.getElementById('kapat-net-sure');
+  if (netEl) netEl.textContent = `${h}:${m}:${s}`;
+
+  // Operatörü kapatma ekranına yaz
+  const opListe = document.getElementById('kapat-operator-listesi');
+  if (opListe && aktifOperator) {
+    const initials = aktifOperator.ad_soyad.split(' ').map(w=>w[0]).join('');
+    opListe.innerHTML = `
+      <div class="operator-item">
+        <div class="operator-avatar">${initials}</div>
+        <div class="op-name">${aktifOperator.ad_soyad}</div>
+        <div style="margin-left:auto"><span class="badge badge-blue">Ana Usta</span></div>
+      </div>`;
+  }
+
+  // Planlı bakımsa checklistı işaretlenebilir göster
+  const clBolum = document.getElementById('kapat-checklist-bolum');
+  const clItems = document.getElementById('checklist-items');
+  if (planliMod && aktifChecklistKalipId && clBolum && clItems) {
+    try {
+      const maddeler = await sbGet('checklist_sablonlar',
+        `kalip_id=eq.${aktifChecklistKalipId}&aktif=eq.true&order=sira`);
+      if (maddeler && maddeler.length > 0) {
+        clBolum.style.display = 'block';
+        clItems.innerHTML = maddeler.map(m => `
+          <div class="checklist-item" onclick="checkToggle(this)" data-sablon-id="${m.id}">
+            <div class="check-box"></div>
+            <span class="check-text">${m.madde}</span>
+          </div>`).join('');
+        document.getElementById('checklist-ozet').textContent = '0/' + maddeler.length + ' tamamlandı';
+        document.getElementById('cl-bar').style.width = '0%';
+      }
+    } catch(e) { console.warn(e); }
+  } else if (clBolum) {
+    clBolum.style.display = 'none';
+  }
+
+  gosterEkran('screen-kapat');
+}
+
 async function isEmriKaydet() {
   if (aktifIsEmri) {
     try {
@@ -1356,7 +1419,6 @@ async function planliIsEmriBaslat(kod, adi, kalipId) {
       baslangic_zaman: new Date().toISOString(),
       acik_eden_operator_id: aktifOperator?.id || null
     });
-
     if (yeni && yeni[0]) {
       aktifIsEmri = yeni[0];
       await sbPost('is_emri_operatorler', {
@@ -1365,26 +1427,30 @@ async function planliIsEmriBaslat(kod, adi, kalipId) {
         rol: 'ana'
       });
     }
-  } catch(e) {
-    console.warn('Planlı iş emri oluşturulamadı:', e);
-  }
+  } catch(e) { console.warn('Planlı iş emri oluşturulamadı:', e); }
 
-  // Aktif ekrana geç
+  // Aktif ekranı hazırla
   document.getElementById('aktif-kalip-adi').textContent = adi;
+  const detay = document.getElementById('aktif-kalip-detay');
+  if (detay) detay.textContent = kod + ' · ' + adi.slice(0, 20);
   document.getElementById('aktif-tur-badge').textContent = 'Planlı Bakım';
   document.getElementById('aktif-tur-badge').className = 'badge badge-blue';
 
-  // Checklistı Supabase'den çek
-  await renderAktifChecklist(kalipId);
+  // Üretim durdu gizle
+  const uretimBtn = document.getElementById('uretim-btn');
+  if (uretimBtn) uretimBtn.style.display = 'none';
+
+  // Checklist bilgi olarak göster (işaretlenemez)
+  await renderAktifChecklistBilgi(kalipId);
 
   saniye = 0;
   gosterEkran('screen-aktif');
 }
 
-// Aktif ekranda checklistı Supabase'den çek
-async function renderAktifChecklist(kalipId) {
+// Aktif ekranda checklist sadece bilgi amaçlı göster
+async function renderAktifChecklistBilgi(kalipId) {
   const cl = document.getElementById('checklist-bolum');
-  const itemsEl = document.getElementById('checklist-items');
+  const itemsEl = document.getElementById('checklist-items-bilgi');
   if (!cl || !itemsEl) return;
 
   try {
@@ -1397,15 +1463,15 @@ async function renderAktifChecklist(kalipId) {
     }
 
     cl.style.display = 'block';
+    // Bilgi gösterimi - tıklanamaz
     itemsEl.innerHTML = maddeler.map(m => `
-      <div class="checklist-item" onclick="checkToggle(this)" data-sablon-id="${m.id}">
-        <div class="check-box"></div>
-        <span class="check-text">${m.madde}</span>
+      <div style="display:flex;align-items:center;gap:12px;padding:.75rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;">
+        <div style="width:22px;height:22px;border:2px solid var(--border2);border-radius:6px;flex-shrink:0;"></div>
+        <span style="font-size:15px;color:var(--muted)">${m.madde}</span>
       </div>`).join('');
 
-    // Progress sıfırla
-    document.getElementById('checklist-ozet').textContent = '0/' + maddeler.length + ' tamamlandı';
-    document.getElementById('cl-bar').style.width = '0%';
+    // Kapatma ekranına da aynı maddelerle işaretlenebilir checklist koy
+    aktifChecklistKalipId = kalipId;
   } catch(e) {
     console.warn('Checklist yüklenemedi:', e);
     cl.style.display = 'none';
