@@ -345,7 +345,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         <h3>📅 Planlı Bakımlar</h3>
         <span class="badge badge-red">2 Gecikmiş</span>
       </div>
-      <div class="planli-item" onclick="kalipSec('ON2E1412','ALARKO-ATROMIX KORDONLU KENETLEME','planli')">
+      <div class="planli-item" onclick="planliDetayGoster('ON2E1412','ALARKO-ATROMIX KORDONLU KENETLEME','10.04.2025','gec')">
         <div class="pi-top">
           <span class="pi-kalip">ALARKO-ATROMIX KORDONLU KENETLEME</span>
           <span class="badge badge-red">Gecikmiş</span>
@@ -356,7 +356,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
           <span class="pi-gun gec">11 gün geçti</span>
         </div>
       </div>
-      <div class="planli-item" onclick="kalipSec('ON2E1404','ALARKO-ATROMIX KORDONLU AÇI VERME','planli')">
+      <div class="planli-item" onclick="planliDetayGoster('ON2E1404','ALARKO-ATROMIX KORDONLU AÇI VERME','15.04.2025','gec')">
         <div class="pi-top">
           <span class="pi-kalip">ALARKO-ATROMIX KORDONLU AÇI VERME</span>
           <span class="badge badge-red">Gecikmiş</span>
@@ -367,7 +367,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
           <span class="pi-gun gec">6 gün geçti</span>
         </div>
       </div>
-      <div class="planli-item" onclick="kalipSec('ON2E1405','ATROMIX ALT-ÜST KAPAK SIVAMA','planli')">
+      <div class="planli-item" onclick="planliDetayGoster('ON2E1405','ATROMIX ALT-ÜST KAPAK SIVAMA','25.04.2025','yakin')">
         <div class="pi-top">
           <span class="pi-kalip">ATROMIX ALT-ÜST KAPAK SIVAMA</span>
           <span class="badge badge-orange">Bu Hafta</span>
@@ -378,7 +378,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
           <span class="pi-gun yakin">4 gün kaldı</span>
         </div>
       </div>
-      <div class="planli-item" onclick="kalipSec('ON2F0267','EMAS KORDONLU ÜK DELME','planli')">
+      <div class="planli-item" onclick="planliDetayGoster('ON2F0267','EMAS KORDONLU ÜK DELME FİKSTÜRÜ','15.05.2025','normal')">
         <div class="pi-top">
           <span class="pi-kalip">EMAS KORDONLU ÜK DELME FİKSTÜRÜ</span>
           <span class="badge badge-blue">Gelecek Ay</span>
@@ -399,6 +399,55 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- ══ PLANLI BAKIM DETAY EKRANI ══ -->
+<div id="screen-planli-detay" class="screen">
+  <div class="form-header">
+    <div class="back-btn" onclick="gosterEkran('screen-usta')">‹</div>
+    <h2>Planlı Bakım</h2>
+  </div>
+  <div class="form-body" style="max-width:480px;margin:0 auto">
+
+    <div class="kalip-info-card" style="margin-bottom:1rem">
+      <div class="kalip-icon">🔧</div>
+      <div>
+        <div style="font-size:15px;font-weight:700" id="pd-kalip-adi">—</div>
+        <div style="font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace" id="pd-kalip-kodu">—</div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">Bakım Bilgisi</div>
+      <div class="form-section-body">
+        <div style="display:flex;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid var(--border)">
+          <span style="color:var(--muted);font-size:14px">Planlanan Tarih</span>
+          <span style="font-weight:600;font-size:14px" id="pd-tarih">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:.5rem 0">
+          <span style="color:var(--muted);font-size:14px">Durum</span>
+          <span id="pd-durum">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Checklist önizleme -->
+    <div class="form-section" id="pd-checklist-bolum" style="display:none">
+      <div class="form-section-title">
+        📋 Yapılacaklar
+        <span style="font-size:12px;color:var(--muted);font-weight:400">Başlatınca işaretleyeceksiniz</span>
+      </div>
+      <div class="form-section-body">
+        <div id="pd-checklist-items" style="display:flex;flex-direction:column;gap:8px">
+        </div>
+      </div>
+    </div>
+
+    <div style="height:100px"></div>
+  </div>
+  <div class="action-bar">
+    <div class="btn-basla" id="pd-basla-btn" onclick="planliBaslatWrapper()">▶ Bakımı Başlat</div>
   </div>
 </div>
 
@@ -1404,8 +1453,62 @@ function kalipSec(kod, adi, tip, kalipId) {
   }
 }
 
-// Planlı bakımda direkt iş emri aç
-async function planliIsEmriBaslat(kod, adi, kalipId) {
+// Planlı bakım detay ekranı
+async function planliDetayGoster(kod, adi, tarih, durum) {
+  // Kalıbı bul
+  aktifKalip = tumKaliplar.find(k => k.kalip_kodu === kod) || {kalip_kodu: kod, kalip_adi: adi};
+  planliMod = true;
+
+  document.getElementById('pd-kalip-adi').textContent = adi;
+  document.getElementById('pd-kalip-kodu').textContent = kod;
+  document.getElementById('pd-tarih').textContent = tarih;
+
+  const durumEl = document.getElementById('pd-durum');
+  if (durum === 'gec') {
+    durumEl.innerHTML = '<span class="badge badge-red">Gecikmiş</span>';
+  } else if (durum === 'yakin') {
+    durumEl.innerHTML = '<span class="badge badge-orange">Bu Hafta</span>';
+  } else {
+    durumEl.innerHTML = '<span class="badge badge-blue">Planlandı</span>';
+  }
+
+  // Checklistı önizleme olarak göster
+  const clBolum = document.getElementById('pd-checklist-bolum');
+  const clItems = document.getElementById('pd-checklist-items');
+
+  if (aktifKalip.id) {
+    aktifChecklistKalipId = aktifKalip.id;
+    try {
+      const maddeler = await sbGet('checklist_sablonlar',
+        `kalip_id=eq.${aktifKalip.id}&aktif=eq.true&order=sira`);
+      if (maddeler && maddeler.length > 0) {
+        clBolum.style.display = 'block';
+        clItems.innerHTML = maddeler.map(m => `
+          <div style="display:flex;align-items:center;gap:12px;padding:.75rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;">
+            <div style="width:22px;height:22px;border:2px solid var(--border2);border-radius:6px;flex-shrink:0;"></div>
+            <span style="font-size:15px;color:var(--muted)">${m.madde}</span>
+          </div>`).join('');
+      } else {
+        clBolum.style.display = 'none';
+      }
+    } catch(e) {
+      clBolum.style.display = 'none';
+    }
+  } else {
+    clBolum.style.display = 'none';
+  }
+
+  gosterEkran('screen-planli-detay');
+}
+
+function planliBaslatWrapper() {
+  if (!aktifKalip) return;
+  Promise.resolve(planliIsEmriBaslat(
+    aktifKalip.kalip_kodu,
+    aktifKalip.kalip_adi,
+    aktifKalip.id
+  )).catch(e => console.error(e));
+}
   const isEmriNo = 'IE-' + Date.now();
   try {
     const yeni = await sbPost('is_emirleri', {
