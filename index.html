@@ -1024,19 +1024,90 @@ async function girisYap() {
 }
 
 // ── USTA ANA EKRANI ──
-function renderUstaEkrani() {
+async function renderUstaEkrani() {
   // Kalıp listesini doldur
   const liste = document.getElementById('kalip-listesi');
-  if (!liste || !tumKaliplar.length) return;
-  liste.innerHTML = tumKaliplar.map(k => `
-    <div class="kalip-item" onclick="kalipSec('${k.kalip_kodu}','${k.kalip_adi}','ariza','${k.id}')">
-      <div><div class="k-name">${k.kalip_adi}</div><div class="k-code">${k.kalip_kodu}</div></div>
-      <span>›</span>
-    </div>`).join('');
+  if (liste && tumKaliplar.length) {
+    liste.innerHTML = tumKaliplar.map(k => `
+      <div class="kalip-item" onclick="kalipSec('${k.kalip_kodu}','${k.kalip_adi.replace(/'/g,"\\'")}','ariza','${k.id}')">
+        <div><div class="k-name">${k.kalip_adi}</div><div class="k-code">${k.kalip_kodu}</div></div>
+        <span>›</span>
+      </div>`).join('');
+  }
 
   // İş tiplerini forma doldur
   renderChipList('islem-section', tumIsTipleri, 'islem');
   renderChipList('problem-section', tumProblemler, 'problem');
+
+  // Aktif iş emirlerini yükle
+  await renderAktifIsEmirleri();
+}
+
+async function renderAktifIsEmirleri() {
+  if (!aktifOperator) return;
+  try {
+    // Bu operatörün açık iş emirlerini getir
+    const emirler = await sbGet('is_emirleri',
+      `acik_kapali=eq.Acik&acik_eden_operator_id=eq.${aktifOperator.id}&order=created_at.desc`);
+
+    const liste = document.getElementById('aktif-is-emirleri-liste');
+    const sayac = document.getElementById('aktif-sayac');
+    if (!liste) return;
+
+    if (!emirler || emirler.length === 0) {
+      liste.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--muted);font-size:14px">Aktif iş emri yok</div>';
+      if (sayac) { sayac.textContent = '0 Aktif'; sayac.className = 'badge badge-green'; }
+      return;
+    }
+
+    if (sayac) { sayac.textContent = emirler.length + ' Aktif'; sayac.className = 'badge badge-amber'; }
+
+    // Kalıp adlarını bul
+    liste.innerHTML = emirler.map(ie => {
+      const kalip = tumKaliplar.find(k => k.id === ie.kalip_id);
+      const kalipAdi = kalip ? kalip.kalip_adi : ie.kalip_id;
+      const bas = ie.baslangic_zaman ? new Date(ie.baslangic_zaman) : null;
+      const gecen = bas ? Math.floor((Date.now() - bas.getTime()) / 60000) : 0;
+      const gecenStr = gecen >= 60
+        ? Math.floor(gecen/60) + 's ' + (gecen%60) + 'dk'
+        : gecen + ' dk önce başladı';
+      return `
+        <div class="planli-item" onclick="aktifIsEmriAc('${ie.id}','${kalipAdi.replace(/'/g,"\\'")}','${ie.is_emri_no}','${ie.tur}')">
+          <div class="pi-top">
+            <span class="pi-kalip">${kalipAdi}</span>
+            <span class="badge badge-amber">Devam Ediyor</span>
+          </div>
+          <div class="pi-bottom">
+            <span class="k-code">${ie.is_emri_no}</span>
+            <span class="pi-tarih">${gecenStr}</span>
+            ${ie.uretim_durdu ? '<span class="badge badge-red">⚠ Üretim Durdu</span>' : ''}
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    console.warn('Aktif iş emirleri yüklenemedi:', e);
+  }
+}
+
+function aktifIsEmriAc(isEmriId, kalipAdi, isEmriNo, tur) {
+  // Mevcut aktif iş emrini yükle
+  sbGet('is_emirleri', `id=eq.${isEmriId}`).then(sonuc => {
+    if (sonuc && sonuc[0]) {
+      aktifIsEmri = sonuc[0];
+      const kalip = tumKaliplar.find(k => k.id === aktifIsEmri.kalip_id);
+      aktifKalip = kalip || null;
+      document.getElementById('aktif-kalip-adi').textContent = kalipAdi;
+      document.getElementById('aktif-tur-badge').textContent = tur === 'P' ? 'Planli Bakim' : 'Ariza';
+      document.getElementById('aktif-tur-badge').className = 'badge ' + (tur === 'P' ? 'badge-blue' : 'badge-red');
+      const cl = document.getElementById('checklist-bolum');
+      if (cl) cl.style.display = tur === 'P' ? 'block' : 'none';
+      // Başlangıç zamanından süreyi hesapla
+      if (aktifIsEmri.baslangic_zaman) {
+        saniye = Math.floor((Date.now() - new Date(aktifIsEmri.baslangic_zaman).getTime()) / 1000);
+      }
+      gosterEkran('screen-aktif');
+    }
+  });
 }
 
 function renderChipList(sectionId, liste, grup) {
@@ -1051,26 +1122,103 @@ function renderChipList(sectionId, liste, grup) {
 
 // ── YÖNETİCİ VERİLERİ ──
 async function renderYoneticiVeriler() {
-  // Anlık iş emirleri
   try {
+    // Aktif iş emirleri
     const aktifler = await sbGet('is_emirleri', `acik_kapali=eq.Acik&order=created_at.desc`);
-    const canliListe = document.querySelector('#panel-canli .canli-liste');
-    const dashListe = document.querySelector('#panel-dashboard .canli-liste');
+    const tumEmir  = await sbGet('is_emirleri', `order=created_at.desc`);
 
-    if (aktifler && aktifler.length) {
-      const html = aktifler.map(ie => `
-        <div class="canli-item">
-          <div class="canli-dot calisıyor"></div>
-          <div class="canli-info">
-            <div class="ci-kalip">${ie.is_emri_no}</div>
-            <div class="ci-operator">${ie.tur} · ${ie.yapilan_islem||'—'}</div>
-          </div>
-          <span class="badge badge-${ie.tur==='C'?'red':'blue'}">${ie.tur==='C'?'Arıza':'Planlı'}</span>
-        </div>`).join('');
-      if (canliListe) canliListe.innerHTML = html;
-      if (dashListe) dashListe.innerHTML = html;
+    // Stat kartları güncelle
+    const aktifSay = aktifler ? aktifler.length : 0;
+    const bugunBas = new Date(); bugunBas.setHours(0,0,0,0);
+    const bugunEmir = tumEmir ? tumEmir.filter(e => new Date(e.created_at) >= bugunBas) : [];
+    const kapananBugün = bugunEmir.filter(e => e.acik_kapali === 'Kapali').length;
+    const uretimDurdu = aktifler ? aktifler.filter(e => e.uretim_durdu).length : 0;
+
+    // Dashboard stat kartları
+    const statCards = document.querySelectorAll('#panel-dashboard .stat-card');
+    if (statCards[0]) statCards[0].querySelector('.s-val').textContent = aktifSay;
+    if (statCards[0]) statCards[0].querySelector('.s-trend').textContent = uretimDurdu > 0 ? '⚠ ' + uretimDurdu + ' üretim durduruldu' : '✓ Üretim normal';
+
+    // Bugün özet
+    const bugunDiv = document.querySelector('#panel-dashboard .pc-body div');
+    if (bugunDiv) {
+      bugunDiv.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:14px;color:var(--muted)">Açılan İş Emri</span>
+          <span style="font-size:22px;font-weight:700;color:var(--accent)">${bugunEmir.length}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:14px;color:var(--muted)">Kapanan</span>
+          <span style="font-size:22px;font-weight:700;color:var(--green)">${kapananBugün}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:14px;color:var(--muted)">Üretim Duruşu</span>
+          <span style="font-size:22px;font-weight:700;color:var(--red)">${uretimDurdu}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:14px;color:var(--muted)">Toplam Kayıt</span>
+          <span style="font-size:22px;font-weight:700;color:var(--amber)">${tumEmir ? tumEmir.length : 0}</span>
+        </div>`;
     }
-  } catch(e) { console.warn(e); }
+
+    // Canlı liste
+    if (aktifler && aktifler.length) {
+      const html = aktifler.map(ie => {
+        const kalip = tumKaliplar.find(k => k.id === ie.kalip_id);
+        const kalipAdi = kalip ? kalip.kalip_adi : '—';
+        const op = tumOperatorler.find(o => o.id === ie.acik_eden_operator_id);
+        const opAdi = op ? op.ad_soyad : '—';
+        const bas = ie.baslangic_zaman ? new Date(ie.baslangic_zaman) : null;
+        const gecenDak = bas ? Math.floor((Date.now() - bas.getTime()) / 60000) : 0;
+        const gecenStr = gecenDak >= 60
+          ? Math.floor(gecenDak/60) + ':' + String(gecenDak%60).padStart(2,'0')
+          : '0:' + String(gecenDak).padStart(2,'0');
+        return `
+          <div class="canli-item">
+            <div class="canli-dot ${ie.uretim_durdu ? 'uretim-durdu' : 'calisıyor'}"></div>
+            <div class="canli-info">
+              <div class="ci-kalip">${kalipAdi}</div>
+              <div class="ci-operator">${opAdi} · ${ie.yapilan_islem || '—'}</div>
+            </div>
+            <div class="canli-sure">${gecenStr}</div>
+            <span class="badge ${ie.tur === 'C' ? 'badge-red' : 'badge-blue'}">${ie.tur === 'C' ? 'Arıza' : 'Planlı'}</span>
+          </div>`;
+      }).join('');
+      document.querySelectorAll('.canli-liste').forEach(el => el.innerHTML = html);
+    } else {
+      document.querySelectorAll('.canli-liste').forEach(el =>
+        el.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--muted);font-size:13px">Aktif iş emri yok</div>');
+    }
+
+    // İş emirleri tablosu
+    if (tumEmir) {
+      const tbody = document.querySelector('#panel-is-emirleri tbody');
+      if (tbody) {
+        tbody.innerHTML = tumEmir.slice(0, 50).map(ie => {
+          const kalip = tumKaliplar.find(k => k.id === ie.kalip_id);
+          const op = tumOperatorler.find(o => o.id === ie.acik_eden_operator_id);
+          const sure = ie.toplam_sure_dak
+            ? Math.floor(ie.toplam_sure_dak/60) + 'sa ' + (ie.toplam_sure_dak%60) + 'dk'
+            : ie.acik_kapali === 'Acik' ? 'Devam ediyor' : '—';
+          const durumBadge = ie.acik_kapali === 'Acik'
+            ? '<span class="badge badge-green">● Aktif</span>'
+            : '<span class="badge badge-purple">✓ Kapatıldı</span>';
+          return `<tr>
+            <td class="mono">${ie.is_emri_no}</td>
+            <td>${kalip ? kalip.kalip_adi.slice(0,20) : '—'}</td>
+            <td><span class="badge ${ie.tur === 'C' ? 'badge-red' : 'badge-blue'}">${ie.tur === 'C' ? 'Arıza' : 'Planlı'}</span></td>
+            <td>${ie.yapilan_islem || '—'}</td>
+            <td>${op ? op.ad_soyad : '—'}</td>
+            <td>${sure}</td>
+            <td>${durumBadge}</td>
+          </tr>`;
+        }).join('');
+      }
+    }
+
+  } catch(e) {
+    console.warn('Yönetici verileri yüklenemedi:', e);
+  }
 }
 
 // ── İŞ EMRİ BAŞLAT ──
@@ -1302,7 +1450,7 @@ function operatorEkle(){
 }
 
 // Yönetici panel
-function panelAc(id,btn){
+function panelAc(id, btn){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const p=document.getElementById('panel-'+id);
@@ -1310,6 +1458,8 @@ function panelAc(id,btn){
   if(btn) btn.classList.add('active');
   const b={'dashboard':'Dashboard','canli':'Anlık İzleme','is-emirleri':'İş Emirleri','planli':'Planlı Bakımlar','kaliplar':'Kalıplar','operatorler':'Operatörler & Yetki','malzemeler':'Malzeme Stok','tanimlar':'Tanımlar','raporlar':'KPI & Raporlar'};
   document.getElementById('panel-baslik').textContent=b[id]||id;
+  // Her sekme açılınca verileri güncelle
+  renderYoneticiVeriler();
 }
 function opSec(el){document.querySelectorAll('.operator-kart').forEach(k=>k.classList.remove('selected'));el.classList.add('selected');}
 
