@@ -1511,6 +1511,9 @@ async function planliBaslatWrapper() {
     );
   } catch(e) { console.error(e); }
 }
+
+// Planlı bakımda direkt iş emri aç
+async function planliIsEmriBaslat(kod, adi, kalipId) {
   const isEmriNo = 'IE-' + Date.now();
   try {
     const yeni = await sbPost('is_emirleri', {
