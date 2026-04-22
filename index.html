@@ -1269,18 +1269,13 @@ async function renderYoneticiVeriler() {
 // ── İŞ EMRİ BAŞLAT ──
 async function isEmriBaslat() {
   let hata = '';
-  if (!planliMod) {
-    const turSec = document.querySelector('#tur-section .chip.selected, #tur-section .chip.selected-red');
-    if (!turSec) hata += '• İş Emri Türü\n';
-  }
   const problemSec = document.querySelector('#problem-section .chip.selected');
   if (!problemSec) hata += '• Problem / Arıza\n';
   const islemSec = document.querySelector('#islem-section .chip.selected');
   if (!islemSec) hata += '• Yapılan İşlem\n';
-
   if (hata) { alert('⚠ Zorunlu alanlar:\n\n' + hata); return; }
 
-  const tur = planliMod ? 'P' : (document.querySelector('#tur-section .chip.selected-red') ? 'C' : 'P');
+  const tur = 'C'; // Arıza formu her zaman C
   const problem = problemSec ? problemSec.textContent : '';
   const islem = islemSec ? islemSec.textContent : '';
   const uretimDurdu = document.getElementById('uretim-toggle').classList.contains('on');
