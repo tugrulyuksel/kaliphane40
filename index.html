@@ -287,7 +287,20 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 .step.active{background:var(--accent);}
 .step-lbl{font-size:11px;color:var(--muted);margin-left:auto;white-space:nowrap;}
 
-@media(max-width:768px){.stat-grid{grid-template-columns:1fr 1fr;}.grid3{grid-template-columns:1fr;}.yetki-grid{grid-template-columns:1fr;}.sidebar{display:none;}}
+@media(max-width:768px){
+  .stat-grid{grid-template-columns:1fr 1fr;}
+  .grid3{grid-template-columns:1fr;}
+  .yetki-grid{grid-template-columns:1fr;}
+  .sidebar{display:none;}
+  #hamburger-btn{display:flex !important;}
+  .sidebar.mobil-acik{
+    display:flex !important;
+    position:fixed;top:0;left:0;width:260px;height:100vh;
+    z-index:200;box-shadow:4px 0 20px rgba(0,0,0,0.5);
+  }
+  .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:199;}
+  .sidebar-overlay.acik{display:block;}
+}
 
 /* ── QR OKUMA ── */
 .qr-overlay{position:fixed;inset:0;background:#000;z-index:500;display:none;flex-direction:column;align-items:center;justify-content:center;}
@@ -711,7 +724,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 
 <!-- ══ YÖNETİCİ ══ -->
 <div id="screen-yonetici" class="screen">
-  <div class="sidebar">
+  <!-- Mobil sidebar overlay -->
+  <div class="sidebar-overlay" onclick="sidebarKapat()"></div>
+
+  <div class="sidebar" id="sidebar">
     <div class="sidebar-logo"><h1>⚙️ Kalıphane 4.0</h1><span>Yönetici Paneli</span></div>
     <nav class="sidebar-nav">
       <div class="nav-section">Ana Menü</div>
@@ -738,9 +754,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 
   <div class="main-content">
     <div class="top-bar">
+      <div class="btn-icon" id="hamburger-btn" onclick="sidebarToggle()" style="display:none">☰</div>
       <h2 id="panel-baslik">Dashboard</h2>
       <div class="top-bar-actions">
-        <div class="btn-icon">🔄</div>
+        <div class="btn-icon" onclick="renderYoneticiVeriler()">🔄</div>
         <div class="btn-icon" onclick="cikisYap()">🚪</div>
       </div>
     </div>
@@ -1877,7 +1894,22 @@ function operatorEkle(){
 }
 
 // Yönetici panel
+function sidebarToggle() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.querySelector('.sidebar-overlay');
+  sb.classList.toggle('mobil-acik');
+  if (ov) ov.classList.toggle('acik', sb.classList.contains('mobil-acik'));
+}
+
+function sidebarKapat() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.querySelector('.sidebar-overlay');
+  if (sb) sb.classList.remove('mobil-acik');
+  if (ov) ov.classList.remove('acik');
+}
+
 function panelAc(id, btn){
+  sidebarKapat(); // Mobilde otomatik kapat
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const p=document.getElementById('panel-'+id);
