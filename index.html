@@ -6,7 +6,6 @@
 <title>Kalıphane 4.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <style>
 :root {
   --bg:#0f1117;--card:#1a1d27;--card2:#21253a;
@@ -1549,38 +1548,54 @@ function cikisYap(){gosterEkran('screen-login');}
 let qrStream = null;
 let qrInterval = null;
 let qrTip = 'ariza';
+let barcodeDetector = null;
 
 async function qrOkut(tip) {
   qrTip = tip || 'ariza';
+
+  // BarcodeDetector desteklenmiyor mu kontrol et
+  if (!('BarcodeDetector' in window)) {
+    // Fallback: manuel giriş
+    const kod = prompt('QR okuyucu bu tarayıcıda desteklenmiyor.\nKalıp kodunu manuel girin:');
+    if (kod) {
+      const k = kod.trim().toUpperCase();
+      const kalip = tumKaliplar.find(x => x.kalip_kodu.toUpperCase() === k);
+      if (kalip) {
+        kalipSec(kalip.kalip_kodu, kalip.kalip_adi, qrTip, kalip.id);
+      } else {
+        alert('"' + k + '" bulunamadı. Listeden seçin.');
+      }
+    }
+    return;
+  }
+
   try {
+    barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
     qrStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment' }
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
     });
     const video = document.getElementById('qr-video');
     video.srcObject = qrStream;
-    video.play();
+    await video.play();
     document.getElementById('qr-overlay').classList.add('acik');
     document.getElementById('qr-mesaj').textContent = 'Kalıbın QR kodunu çerçeveye hizalayın';
     document.getElementById('qr-basarili').style.display = 'none';
-    qrInterval = setInterval(qrTara, 200);
+    qrInterval = setInterval(qrTara, 300);
   } catch(e) {
     console.warn('Kamera erişimi:', e);
     alert('Kamera açılamadı. Manuel seçim kullanın.');
   }
 }
 
-function qrTara() {
+async function qrTara() {
   const video = document.getElementById('qr-video');
-  const canvas = document.getElementById('qr-canvas');
-  if (!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA) return;
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  if (typeof jsQR === 'undefined') return;
-  const code = jsQR(imageData.data, imageData.width, imageData.height, {inversionAttempts:'dontInvert'});
-  if (code && code.data) qrBulundu(code.data.trim().toUpperCase());
+  if (!video || !barcodeDetector || video.readyState !== video.HAVE_ENOUGH_DATA) return;
+  try {
+    const barcodes = await barcodeDetector.detect(video);
+    if (barcodes.length > 0) {
+      qrBulundu(barcodes[0].rawValue.trim().toUpperCase());
+    }
+  } catch(e) { /* sessiz hata */ }
 }
 
 function qrBulundu(kalipKodu) {
@@ -1598,7 +1613,7 @@ function qrBulundu(kalipKodu) {
     document.getElementById('qr-mesaj').textContent = '⚠ "' + kalipKodu + '" sistemde bulunamadı.';
     setTimeout(() => {
       document.getElementById('qr-mesaj').textContent = 'Kalıbın QR kodunu çerçeveye hizalayın';
-      qrInterval = setInterval(qrTara, 200);
+      qrInterval = setInterval(qrTara, 300);
     }, 2000);
   }
 }
