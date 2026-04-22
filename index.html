@@ -6,6 +6,7 @@
 <title>Kalıphane 4.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="zxing.min.js"></script>
 <style>
 :root {
   --bg:#0f1117;--card:#1a1d27;--card2:#21253a;
@@ -1546,61 +1547,52 @@ function cikisYap(){gosterEkran('screen-login');}
 
 // ── QR OKUMA ──
 let qrStream = null;
-let qrInterval = null;
 let qrTip = 'ariza';
-let barcodeDetector = null;
+let zxingReader = null;
 
 async function qrOkut(tip) {
   qrTip = tip || 'ariza';
 
-  // BarcodeDetector desteklenmiyor mu kontrol et
-  if (!('BarcodeDetector' in window)) {
-    // Fallback: manuel giriş
-    const kod = prompt('QR okuyucu bu tarayıcıda desteklenmiyor.\nKalıp kodunu manuel girin:');
+  // ZXing yüklü mü kontrol et
+  if (typeof ZXing === 'undefined') {
+    const kod = prompt('QR okuyucu yüklenemedi.\nKalıp kodunu manuel girin:');
     if (kod) {
       const k = kod.trim().toUpperCase();
       const kalip = tumKaliplar.find(x => x.kalip_kodu.toUpperCase() === k);
-      if (kalip) {
-        kalipSec(kalip.kalip_kodu, kalip.kalip_adi, qrTip, kalip.id);
-      } else {
-        alert('"' + k + '" bulunamadı. Listeden seçin.');
-      }
+      if (kalip) kalipSec(kalip.kalip_kodu, kalip.kalip_adi, qrTip, kalip.id);
+      else alert('"' + k + '" bulunamadı. Listeden seçin.');
     }
     return;
   }
 
   try {
-    barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
-    qrStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-    });
-    const video = document.getElementById('qr-video');
-    video.srcObject = qrStream;
-    await video.play();
     document.getElementById('qr-overlay').classList.add('acik');
     document.getElementById('qr-mesaj').textContent = 'Kalıbın QR kodunu çerçeveye hizalayın';
     document.getElementById('qr-basarili').style.display = 'none';
-    qrInterval = setInterval(qrTara, 300);
+
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.QR_CODE]);
+
+    zxingReader = new ZXing.BrowserQRCodeReader(hints);
+    const video = document.getElementById('qr-video');
+
+    await zxingReader.decodeFromVideoDevice(null, video, (result, err) => {
+      if (result) {
+        qrBulundu(result.getText().trim().toUpperCase());
+      }
+    });
   } catch(e) {
-    console.warn('Kamera erişimi:', e);
+    console.warn('QR hata:', e);
     alert('Kamera açılamadı. Manuel seçim kullanın.');
+    qrKapat();
   }
 }
 
-async function qrTara() {
-  const video = document.getElementById('qr-video');
-  if (!video || !barcodeDetector || video.readyState !== video.HAVE_ENOUGH_DATA) return;
-  try {
-    const barcodes = await barcodeDetector.detect(video);
-    if (barcodes.length > 0) {
-      qrBulundu(barcodes[0].rawValue.trim().toUpperCase());
-    }
-  } catch(e) { /* sessiz hata */ }
-}
-
 function qrBulundu(kalipKodu) {
-  clearInterval(qrInterval);
-  const kalip = tumKaliplar.find(k => k.kalip_kodu.toUpperCase() === kalipKodu || k.id === kalipKodu);
+  const kalip = tumKaliplar.find(k =>
+    k.kalip_kodu.toUpperCase() === kalipKodu || k.id === kalipKodu
+  );
+
   if (kalip) {
     document.getElementById('qr-basarili').style.display = 'block';
     document.getElementById('qr-basarili').textContent = '✓ ' + kalip.kalip_kodu + ' bulundu!';
@@ -1611,16 +1603,18 @@ function qrBulundu(kalipKodu) {
     }, 1000);
   } else {
     document.getElementById('qr-mesaj').textContent = '⚠ "' + kalipKodu + '" sistemde bulunamadı.';
-    setTimeout(() => {
-      document.getElementById('qr-mesaj').textContent = 'Kalıbın QR kodunu çerçeveye hizalayın';
-      qrInterval = setInterval(qrTara, 300);
-    }, 2000);
   }
 }
 
 function qrKapat() {
-  clearInterval(qrInterval);
-  if (qrStream) { qrStream.getTracks().forEach(t => t.stop()); qrStream = null; }
+  if (zxingReader) {
+    try { zxingReader.reset(); } catch(e) {}
+    zxingReader = null;
+  }
+  if (qrStream) {
+    qrStream.getTracks().forEach(t => t.stop());
+    qrStream = null;
+  }
   document.getElementById('qr-overlay').classList.remove('acik');
 }
 
