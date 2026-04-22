@@ -810,18 +810,65 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
     <!-- KALIPLAR -->
     <div class="panel" id="panel-kaliplar">
       <div class="panel-card">
-        <div class="pc-header"><h3>Kalıp Listesi</h3>
-          <div style="padding:7px 14px;background:var(--accent);border:none;border-radius:7px;color:#fff;font-size:12px;font-weight:600;cursor:pointer">+ Yeni Kalıp</div>
+        <div class="pc-header">
+          <h3>Kalıp Listesi</h3>
+          <div style="padding:7px 14px;background:var(--accent);border:none;border-radius:7px;color:#fff;font-size:12px;font-weight:600;cursor:pointer" onclick="yeniKalipForm()">+ Yeni Kalıp</div>
         </div>
         <div style="overflow-x:auto">
           <table class="data-table">
-            <thead><tr><th>Kalıp Kodu</th><th>Kalıp Adı</th><th>Son Bakım</th><th>Sonraki Bakım</th><th>Ömür</th><th>Durum</th></tr></thead>
-            <tbody>
-              <tr><td class="mono">ON2E1405</td><td>ATROMIX ALT-ÜST KAPAK SIVAMA</td><td>15.03.2025</td><td>15.06.2025</td><td><div style="background:var(--green-dim);border-radius:4px;height:6px;width:100px"><div style="background:var(--green);height:100%;width:72%;border-radius:4px"></div></div></td><td><span class="badge badge-green">Aktif</span></td></tr>
-              <tr><td class="mono">ON2E1412</td><td>ALARKO-ATROMIX KORDONLU KENETLEME</td><td>20.02.2025</td><td><span style="color:var(--red);font-weight:600">⚠ Gecikmiş</span></td><td><div style="background:var(--red-dim);border-radius:4px;height:6px;width:100px"><div style="background:var(--red);height:100%;width:95%;border-radius:4px"></div></div></td><td><span class="badge badge-red">Bakım Gerekli</span></td></tr>
-              <tr><td class="mono">ON2F0267</td><td>EMAS KORDONLU ÜK DELME FİKSTÜRÜ</td><td>01.04.2025</td><td>01.07.2025</td><td><div style="background:var(--amber-dim);border-radius:4px;height:6px;width:100px"><div style="background:var(--amber);height:100%;width:45%;border-radius:4px"></div></div></td><td><span class="badge badge-green">Aktif</span></td></tr>
+            <thead><tr><th>Kalıp Kodu</th><th>Kalıp Adı</th><th>Tipi</th><th>Bakım Periyodu</th><th>Durum</th><th>İşlem</th></tr></thead>
+            <tbody id="kalip-tablo-body">
+              <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Yükleniyor...</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Yeni / Düzenle Formu -->
+      <div id="kalip-form-kart" style="display:none">
+        <div class="panel-card" style="margin-top:1rem">
+          <div class="pc-header"><h3 id="kalip-form-baslik">Yeni Kalıp Ekle</h3></div>
+          <div class="pc-body" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+            <div class="fg">
+              <label>Kalıp Kodu <span style="color:var(--red)">*</span></label>
+              <input type="text" id="kf-kodu" placeholder="ON2E1405"
+                style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+            </div>
+            <div class="fg">
+              <label>Kalıp Adı <span style="color:var(--red)">*</span></label>
+              <input type="text" id="kf-adi" placeholder="ATROMIX ALT-ÜST KAPAK"
+                style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+            </div>
+            <div class="fg">
+              <label>Kalıp Tipi</label>
+              <input type="text" id="kf-tipi" placeholder="Sıvama, Kenetleme..."
+                style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+            </div>
+            <div class="fg">
+              <label>Bakım Periyodu (gün)</label>
+              <input type="number" id="kf-periyot" placeholder="90" value="90"
+                style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+            </div>
+            <div class="fg">
+              <label>Toplam Ömür (baskı adedi)</label>
+              <input type="number" id="kf-omur" placeholder="100000"
+                style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+            </div>
+            <div class="fg">
+              <label>Son Bakım Tarihi</label>
+              <input type="date" id="kf-son-bakim"
+                style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+            </div>
+            <div class="fg" style="grid-column:span 2">
+              <label>Notlar</label>
+              <input type="text" id="kf-notlar" placeholder="Serbest not..."
+                style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+            </div>
+            <div style="grid-column:span 2;display:flex;gap:8px">
+              <div style="flex:1;padding:10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;text-align:center;font-size:13px" onclick="kalipFormIptal()">İptal</div>
+              <div style="flex:2;padding:10px;background:var(--accent);border:none;border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:600" onclick="Promise.resolve(kalipKaydet()).catch(e=>console.error(e))">Kaydet</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1088,12 +1135,12 @@ async function girisYap() {
 
   await verileriYukle();
 
-  if (aktifOperator.rol === 'yonetici' || aktifOperator.rol === 'muhendis') {
+  if (aktifOperator.rol === 'yonetici') {
     gosterEkran('screen-yonetici');
     renderYoneticiVeriler();
   } else {
     gosterEkran('screen-usta');
-    renderUstaEkrani();
+    Promise.resolve(renderUstaEkrani()).catch(e => console.warn(e));
     sureyiBaslat();
   }
 }
@@ -1720,9 +1767,119 @@ function panelAc(id, btn){
   document.getElementById('panel-baslik').textContent=b[id]||id;
   if(id === 'tanimlar') renderTanimlar();
   else if(id === 'operatorler') renderOperatorler();
+  else if(id === 'kaliplar') renderKaliplar();
   else renderYoneticiVeriler();
 }
 function opSec(el){document.querySelectorAll('.operator-kart').forEach(k=>k.classList.remove('selected'));el.classList.add('selected');}
+
+// ── KALIP YÖNETİMİ ──
+let duzenleKalipId = null;
+
+async function renderKaliplar() {
+  const tbody = document.getElementById('kalip-tablo-body');
+  if (!tbody) return;
+  try {
+    const kaliplar = await sbGet('kaliplar', 'aktif=eq.true&order=kalip_kodu');
+    tumKaliplar = kaliplar || [];
+    if (!kaliplar || kaliplar.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Kayıt yok</td></tr>';
+      return;
+    }
+    tbody.innerHTML = kaliplar.map(k => {
+      const sonBakim = k.son_bakim_tarihi
+        ? new Date(k.son_bakim_tarihi).toLocaleDateString('tr-TR')
+        : '—';
+      const sonrakiBakim = k.son_bakim_tarihi && k.bakim_periyodu_gun
+        ? new Date(new Date(k.son_bakim_tarihi).getTime() + k.bakim_periyodu_gun * 86400000).toLocaleDateString('tr-TR')
+        : '—';
+      return `<tr>
+        <td class="mono">${k.kalip_kodu}</td>
+        <td>${k.kalip_adi}</td>
+        <td>${k.kalip_tipi || '—'}</td>
+        <td>${k.bakim_periyodu_gun ? k.bakim_periyodu_gun + ' gün' : '—'}</td>
+        <td><span class="badge badge-green">Aktif</span></td>
+        <td>
+          <div style="display:flex;gap:6px">
+            <div style="padding:4px 10px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:11px;cursor:pointer"
+              onclick="kalipDuzenle('${k.id}')">Düzenle</div>
+            <div style="padding:4px 10px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;cursor:pointer"
+              onclick="Promise.resolve(kalipPasifYap('${k.id}')).catch(e=>console.error(e))">Pasif</div>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) { console.warn(e); }
+}
+
+function yeniKalipForm() {
+  duzenleKalipId = null;
+  document.getElementById('kalip-form-baslik').textContent = 'Yeni Kalıp Ekle';
+  document.getElementById('kf-kodu').value = '';
+  document.getElementById('kf-adi').value = '';
+  document.getElementById('kf-tipi').value = '';
+  document.getElementById('kf-periyot').value = '90';
+  document.getElementById('kf-omur').value = '';
+  document.getElementById('kf-son-bakim').value = '';
+  document.getElementById('kf-notlar').value = '';
+  document.getElementById('kalip-form-kart').style.display = 'block';
+  document.getElementById('kalip-form-kart').scrollIntoView({behavior:'smooth'});
+}
+
+function kalipDuzenle(kalipId) {
+  const k = tumKaliplar.find(x => x.id === kalipId);
+  if (!k) return;
+  duzenleKalipId = kalipId;
+  document.getElementById('kalip-form-baslik').textContent = 'Kalıp Düzenle — ' + k.kalip_kodu;
+  document.getElementById('kf-kodu').value = k.kalip_kodu || '';
+  document.getElementById('kf-adi').value = k.kalip_adi || '';
+  document.getElementById('kf-tipi').value = k.kalip_tipi || '';
+  document.getElementById('kf-periyot').value = k.bakim_periyodu_gun || 90;
+  document.getElementById('kf-omur').value = k.toplam_omur_baski || '';
+  document.getElementById('kf-son-bakim').value = k.son_bakim_tarihi || '';
+  document.getElementById('kf-notlar').value = k.notlar || '';
+  document.getElementById('kalip-form-kart').style.display = 'block';
+  document.getElementById('kalip-form-kart').scrollIntoView({behavior:'smooth'});
+}
+
+function kalipFormIptal() {
+  document.getElementById('kalip-form-kart').style.display = 'none';
+  duzenleKalipId = null;
+}
+
+async function kalipKaydet() {
+  const kodu = document.getElementById('kf-kodu').value.trim().toUpperCase();
+  const adi = document.getElementById('kf-adi').value.trim().toUpperCase();
+  const tipi = document.getElementById('kf-tipi').value.trim();
+  const periyot = parseInt(document.getElementById('kf-periyot').value) || 90;
+  const omur = parseInt(document.getElementById('kf-omur').value) || null;
+  const sonBakim = document.getElementById('kf-son-bakim').value || null;
+  const notlar = document.getElementById('kf-notlar').value.trim() || null;
+
+  if (!kodu || !adi) { alert('Kalıp kodu ve adı zorunlu.'); return; }
+
+  const veri = {
+    kalip_kodu: kodu, kalip_adi: adi, kalip_tipi: tipi || null,
+    bakim_periyodu_gun: periyot, toplam_omur_baski: omur,
+    son_bakim_tarihi: sonBakim, notlar: notlar, aktif: true
+  };
+
+  if (duzenleKalipId) {
+    await sbPatch('kaliplar', duzenleKalipId, veri);
+    alert('Kalıp güncellendi!');
+  } else {
+    const yeni = await sbPost('kaliplar', veri);
+    if (!yeni || !yeni[0]) { alert('Eklenemedi. Kod zaten kullanılıyor olabilir.'); return; }
+    alert(kodu + ' eklendi!');
+  }
+  kalipFormIptal();
+  await renderKaliplar();
+}
+
+async function kalipPasifYap(kalipId) {
+  if (!confirm('Bu kalıp pasif yapılsın mı?')) return;
+  await sbPatch('kaliplar', kalipId, {aktif: false});
+  await renderKaliplar();
+}
 
 // ── OPERATÖR YÖNETİMİ ──
 async function renderOperatorler() {
@@ -1735,16 +1892,18 @@ async function renderOperatorler() {
       liste.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Operatör yok</div>';
       return;
     }
+    const rolTR = {yonetici:'Yönetici', usta:'Usta', cirak:'Çırak', cnc:'CNC', muhendis:'Mühendis', formen:'Formen'};
     const rolRenk = {yonetici:'badge-purple', usta:'badge-blue', cirak:'badge-amber', cnc:'badge-green', muhendis:'badge-accent', formen:'badge-orange'};
     liste.innerHTML = ops.map(op => {
       const initials = op.ad_soyad.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
       const renk = rolRenk[op.rol] || 'badge-blue';
+      const rolAd = rolTR[op.rol] || op.rol;
       return `
         <div class="operator-kart" onclick="operatorDetayGoster('${op.id}')" data-id="${op.id}">
           <div class="ok-avatar">${initials}</div>
           <div>
             <div class="ok-name">${op.ad_soyad}</div>
-            <div class="ok-rol"><span class="badge ${renk}">${op.rol}</span> · ${op.operator_kodu}</div>
+            <div class="ok-rol"><span class="badge ${renk}">${rolAd}</span> · ${op.operator_kodu}</div>
           </div>
         </div>`;
     }).join('');
@@ -1752,13 +1911,18 @@ async function renderOperatorler() {
 }
 
 function operatorDetayGoster(opId) {
-  // Seçili kartı işaretle
   document.querySelectorAll('#operator-kart-liste .operator-kart').forEach(k => {
     k.classList.toggle('selected', k.dataset.id === opId);
   });
 
   const op = tumOperatorler.find(o => o.id === opId);
   if (!op) return;
+
+  const rolTR = {yonetici:'Yönetici', usta:'Usta', cirak:'Çırak', cnc:'CNC Operatörü', muhendis:'Mühendis', formen:'Formen'};
+
+  // Mevcut yetkiler — JSON parse et
+  let mevcutYetkiler = [];
+  try { mevcutYetkiler = op.yetkiler ? JSON.parse(op.yetkiler) : []; } catch(e) {}
 
   const detay = document.getElementById('operator-detay-kart');
   detay.innerHTML = `
@@ -1791,6 +1955,19 @@ function operatorDetayGoster(opId) {
         <option value="yonetici" ${op.rol==='yonetici'?'selected':''}>Yönetici</option>
       </select>
     </div>
+
+    <div class="yetki-baslik" style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:.75rem 0 .5rem">
+      Yapabileceği İşlemler
+    </div>
+    <div id="yetki-islem-listesi" style="display:flex;flex-direction:column;gap:6px;margin-bottom:1rem">
+      ${tumIsTipleri.map(it => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .75rem;background:var(--bg);border-radius:8px;">
+          <label style="font-size:13px;cursor:pointer" for="yetki-${it.id}">${it.ad}</label>
+          <input type="checkbox" id="yetki-${it.id}" value="${it.id}" class="yetki-checkbox"
+            ${mevcutYetkiler.includes(it.id) ? 'checked' : ''}>
+        </div>`).join('')}
+    </div>
+
     <div style="display:flex;gap:8px">
       <div style="flex:1;padding:10px;background:var(--red-dim);border:1px solid var(--red);border-radius:8px;color:var(--red);cursor:pointer;text-align:center;font-size:13px;font-weight:600"
         onclick="Promise.resolve(operatorPasifYap('${op.id}')).catch(e=>console.error(e))">Pasif Yap</div>
@@ -1805,7 +1982,23 @@ async function operatorGuncelle(opId) {
   const pin = document.getElementById('edit-op-pin')?.value.trim();
   const rol = document.getElementById('edit-op-rol')?.value;
   if (!adi || !pin) { alert('Ad ve PIN zorunlu.'); return; }
-  await sbPatch('operatorler', opId, {ad_soyad: adi, operator_kodu: kodu, pin: pin, rol: rol});
+
+  // Seçili yetkileri topla
+  const yetkiCheckboxlar = document.querySelectorAll('#yetki-islem-listesi input[type=checkbox]:checked');
+  const yetkiler = Array.from(yetkiCheckboxlar).map(cb => cb.value);
+
+  await sbPatch('operatorler', opId, {
+    ad_soyad: adi,
+    operator_kodu: kodu,
+    pin: pin,
+    rol: rol,
+    yetkiler: JSON.stringify(yetkiler)
+  });
+
+  // tumOperatorler güncelle
+  const idx = tumOperatorler.findIndex(o => o.id === opId);
+  if (idx >= 0) tumOperatorler[idx] = {...tumOperatorler[idx], ad_soyad: adi, operator_kodu: kodu, pin, rol, yetkiler: JSON.stringify(yetkiler)};
+
   await renderOperatorler();
   alert('Kaydedildi!');
 }
