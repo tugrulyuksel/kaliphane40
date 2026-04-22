@@ -808,15 +808,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
           <div class="pc-header"><h3>Problem / Arıza Listesi</h3></div>
           <div class="pc-body">
             <div class="tanim-liste" id="problem-liste">
-              <div class="tanim-item"><span>Üretim kalitesi</span><div class="tanim-actions"><div class="btn-tanim-sil" onclick="tanimSil(this)">Sil</div></div></div>
-              <div class="tanim-item"><span>Mekanik arıza</span><div class="tanim-actions"><div class="btn-tanim-sil" onclick="tanimSil(this)">Sil</div></div></div>
-              <div class="tanim-item"><span>Periyodik bakım</span><div class="tanim-actions"><div class="btn-tanim-sil" onclick="tanimSil(this)">Sil</div></div></div>
-              <div class="tanim-item"><span>Tamir talebi</span><div class="tanim-actions"><div class="btn-tanim-sil" onclick="tanimSil(this)">Sil</div></div></div>
-              <div class="tanim-item"><span>Model değişimi</span><div class="tanim-actions"><div class="btn-tanim-sil" onclick="tanimSil(this)">Sil</div></div></div>
+              <div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Yükleniyor...</div>
             </div>
             <div class="tanim-ekle-row">
               <input type="text" id="problem-yeni" placeholder="Yeni problem ekle...">
-              <div class="btn-tanim-ekle" onclick="tanimEkle('problem-liste','problem-yeni')">Ekle</div>
+              <div class="btn-tanim-ekle" onclick="sbTanimEkle('problem_tipleri','problem-yeni','problem-liste')">Ekle</div>
             </div>
           </div>
         </div>
@@ -826,15 +822,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
           <div class="pc-header"><h3>Yapılan İşlem Listesi</h3></div>
           <div class="pc-body">
             <div class="tanim-liste" id="islem-liste">
-              <div class="tanim-item"><span>Parlatma</span><div class="tanim-actions"><div class="btn-tanim-sil" onclick="tanimSil(this)">Sil</div></div></div>
-              <div class="tanim-item"><span>Model Değişimi</span><div class="tanim-actions"><div class="btn-tanim-sil" onclick="tanimSil(this)">Sil</div></div></div>
-              <div class="tanim-item"><span>Arıza Tamir</span><div class="tanim-actions"><div class="btn-tanim-sil" onclick="tanimSil(this)">Sil</div></div></div>
-              <div class="tanim-item"><span>Torna</span><div class="tanim-actions"><div class="btn-tanim-sil" onclick="tanimSil(this)">Sil</div></div></div>
-              <div class="tanim-item"><span>Kaynak</span><div class="tanim-actions"><div class="btn-tanim-sil" onclick="tanimSil(this)">Sil</div></div></div>
+              <div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Yükleniyor...</div>
             </div>
             <div class="tanim-ekle-row">
               <input type="text" id="islem-yeni" placeholder="Yeni işlem ekle...">
-              <div class="btn-tanim-ekle" onclick="tanimEkle('islem-liste','islem-yeni')">Ekle</div>
+              <div class="btn-tanim-ekle" onclick="sbTanimEkle('is_tipleri','islem-yeni','islem-liste')">Ekle</div>
             </div>
           </div>
         </div>
@@ -843,23 +835,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         <div class="panel-card" style="grid-column:span 2">
           <div class="pc-header">
             <h3>Checklist Yönetimi</h3>
-            <select id="checklist-kalip" style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px">
-              <option>ON2E1405 — ATROMIX ALT-ÜST KAPAK</option>
-              <option>ON2E1412 — ALARKO KENETLEME</option>
-              <option>ON2F0267 — EMAS ÜK DELME</option>
+            <select id="checklist-kalip" onchange="renderChecklistTanim()" style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px">
+              <option value="">Kalıp seç...</option>
             </select>
           </div>
           <div class="pc-body">
             <div class="tanim-liste" id="checklist-liste">
-              <div class="tanim-item"><span>Yağlama noktalarını kontrol et ve yağla</span><div class="tanim-actions"><div class="btn-tanim-sil" onclick="tanimSil(this)">Sil</div></div></div>
-              <div class="tanim-item"><span>Aşınma kontrolü yap — kritik parçalar</span><div class="tanim-actions"><div class="btn-tanim-sil" onclick="tanimSil(this)">Sil</div></div></div>
-              <div class="tanim-item"><span>Tüm civataları kontrol et ve sık</span><div class="tanim-actions"><div class="btn-tanim-sil" onclick="tanimSil(this)">Sil</div></div></div>
-              <div class="tanim-item"><span>Kalıp yüzeyini temizle ve kontrol et</span><div class="tanim-actions"><div class="btn-tanim-sil" onclick="tanimSil(this)">Sil</div></div></div>
-              <div class="tanim-item"><span>Soğutma kanallarını kontrol et</span><div class="tanim-actions"><div class="btn-tanim-sil" onclick="tanimSil(this)">Sil</div></div></div>
+              <div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Önce kalıp seçin</div>
             </div>
             <div class="tanim-ekle-row">
               <input type="text" id="checklist-yeni" placeholder="Yeni checklist maddesi...">
-              <div class="btn-tanim-ekle" onclick="tanimEkle('checklist-liste','checklist-yeni')">Ekle</div>
+              <div class="btn-tanim-ekle" onclick="sbChecklistEkle()">Ekle</div>
             </div>
           </div>
         </div>
@@ -1458,22 +1444,143 @@ function panelAc(id, btn){
   if(btn) btn.classList.add('active');
   const b={'dashboard':'Dashboard','canli':'Anlık İzleme','is-emirleri':'İş Emirleri','planli':'Planlı Bakımlar','kaliplar':'Kalıplar','operatorler':'Operatörler & Yetki','malzemeler':'Malzeme Stok','tanimlar':'Tanımlar','raporlar':'KPI & Raporlar'};
   document.getElementById('panel-baslik').textContent=b[id]||id;
-  // Her sekme açılınca verileri güncelle
-  renderYoneticiVeriler();
+  if(id === 'tanimlar') renderTanimlar();
+  else renderYoneticiVeriler();
 }
 function opSec(el){document.querySelectorAll('.operator-kart').forEach(k=>k.classList.remove('selected'));el.classList.add('selected');}
 
-// Tanım yönetimi
-function tanimSil(btn){if(confirm('Silinsin mi?'))btn.closest('.tanim-item').remove();}
+// ── TANIMLAR — SUPABASE ──
+async function renderTanimlar() {
+  // Problem listesi
+  const problemler = await sbGet('problem_tipleri', 'aktif=eq.true&order=ad');
+  renderTanimListe('problem-liste', problemler, 'problem_tipleri');
+
+  // İşlem listesi
+  const islemler = await sbGet('is_tipleri', 'aktif=eq.true&order=ad');
+  renderTanimListe('islem-liste', islemler, 'is_tipleri');
+
+  // Checklist kalıp dropdown
+  const kalipSel = document.getElementById('checklist-kalip');
+  if (kalipSel && tumKaliplar.length) {
+    kalipSel.innerHTML = '<option value="">Kalıp seç...</option>' +
+      tumKaliplar.map(k => `<option value="${k.id}">${k.kalip_kodu} — ${k.kalip_adi}</option>`).join('');
+  }
+}
+
+function renderTanimListe(listeId, items, tablo) {
+  const liste = document.getElementById(listeId);
+  if (!liste) return;
+  if (!items || items.length === 0) {
+    liste.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Kayıt yok</div>';
+    return;
+  }
+  liste.innerHTML = items.map(item => `
+    <div class="tanim-item" data-id="${item.id}">
+      <span>${item.ad}</span>
+      <div class="tanim-actions">
+        <div class="btn-tanim-sil" onclick="sbTanimSil('${tablo}','${item.id}','${listeId}')">Sil</div>
+      </div>
+    </div>`).join('');
+}
+
+async function sbTanimEkle(tablo, inputId, listeId) {
+  const input = document.getElementById(inputId);
+  const val = input ? input.value.trim() : '';
+  if (!val) { alert('Boş bırakılamaz.'); return; }
+
+  const yeni = await sbPost(tablo, { ad: val, aktif: true });
+  if (yeni && yeni[0]) {
+    input.value = '';
+    // Listeyi yenile
+    const tumListe = await sbGet(tablo, 'aktif=eq.true&order=ad');
+    renderTanimListe(listeId, tumListe, tablo);
+    // Usta formlarını güncelle
+    if (tablo === 'is_tipleri') {
+      tumIsTipleri = tumListe;
+      renderChipList('islem-section', tumIsTipleri, 'islem');
+    }
+    if (tablo === 'problem_tipleri') {
+      tumProblemler = tumListe;
+      renderChipList('problem-section', tumProblemler, 'problem');
+    }
+  } else {
+    alert('Eklenemedi, tekrar deneyin.');
+  }
+}
+
+async function sbTanimSil(tablo, id, listeId) {
+  if (!confirm('Silinsin mi?')) return;
+  // Silmek yerine aktif=false yap — veri bütünlüğü için
+  await fetch(`${SUPA_URL}/rest/v1/${tablo}?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: {
+      'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ aktif: false })
+  });
+  const tumListe = await sbGet(tablo, 'aktif=eq.true&order=ad');
+  renderTanimListe(listeId, tumListe, tablo);
+  if (tablo === 'is_tipleri') { tumIsTipleri = tumListe; renderChipList('islem-section', tumIsTipleri, 'islem'); }
+  if (tablo === 'problem_tipleri') { tumProblemler = tumListe; renderChipList('problem-section', tumProblemler, 'problem'); }
+}
+
+async function renderChecklistTanim() {
+  const sel = document.getElementById('checklist-kalip');
+  const kalipId = sel ? sel.value : '';
+  if (!kalipId) return;
+
+  const liste = await sbGet('checklist_sablonlar', `kalip_id=eq.${kalipId}&aktif=eq.true&order=sira`);
+  const listEl = document.getElementById('checklist-liste');
+  if (!listEl) return;
+
+  if (!liste || liste.length === 0) {
+    listEl.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Bu kalıp için checklist yok. Ekleyin.</div>';
+    return;
+  }
+  listEl.innerHTML = liste.map(item => `
+    <div class="tanim-item" data-id="${item.id}">
+      <span>${item.madde}</span>
+      <div class="tanim-actions">
+        <div class="btn-tanim-sil" onclick="sbChecklistSil('${item.id}')">Sil</div>
+      </div>
+    </div>`).join('');
+}
+
+async function sbChecklistEkle() {
+  const sel = document.getElementById('checklist-kalip');
+  const kalipId = sel ? sel.value : '';
+  if (!kalipId) { alert('Önce kalıp seçin.'); return; }
+  const input = document.getElementById('checklist-yeni');
+  const val = input ? input.value.trim() : '';
+  if (!val) { alert('Boş bırakılamaz.'); return; }
+
+  await sbPost('checklist_sablonlar', { kalip_id: kalipId, madde: val, aktif: true, sira: 0 });
+  input.value = '';
+  renderChecklistTanim();
+}
+
+async function sbChecklistSil(id) {
+  if (!confirm('Silinsin mi?')) return;
+  await fetch(`${SUPA_URL}/rest/v1/checklist_sablonlar?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ aktif: false })
+  });
+  renderChecklistTanim();
+}
+
+// Eski tanimSil ve tanimEkle - artık kullanılmıyor ama hata vermesin
+function tanimSil(btn){ if(confirm('Silinsin mi?')) btn.closest('.tanim-item').remove(); }
 function tanimEkle(listeId,inputId){
   const input=document.getElementById(inputId);
-  const val=input.value.trim();
+  const val=input?.value.trim();
   if(!val) return;
   const liste=document.getElementById(listeId);
   const d=document.createElement('div');
   d.className='tanim-item';
   d.innerHTML=`<span>${val}</span><div class="tanim-actions"><div class="btn-tanim-sil" onclick="tanimSil(this)">Sil</div></div>`;
-  liste.appendChild(d);
+  liste?.appendChild(d);
   input.value='';
 }
 
