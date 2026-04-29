@@ -379,51 +379,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
     <div class="planli-card">
       <div class="pc-hdr">
         <h3>📅 Planlı Bakımlar</h3>
-        <span class="badge badge-red">2 Gecikmiş</span>
+        <span class="badge badge-red" id="planli-gecikme-sayac" style="display:none">0 Gecikmiş</span>
       </div>
-      <div class="planli-item" onclick="Promise.resolve(planliDetayGoster('ON2E1412','ALARKO-ATROMIX KORDONLU KENETLEME','10.04.2025','gec')).catch(e=>console.error(e))">
-        <div class="pi-top">
-          <span class="pi-kalip">ALARKO-ATROMIX KORDONLU KENETLEME</span>
-          <span class="badge badge-red">Gecikmiş</span>
-        </div>
-        <div class="pi-bottom">
-          <span class="k-code">ON2E1412</span>
-          <span class="pi-tarih">Planlanan: 10.04.2025</span>
-          <span class="pi-gun gec">11 gün geçti</span>
-        </div>
-      </div>
-      <div class="planli-item" onclick="Promise.resolve(planliDetayGoster('ON2E1404','ALARKO-ATROMIX KORDONLU AÇI VERME','15.04.2025','gec')).catch(e=>console.error(e))">
-        <div class="pi-top">
-          <span class="pi-kalip">ALARKO-ATROMIX KORDONLU AÇI VERME</span>
-          <span class="badge badge-red">Gecikmiş</span>
-        </div>
-        <div class="pi-bottom">
-          <span class="k-code">ON2E1404</span>
-          <span class="pi-tarih">Planlanan: 15.04.2025</span>
-          <span class="pi-gun gec">6 gün geçti</span>
-        </div>
-      </div>
-      <div class="planli-item" onclick="Promise.resolve(planliDetayGoster('ON2E1405','ATROMIX ALT-ÜST KAPAK SIVAMA','25.04.2025','yakin')).catch(e=>console.error(e))">
-        <div class="pi-top">
-          <span class="pi-kalip">ATROMIX ALT-ÜST KAPAK SIVAMA</span>
-          <span class="badge badge-orange">Bu Hafta</span>
-        </div>
-        <div class="pi-bottom">
-          <span class="k-code">ON2E1405</span>
-          <span class="pi-tarih">Planlanan: 25.04.2025</span>
-          <span class="pi-gun yakin">4 gün kaldı</span>
-        </div>
-      </div>
-      <div class="planli-item" onclick="Promise.resolve(planliDetayGoster('ON2F0267','EMAS KORDONLU ÜK DELME FİKSTÜRÜ','15.05.2025','normal')).catch(e=>console.error(e))">
-        <div class="pi-top">
-          <span class="pi-kalip">EMAS KORDONLU ÜK DELME FİKSTÜRÜ</span>
-          <span class="badge badge-blue">Gelecek Ay</span>
-        </div>
-        <div class="pi-bottom">
-          <span class="k-code">ON2F0267</span>
-          <span class="pi-tarih">Planlanan: 15.05.2025</span>
-          <span class="pi-gun normal">24 gün kaldı</span>
-        </div>
+      <div id="planli-bakim-listesi">
+        <div style="padding:1rem;text-align:center;color:var(--muted);font-size:13px">Yükleniyor...</div>
       </div>
     </div>
 
@@ -1133,6 +1092,7 @@ async function sbPatch(tablo, id, veri) {
 // ── UYGULAMA DEĞİŞKENLERİ ──
 let seciliRol='usta', durakladi=false, saniye=0;
 let aktifChecklistKalipId = null;
+let aktifPlanliId = null;
 let sureInterval, planliMod=false;
 let aktifOperator=null, aktifKalip=null, aktifIsEmri=null;
 let tumKaliplar=[], tumOperatorler=[], tumIsTipleri=[], tumProblemler=[];
@@ -1205,6 +1165,86 @@ async function renderUstaEkrani() {
 
   // Aktif iş emirlerini yükle
   await renderAktifIsEmirleri();
+  await renderPlanliGoster();
+}
+
+async function renderPlanliGoster() {
+  const liste = document.getElementById('planli-bakim-listesi');
+  const sayac = document.getElementById('planli-gecikme-sayac');
+  if (!liste) return;
+
+  try {
+    // Tamamlanmamış planlı bakımları getir, tarihe göre sırala
+    const bakimlar = await sbGet('planli_bakimlar',
+      'tamamlandi=eq.false&order=planlanan_tarih');
+
+    if (!bakimlar || bakimlar.length === 0) {
+      liste.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--muted);font-size:14px">Bekleyen planlı bakım yok</div>';
+      if (sayac) sayac.style.display = 'none';
+      return;
+    }
+
+    const bugun = new Date();
+    bugun.setHours(0,0,0,0);
+    let gecikmisSay = 0;
+
+    const html = bakimlar.map(b => {
+      const kalip = tumKaliplar.find(k => k.id === b.kalip_id);
+      if (!kalip) return '';
+
+      const planlanan = new Date(b.planlanan_tarih);
+      planlanan.setHours(0,0,0,0);
+      const farkGun = Math.round((planlanan - bugun) / 86400000);
+
+      let durum, badge, gunYazi;
+      if (farkGun < 0) {
+        durum = 'gec';
+        badge = '<span class="badge badge-red">Gecikmiş</span>';
+        gunYazi = `<span class="pi-gun gec">${Math.abs(farkGun)} gün geçti</span>`;
+        gecikmisSay++;
+      } else if (farkGun <= 7) {
+        durum = 'yakin';
+        badge = '<span class="badge badge-orange">Bu Hafta</span>';
+        gunYazi = `<span class="pi-gun yakin">${farkGun} gün kaldı</span>`;
+      } else if (farkGun <= 30) {
+        durum = 'normal';
+        badge = '<span class="badge badge-blue">Bu Ay</span>';
+        gunYazi = `<span class="pi-gun normal">${farkGun} gün kaldı</span>`;
+      } else {
+        durum = 'normal';
+        badge = '<span class="badge badge-blue">Gelecek</span>';
+        gunYazi = `<span class="pi-gun normal">${farkGun} gün kaldı</span>`;
+      }
+
+      const tarihStr = planlanan.toLocaleDateString('tr-TR');
+
+      return `<div class="planli-item" onclick="Promise.resolve(planliDetayGoster('${kalip.kalip_kodu}','${kalip.kalip_adi.replace(/'/g,"\\'")}','${tarihStr}','${durum}','${b.id}')).catch(e=>console.error(e))">
+        <div class="pi-top">
+          <span class="pi-kalip">${kalip.kalip_adi}</span>
+          ${badge}
+        </div>
+        <div class="pi-bottom">
+          <span class="k-code">${kalip.kalip_kodu}</span>
+          <span class="pi-tarih">Planlanan: ${tarihStr}</span>
+          ${gunYazi}
+        </div>
+      </div>`;
+    }).filter(Boolean).join('');
+
+    liste.innerHTML = html || '<div style="padding:1rem;text-align:center;color:var(--muted);font-size:14px">Bekleyen planlı bakım yok</div>';
+
+    if (sayac) {
+      if (gecikmisSay > 0) {
+        sayac.textContent = gecikmisSay + ' Gecikmiş';
+        sayac.style.display = 'inline-flex';
+      } else {
+        sayac.style.display = 'none';
+      }
+    }
+  } catch(e) {
+    console.warn('Planlı bakımlar yüklenemedi:', e);
+    liste.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--muted);font-size:14px">Yüklenemedi</div>';
+  }
 }
 
 async function renderAktifIsEmirleri() {
@@ -1529,15 +1569,27 @@ async function isEmriKaydet() {
         toplam_sure_dak: Math.floor(saniye / 60),
         aciklama: aciklama
       });
+
+      // Planlı bakımsa tamamlandı işaretle
+      if (planliMod && aktifPlanliId) {
+        await sbPatch('planli_bakimlar', aktifPlanliId, {
+          tamamlandi: true,
+          tamamlanma_tarihi: new Date().toISOString().split('T')[0],
+          is_emri_id: aktifIsEmri.id
+        });
+      }
     } catch(e) { console.warn(e); }
   }
 
   clearInterval(sureInterval);
   alert('✅ İş emri kapatıldı!');
   aktifIsEmri = null;
+  aktifPlanliId = null;
+  planliMod = false;
   saniye = 0;
   sureyiBaslat();
   gosterEkran('screen-usta');
+  Promise.resolve(renderUstaEkrani()).catch(e => console.warn(e));
 }
 
 function selectRole(btn, rol) {
@@ -1659,7 +1711,8 @@ function kalipSec(kod, adi, tip, kalipId) {
 }
 
 // Planlı bakım detay ekranı
-async function planliDetayGoster(kod, adi, tarih, durum) {
+async function planliDetayGoster(kod, adi, tarih, durum, planliId) {
+  aktifPlanliId = planliId || null;
   // Kalıbı bul
   aktifKalip = tumKaliplar.find(k => k.kalip_kodu === kod) || {kalip_kodu: kod, kalip_adi: adi};
   planliMod = true;
