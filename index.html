@@ -789,19 +789,40 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
     <!-- PLANLI BAKIMLAR -->
     <div class="panel" id="panel-planli">
       <div class="panel-card">
-        <div class="pc-header"><h3>Planlı Bakım Takvimi</h3>
-          <div style="padding:7px 14px;background:var(--accent);border:none;border-radius:7px;color:#fff;font-size:12px;font-weight:600;cursor:pointer">+ Planlı Bakım Ekle</div>
+        <div class="pc-header">
+          <h3>Planlı Bakım Takvimi</h3>
+          <div style="padding:7px 14px;background:var(--accent);border:none;border-radius:7px;color:#fff;font-size:12px;font-weight:600;cursor:pointer" onclick="yeniPlanliForm()">+ Planlı Bakım Ekle</div>
         </div>
         <div style="overflow-x:auto">
           <table class="data-table">
-            <thead><tr><th>Kalıp</th><th>Planlanan Tarih</th><th>Durum</th><th>Checklist</th><th>Son Yapılan</th></tr></thead>
-            <tbody>
-              <tr><td>ON2E1412 — ALARKO KENETLEME</td><td style="color:var(--red);font-weight:600">10.04.2025 ⚠ 11 gün geçti</td><td><span class="badge badge-red">Gecikmiş</span></td><td>5 madde</td><td>10.01.2025</td></tr>
-              <tr><td>ON2E1404 — ALARKO AÇI VERME</td><td style="color:var(--red);font-weight:600">15.04.2025 ⚠ 6 gün geçti</td><td><span class="badge badge-red">Gecikmiş</span></td><td>4 madde</td><td>15.01.2025</td></tr>
-              <tr><td>ON2E1405 — ATROMIX ALT-ÜST</td><td>25.04.2025</td><td><span class="badge badge-orange">Bu Hafta</span></td><td>5 madde</td><td>25.01.2025</td></tr>
-              <tr><td>ON2F0267 — EMAS ÜK DELME</td><td>15.05.2025</td><td><span class="badge badge-blue">Planlandı</span></td><td>3 madde</td><td>15.02.2025</td></tr>
+            <thead><tr><th>Kalıp</th><th>Planlanan Tarih</th><th>Durum</th><th>Checklist</th><th>İşlem</th></tr></thead>
+            <tbody id="planli-tablo-body">
+              <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">Yükleniyor...</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Yeni Planlı Bakım Formu -->
+      <div id="planli-form-kart" style="display:none;margin-top:1rem">
+        <div class="panel-card">
+          <div class="pc-header"><h3 id="planli-form-baslik">Yeni Planlı Bakım Ekle</h3></div>
+          <div class="pc-body" style="display:flex;flex-direction:column;gap:1rem">
+            <div class="fg">
+              <label>Kalıp <span style="color:var(--red)">*</span></label>
+              <select id="pf-kalip" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+                <option value="">Kalıp seç...</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>Planlanan Tarih <span style="color:var(--red)">*</span></label>
+              <input type="date" id="pf-tarih" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+            </div>
+            <div style="display:flex;gap:8px">
+              <div style="flex:1;padding:10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;text-align:center;font-size:13px" onclick="planliFormIptal()">İptal</div>
+              <div style="flex:2;padding:10px;background:var(--accent);border:none;border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:600" onclick="Promise.resolve(planliKaydet()).catch(e=>console.error(e))">Kaydet</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1973,12 +1994,114 @@ function panelAc(id, btn){
   if(id === 'tanimlar') renderTanimlar();
   else if(id === 'operatorler') renderOperatorler();
   else if(id === 'kaliplar') renderKaliplar();
+  else if(id === 'planli') renderPlanliTablo();
   else renderYoneticiVeriler();
 }
 function opSec(el){document.querySelectorAll('.operator-kart').forEach(k=>k.classList.remove('selected'));el.classList.add('selected');}
 
 // ── KALIP YÖNETİMİ ──
 let duzenleKalipId = null;
+
+// ── PLANLI BAKIM YÖNETİMİ ──
+async function renderPlanliTablo() {
+  const tbody = document.getElementById('planli-tablo-body');
+  if (!tbody) return;
+  try {
+    const bakimlar = await sbGet('planli_bakimlar', 'order=planlanan_tarih');
+    if (!bakimlar || bakimlar.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">Kayıt yok</td></tr>';
+      return;
+    }
+    const bugun = new Date(); bugun.setHours(0,0,0,0);
+    tbody.innerHTML = bakimlar.map(b => {
+      const kalip = tumKaliplar.find(k => k.id === b.kalip_id);
+      const kalipAdi = kalip ? kalip.kalip_kodu + ' — ' + kalip.kalip_adi.slice(0,25) : '—';
+      const planlanan = new Date(b.planlanan_tarih);
+      const tarihStr = planlanan.toLocaleDateString('tr-TR');
+      const fark = Math.round((planlanan - bugun) / 86400000);
+
+      let durumBadge;
+      if (b.tamamlandi) {
+        durumBadge = '<span class="badge badge-green">✓ Tamamlandı</span>';
+      } else if (fark < 0) {
+        durumBadge = `<span class="badge badge-red">⚠ ${Math.abs(fark)} gün geçti</span>`;
+      } else if (fark <= 7) {
+        durumBadge = `<span class="badge badge-orange">Bu Hafta · ${fark} gün</span>`;
+      } else {
+        durumBadge = `<span class="badge badge-blue">${fark} gün kaldı</span>`;
+      }
+
+      // Checklist sayısı
+      const clSay = '—';
+
+      return `<tr>
+        <td>${kalipAdi}</td>
+        <td>${tarihStr}</td>
+        <td>${durumBadge}</td>
+        <td>${clSay}</td>
+        <td>
+          <div style="display:flex;gap:6px">
+            ${!b.tamamlandi ? `<div style="padding:4px 10px;background:var(--green-dim);border:1px solid var(--green);border-radius:6px;color:var(--green);font-size:11px;cursor:pointer"
+              onclick="Promise.resolve(planliTamamla('${b.id}')).catch(e=>console.error(e))">Tamamlandı</div>` : ''}
+            <div style="padding:4px 10px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;cursor:pointer"
+              onclick="Promise.resolve(planliSil('${b.id}')).catch(e=>console.error(e))">Sil</div>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) { console.warn(e); }
+}
+
+function yeniPlanliForm() {
+  document.getElementById('planli-form-baslik').textContent = 'Yeni Planlı Bakım Ekle';
+  document.getElementById('pf-tarih').value = '';
+  // Kalıp dropdown doldur
+  const sel = document.getElementById('pf-kalip');
+  sel.innerHTML = '<option value="">Kalıp seç...</option>' +
+    tumKaliplar.map(k => `<option value="${k.id}">${k.kalip_kodu} — ${k.kalip_adi}</option>`).join('');
+  document.getElementById('planli-form-kart').style.display = 'block';
+  document.getElementById('planli-form-kart').scrollIntoView({behavior:'smooth'});
+}
+
+function planliFormIptal() {
+  document.getElementById('planli-form-kart').style.display = 'none';
+}
+
+async function planliKaydet() {
+  const kalipId = document.getElementById('pf-kalip').value;
+  const tarih = document.getElementById('pf-tarih').value;
+  if (!kalipId || !tarih) { alert('Kalıp ve tarih zorunlu.'); return; }
+  const yeni = await sbPost('planli_bakimlar', {
+    kalip_id: kalipId,
+    planlanan_tarih: tarih,
+    tamamlandi: false
+  });
+  if (yeni && yeni[0]) {
+    planliFormIptal();
+    await renderPlanliTablo();
+    alert('Planlı bakım eklendi!');
+  } else {
+    alert('Eklenemedi.');
+  }
+}
+
+async function planliTamamla(id) {
+  if (!confirm('Bu bakım tamamlandı olarak işaretlensin mi?')) return;
+  await sbPatch('planli_bakimlar', id, {
+    tamamlandi: true,
+    tamamlanma_tarihi: new Date().toISOString().split('T')[0]
+  });
+  await renderPlanliTablo();
+}
+
+async function planliSil(id) {
+  if (!confirm('Bu planlı bakım silinsin mi?')) return;
+  await fetch(`${SUPA_URL}/rest/v1/planli_bakimlar?id=eq.${id}`, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+  });
+  await renderPlanliTablo();
+}
 
 async function renderKaliplar() {
   const tbody = document.getElementById('kalip-tablo-body');
