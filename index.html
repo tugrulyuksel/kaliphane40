@@ -815,7 +815,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
               </select>
             </div>
             <div class="fg">
-              <label>Planlanan Tarih <span style="color:var(--red)">*</span></label>
+              <label>Planlanan Tarih <span style="color:var(--red)">*</span> <span style="color:var(--muted);font-weight:400;text-transform:none">(gg/aa/yyyy)</span></label>
               <input type="date" id="pf-tarih" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
             </div>
             <div style="display:flex;gap:8px">
@@ -1010,20 +1010,118 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 
     <!-- MALZEMELER -->
     <div class="panel" id="panel-malzemeler">
-      <div class="panel-card">
-        <div class="pc-header"><h3>Malzeme Stok</h3><div style="padding:7px 14px;background:var(--accent);border:none;border-radius:7px;color:#fff;font-size:12px;font-weight:600;cursor:pointer">+ Yeni Malzeme</div></div>
-        <div style="overflow-x:auto">
-          <table class="data-table">
-            <thead><tr><th>Malzeme Adı</th><th>Kategori</th><th>Stok</th><th>Birim</th><th>Durum</th></tr></thead>
-            <tbody>
-              <tr><td>M6×20 İmbus Civata</td><td>Civata</td><td>248</td><td>adet</td><td><span class="badge badge-green">Normal</span></td></tr>
-              <tr><td>M8×25 İmbus Civata</td><td>Civata</td><td>182</td><td>adet</td><td><span class="badge badge-green">Normal</span></td></tr>
-              <tr><td>6205 Rulman</td><td>Rulman</td><td>3</td><td>adet</td><td><span class="badge badge-red">Kritik</span></td></tr>
-              <tr><td>Ø8×40 Silindir Pim</td><td>Pim</td><td>56</td><td>adet</td><td><span class="badge badge-green">Normal</span></td></tr>
-            </tbody>
-          </table>
+
+      <!-- Üst sekmeler: Kategoriler / Malzemeler -->
+      <div style="display:flex;gap:8px;margin-bottom:1rem">
+        <div id="tab-kategoriler" style="padding:8px 20px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer" onclick="malzemeTab('kategoriler')">📁 Kategoriler</div>
+        <div id="tab-malzemeler" style="padding:8px 20px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer" onclick="malzemeTab('malzemeler')">📦 Malzemeler</div>
+      </div>
+
+      <!-- KATEGORİLER -->
+      <div id="bolum-kategoriler">
+        <div class="panel-card">
+          <div class="pc-header">
+            <h3>Kategori Listesi</h3>
+            <div style="padding:7px 14px;background:var(--accent);border:none;border-radius:7px;color:#fff;font-size:12px;font-weight:600;cursor:pointer" onclick="yeniKategoriForm()">+ Yeni Kategori</div>
+          </div>
+          <div id="kategori-agac" style="padding:1rem">
+            <div style="color:var(--muted);font-size:13px;text-align:center">Yükleniyor...</div>
+          </div>
+        </div>
+
+        <!-- Yeni Kategori Formu -->
+        <div id="kategori-form-kart" style="display:none;margin-top:1rem">
+          <div class="panel-card">
+            <div class="pc-header"><h3>Yeni Kategori</h3></div>
+            <div class="pc-body" style="display:flex;flex-direction:column;gap:1rem">
+              <div class="fg">
+                <label>Kategori Adı <span style="color:var(--red)">*</span></label>
+                <input type="text" id="kf-kat-adi" placeholder="örn: İmbus Civata"
+                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+              </div>
+              <div class="fg">
+                <label>Üst Kategori <span style="color:var(--muted);font-weight:400">(boş bırakırsan ana kategori olur)</span></label>
+                <select id="kf-kat-ust" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+                  <option value="">— Ana Kategori —</option>
+                </select>
+              </div>
+              <div style="display:flex;gap:8px">
+                <div style="flex:1;padding:10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;text-align:center;font-size:13px" onclick="kategoriFormIptal()">İptal</div>
+                <div style="flex:2;padding:10px;background:var(--accent);border:none;border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:600" onclick="Promise.resolve(kategoriKaydet()).catch(e=>console.error(e))">Kaydet</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+
+      <!-- MALZEMELER -->
+      <div id="bolum-malzemeler" style="display:none">
+        <div class="panel-card">
+          <div class="pc-header">
+            <h3>Malzeme Listesi</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="malzeme-filtre-kat" onchange="renderMalzemeler()" style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px">
+                <option value="">Tüm Kategoriler</option>
+              </select>
+              <div style="padding:7px 14px;background:var(--accent);border:none;border-radius:7px;color:#fff;font-size:12px;font-weight:600;cursor:pointer" onclick="yeniMalzemeForm()">+ Yeni Malzeme</div>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr><th>Malzeme Adı</th><th>Kategori</th><th>Stok</th><th>Birim</th><th>İşlem</th></tr></thead>
+              <tbody id="malzeme-tablo-body">
+                <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">Yükleniyor...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Yeni Malzeme Formu -->
+        <div id="malzeme-form-kart" style="display:none;margin-top:1rem">
+          <div class="panel-card">
+            <div class="pc-header"><h3 id="malzeme-form-baslik">Yeni Malzeme Ekle</h3></div>
+            <div class="pc-body" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+              <div class="fg">
+                <label>Malzeme Adı <span style="color:var(--red)">*</span></label>
+                <input type="text" id="mf-adi" placeholder="M6×20 İmbus"
+                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+              </div>
+              <div class="fg">
+                <label>Kategori <span style="color:var(--red)">*</span></label>
+                <select id="mf-kategori" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+                  <option value="">Kategori seç...</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label>Stok Miktarı</label>
+                <input type="number" id="mf-stok" placeholder="0" value="0"
+                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+              </div>
+              <div class="fg">
+                <label>Birim</label>
+                <select id="mf-birim" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+                  <option value="adet">Adet</option>
+                  <option value="kg">Kg</option>
+                  <option value="metre">Metre</option>
+                  <option value="litre">Litre</option>
+                  <option value="kutu">Kutu</option>
+                  <option value="paket">Paket</option>
+                </select>
+              </div>
+              <div class="fg" style="grid-column:span 2">
+                <label>Malzeme Kodu</label>
+                <input type="text" id="mf-kodu" placeholder="opsiyonel"
+                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+              </div>
+              <div style="grid-column:span 2;display:flex;gap:8px">
+                <div style="flex:1;padding:10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;text-align:center;font-size:13px" onclick="malzemeFormIptal()">İptal</div>
+                <div style="flex:2;padding:10px;background:var(--accent);border:none;border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:600" onclick="Promise.resolve(malzemeKaydet()).catch(e=>console.error(e))">Kaydet</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- RAPORLAR -->
@@ -1237,7 +1335,7 @@ async function renderPlanliGoster() {
         gunYazi = `<span class="pi-gun normal">${farkGun} gün kaldı</span>`;
       }
 
-      const tarihStr = planlanan.toLocaleDateString('tr-TR');
+      const tarihStr = planlanan.toLocaleDateString('tr-TR', {day:'2-digit', month:'2-digit', year:'numeric'}).replace(/\./g, '/');
 
       return `<div class="planli-item" onclick="Promise.resolve(planliDetayGoster('${kalip.kalip_kodu}','${kalip.kalip_adi.replace(/'/g,"\\'")}','${tarihStr}','${durum}','${b.id}')).catch(e=>console.error(e))">
         <div class="pi-top">
@@ -1995,12 +2093,210 @@ function panelAc(id, btn){
   else if(id === 'operatorler') renderOperatorler();
   else if(id === 'kaliplar') renderKaliplar();
   else if(id === 'planli') renderPlanliTablo();
+  else if(id === 'malzemeler') renderMalzemePanel();
   else renderYoneticiVeriler();
 }
 function opSec(el){document.querySelectorAll('.operator-kart').forEach(k=>k.classList.remove('selected'));el.classList.add('selected');}
 
 // ── KALIP YÖNETİMİ ──
 let duzenleKalipId = null;
+
+// ── MALZEME YÖNETİMİ ──
+let tumKategoriler = [];
+let duzenlemeMalzemeId = null;
+
+function malzemeTab(tab) {
+  document.getElementById('bolum-kategoriler').style.display = tab === 'kategoriler' ? 'block' : 'none';
+  document.getElementById('bolum-malzemeler').style.display = tab === 'malzemeler' ? 'block' : 'none';
+  document.getElementById('tab-kategoriler').style.background = tab === 'kategoriler' ? 'var(--accent)' : 'var(--card2)';
+  document.getElementById('tab-kategoriler').style.color = tab === 'kategoriler' ? '#fff' : 'var(--muted)';
+  document.getElementById('tab-malzemeler').style.background = tab === 'malzemeler' ? 'var(--accent)' : 'var(--card2)';
+  document.getElementById('tab-malzemeler').style.color = tab === 'malzemeler' ? '#fff' : 'var(--muted)';
+  if (tab === 'kategoriler') renderKategoriAgaci();
+  else renderMalzemeler();
+}
+
+async function renderMalzemePanel() {
+  await renderKategoriAgaci();
+  // Filtre dropdown doldur
+  await malzemeKategoriDropdownDoldur();
+}
+
+async function renderKategoriAgaci() {
+  const el = document.getElementById('kategori-agac');
+  if (!el) return;
+  try {
+    tumKategoriler = await sbGet('malzeme_kategoriler', 'order=ad') || [];
+    if (!tumKategoriler.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center">Kategori yok. + Yeni Kategori ekleyin.</div>';
+      return;
+    }
+
+    // Hiyerarşik ağaç oluştur
+    const analar = tumKategoriler.filter(k => !k.ust_kategori_id);
+    const altlar = tumKategoriler.filter(k => k.ust_kategori_id);
+
+    const html = analar.map(ana => {
+      const cocuklar = altlar.filter(a => a.ust_kategori_id === ana.id);
+      const cocukHtml = cocuklar.map(c => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .75rem .5rem 2rem;background:var(--bg);border-radius:6px;margin-bottom:4px">
+          <span style="font-size:13px">↳ ${c.ad}</span>
+          <div style="padding:3px 8px;background:var(--red-dim);border:1px solid var(--red);border-radius:5px;color:var(--red);font-size:11px;cursor:pointer"
+            onclick="Promise.resolve(kategoriSil('${c.id}')).catch(e=>console.error(e))">Sil</div>
+        </div>`).join('');
+
+      return `
+        <div style="margin-bottom:.75rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:.625rem .75rem;background:var(--card2);border:1px solid var(--border2);border-radius:8px;margin-bottom:4px">
+            <span style="font-size:14px;font-weight:600">📁 ${ana.ad}</span>
+            <div style="padding:3px 8px;background:var(--red-dim);border:1px solid var(--red);border-radius:5px;color:var(--red);font-size:11px;cursor:pointer"
+              onclick="Promise.resolve(kategoriSil('${ana.id}')).catch(e=>console.error(e))">Sil</div>
+          </div>
+          ${cocukHtml}
+        </div>`;
+    }).join('');
+
+    el.innerHTML = html;
+  } catch(e) { console.warn(e); }
+}
+
+function yeniKategoriForm() {
+  // Üst kategori dropdown doldur
+  const sel = document.getElementById('kf-kat-ust');
+  sel.innerHTML = '<option value="">— Ana Kategori —</option>' +
+    tumKategoriler.filter(k => !k.ust_kategori_id)
+      .map(k => `<option value="${k.id}">${k.ad}</option>`).join('');
+  document.getElementById('kf-kat-adi').value = '';
+  document.getElementById('kategori-form-kart').style.display = 'block';
+}
+
+function kategoriFormIptal() {
+  document.getElementById('kategori-form-kart').style.display = 'none';
+}
+
+async function kategoriKaydet() {
+  const ad = document.getElementById('kf-kat-adi').value.trim();
+  const ustId = document.getElementById('kf-kat-ust').value || null;
+  if (!ad) { alert('Kategori adı zorunlu.'); return; }
+  await sbPost('malzeme_kategoriler', { ad: ad, ust_kategori_id: ustId });
+  kategoriFormIptal();
+  await renderKategoriAgaci();
+  await malzemeKategoriDropdownDoldur();
+}
+
+async function kategoriSil(id) {
+  if (!confirm('Bu kategori silinsin mi? İçindeki malzemeler etkilenebilir.')) return;
+  await fetch(`${SUPA_URL}/rest/v1/malzeme_kategoriler?id=eq.${id}`, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+  });
+  await renderKategoriAgaci();
+}
+
+async function malzemeKategoriDropdownDoldur() {
+  const sels = ['malzeme-filtre-kat', 'mf-kategori'];
+  if (!tumKategoriler.length) tumKategoriler = await sbGet('malzeme_kategoriler', 'order=ad') || [];
+
+  sels.forEach(selId => {
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    const ilk = selId === 'malzeme-filtre-kat' ? '<option value="">Tüm Kategoriler</option>' : '<option value="">Kategori seç...</option>';
+    sel.innerHTML = ilk + tumKategoriler.map(k => {
+      const prefix = k.ust_kategori_id ? '↳ ' : '📁 ';
+      return `<option value="${k.id}">${prefix}${k.ad}</option>`;
+    }).join('');
+  });
+}
+
+async function renderMalzemeler() {
+  const tbody = document.getElementById('malzeme-tablo-body');
+  if (!tbody) return;
+  const filtreKat = document.getElementById('malzeme-filtre-kat')?.value || '';
+  try {
+    let filtre = 'aktif=eq.true&order=malzeme_adi';
+    if (filtreKat) filtre += `&kategori_id=eq.${filtreKat}`;
+    const malzemeler = await sbGet('malzemeler', filtre);
+    if (!malzemeler || !malzemeler.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">Malzeme yok</td></tr>';
+      return;
+    }
+    tbody.innerHTML = malzemeler.map(m => {
+      const kat = tumKategoriler.find(k => k.id === m.kategori_id);
+      return `<tr>
+        <td>${m.malzeme_adi}</td>
+        <td>${kat ? kat.ad : '—'}</td>
+        <td><span style="font-weight:600">${m.stok_miktari}</span></td>
+        <td>${m.birim}</td>
+        <td>
+          <div style="display:flex;gap:6px">
+            <div style="padding:4px 10px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:11px;cursor:pointer"
+              onclick="malzemeDuzenle('${m.id}')">Düzenle</div>
+            <div style="padding:4px 10px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;cursor:pointer"
+              onclick="Promise.resolve(malzemePasif('${m.id}')).catch(e=>console.error(e))">Pasif</div>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) { console.warn(e); }
+}
+
+function yeniMalzemeForm() {
+  duzenlemeMalzemeId = null;
+  document.getElementById('malzeme-form-baslik').textContent = 'Yeni Malzeme Ekle';
+  document.getElementById('mf-adi').value = '';
+  document.getElementById('mf-stok').value = '0';
+  document.getElementById('mf-kodu').value = '';
+  malzemeKategoriDropdownDoldur();
+  document.getElementById('malzeme-form-kart').style.display = 'block';
+  document.getElementById('malzeme-form-kart').scrollIntoView({behavior:'smooth'});
+}
+
+function malzemeDuzenle(malzemeId) {
+  // Supabase'den malzeme bilgisini çek
+  sbGet('malzemeler', `id=eq.${malzemeId}`).then(sonuc => {
+    if (!sonuc || !sonuc[0]) return;
+    const m = sonuc[0];
+    duzenlemeMalzemeId = malzemeId;
+    document.getElementById('malzeme-form-baslik').textContent = 'Malzeme Düzenle';
+    document.getElementById('mf-adi').value = m.malzeme_adi;
+    document.getElementById('mf-stok').value = m.stok_miktari;
+    document.getElementById('mf-kodu').value = m.malzeme_kodu || '';
+    malzemeKategoriDropdownDoldur().then(() => {
+      document.getElementById('mf-kategori').value = m.kategori_id || '';
+      document.getElementById('mf-birim').value = m.birim || 'adet';
+    });
+    document.getElementById('malzeme-form-kart').style.display = 'block';
+    document.getElementById('malzeme-form-kart').scrollIntoView({behavior:'smooth'});
+  });
+}
+
+function malzemeFormIptal() {
+  document.getElementById('malzeme-form-kart').style.display = 'none';
+  duzenlemeMalzemeId = null;
+}
+
+async function malzemeKaydet() {
+  const adi = document.getElementById('mf-adi').value.trim();
+  const katId = document.getElementById('mf-kategori').value;
+  const stok = parseFloat(document.getElementById('mf-stok').value) || 0;
+  const birim = document.getElementById('mf-birim').value;
+  const kodu = document.getElementById('mf-kodu').value.trim() || null;
+  if (!adi || !katId) { alert('Malzeme adı ve kategori zorunlu.'); return; }
+  const veri = { malzeme_adi: adi, kategori_id: katId, stok_miktari: stok, birim, malzeme_kodu: kodu, aktif: true };
+  if (duzenlemeMalzemeId) {
+    await sbPatch('malzemeler', duzenlemeMalzemeId, veri);
+  } else {
+    await sbPost('malzemeler', veri);
+  }
+  malzemeFormIptal();
+  await renderMalzemeler();
+}
+
+async function malzemePasif(id) {
+  if (!confirm('Bu malzeme pasif yapılsın mı?')) return;
+  await sbPatch('malzemeler', id, { aktif: false });
+  await renderMalzemeler();
+}
 
 // ── PLANLI BAKIM YÖNETİMİ ──
 async function renderPlanliTablo() {
@@ -2017,7 +2313,7 @@ async function renderPlanliTablo() {
       const kalip = tumKaliplar.find(k => k.id === b.kalip_id);
       const kalipAdi = kalip ? kalip.kalip_kodu + ' — ' + kalip.kalip_adi.slice(0,25) : '—';
       const planlanan = new Date(b.planlanan_tarih);
-      const tarihStr = planlanan.toLocaleDateString('tr-TR');
+      const tarihStr = planlanan.toLocaleDateString('tr-TR', {day:'2-digit', month:'2-digit', year:'numeric'}).replace(/\./g, '/');
       const fark = Math.round((planlanan - bugun) / 86400000);
 
       let durumBadge;
@@ -2115,10 +2411,10 @@ async function renderKaliplar() {
     }
     tbody.innerHTML = kaliplar.map(k => {
       const sonBakim = k.son_bakim_tarihi
-        ? new Date(k.son_bakim_tarihi).toLocaleDateString('tr-TR')
+        ? new Date(k.son_bakim_tarihi).toLocaleDateString('tr-TR', {day:'2-digit', month:'2-digit', year:'numeric'}).replace(/\./g, '/')
         : '—';
       const sonrakiBakim = k.son_bakim_tarihi && k.bakim_periyodu_gun
-        ? new Date(new Date(k.son_bakim_tarihi).getTime() + k.bakim_periyodu_gun * 86400000).toLocaleDateString('tr-TR')
+        ? new Date(new Date(k.son_bakim_tarihi).getTime() + k.bakim_periyodu_gun * 86400000).toLocaleDateString('tr-TR', {day:'2-digit', month:'2-digit', year:'numeric'}).replace(/\./g, '/')
         : '—';
       return `<tr>
         <td class="mono">${k.kalip_kodu}</td>
