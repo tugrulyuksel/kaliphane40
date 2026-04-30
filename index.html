@@ -643,28 +643,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
     <div class="form-section">
       <div class="form-section-title">Kullanılan Malzeme</div>
       <div class="form-section-body">
-        <div class="malzeme-cat">
-          <div class="cat-btn active" onclick="catSec(this,'Civata')">Civata</div>
-          <div class="cat-btn" onclick="catSec(this,'Pim')">Pim</div>
-          <div class="cat-btn" onclick="catSec(this,'Yay')">Yay</div>
-          <div class="cat-btn" onclick="catSec(this,'Rulman')">Rulman</div>
-          <div class="cat-btn" onclick="catSec(this,'Elektrik')">Elektrik</div>
-          <div class="cat-btn" onclick="catSec(this,'Hidrolik')">Hidrolik</div>
-          <div class="cat-btn" onclick="catSec(this,'Zımba')">Zımba</div>
-          <div class="cat-btn" onclick="catSec(this,'Kolon')">Kolon</div>
-          <div class="cat-btn" onclick="catSec(this,'Burç')">Burç</div>
-          <div class="cat-btn" onclick="catSec(this,'Parlatma')">Parlatma</div>
-          <div class="cat-btn" onclick="catSec(this,'Freze')">Freze Uçları</div>
-          <div class="cat-btn" onclick="catSec(this,'Matkap')">Matkap Ucu</div>
-          <div class="cat-btn" onclick="catSec(this,'Diger')">Diğer</div>
+        <div class="malzeme-cat" id="kapat-malzeme-cat">
+          <div style="color:var(--muted);font-size:13px">Yükleniyor...</div>
         </div>
         <div class="malzeme-grid" id="kapat-malzeme-grid">
-          <div class="malzeme-item" onclick="this.classList.toggle('selected')"><div class="m-name">M6×20 İmbus</div><div class="m-stok">Stok: 248 adet</div></div>
-          <div class="malzeme-item" onclick="this.classList.toggle('selected')"><div class="m-name">M8×25 İmbus</div><div class="m-stok">Stok: 182 adet</div></div>
-          <div class="malzeme-item" onclick="this.classList.toggle('selected')"><div class="m-name">M10×30 Altıgen</div><div class="m-stok">Stok: 94 adet</div></div>
-          <div class="malzeme-item" onclick="this.classList.toggle('selected')"><div class="m-name">M6×16 İmbus</div><div class="m-stok">Stok: 310 adet</div></div>
         </div>
-        <input type="text" class="malzeme-serbest" placeholder="Listede yok mu? Buraya yaz...">
+        <input type="text" class="malzeme-serbest" id="malzeme-serbest-input" placeholder="Listede yok mu? Buraya yaz...">
       </div>
     </div>
 
@@ -1653,6 +1637,40 @@ async function kapatEkraniHazirla() {
       </div>`;
   }
 
+  // Malzeme kategorilerini Supabase'den yükle
+  try {
+    if (!tumKategoriler.length) {
+      tumKategoriler = await sbGet('malzeme_kategoriler', 'order=ad') || [];
+    }
+    const catEl = document.getElementById('kapat-malzeme-cat');
+    const grid = document.getElementById('kapat-malzeme-grid');
+    if (catEl && tumKategoriler.length) {
+      catEl.innerHTML = tumKategoriler.map((k, i) =>
+        `<div class="cat-btn ${i===0?'active':''}" onclick="Promise.resolve(catSec(this,'${k.id}')).catch(e=>console.error(e))">${k.ad}</div>`
+      ).join('');
+      // İlk kategoriyi otomatik yükle
+      if (grid && tumKategoriler[0]) {
+        const ilkMalzemeler = await sbGet('malzemeler', `kategori_id=eq.${tumKategoriler[0].id}&aktif=eq.true&order=malzeme_adi`);
+        if (ilkMalzemeler && ilkMalzemeler.length) {
+          grid.innerHTML = ilkMalzemeler.map(m =>
+            `<div class="malzeme-item" onclick="this.classList.toggle('selected')" data-id="${m.id}" data-adi="${m.malzeme_adi}">
+              <div class="m-name">${m.malzeme_adi}</div>
+              <div class="m-stok">Stok: ${m.stok_miktari} ${m.birim}</div>
+            </div>`
+          ).join('');
+        } else {
+          grid.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem;grid-column:span 2">Bu kategoride malzeme yok</div>';
+        }
+      }
+    } else if (catEl) {
+      catEl.innerHTML = '<div style="color:var(--muted);font-size:13px">Malzeme kategorisi yok</div>';
+    }
+  } catch(e) { console.warn('Malzeme yüklenemedi:', e); }
+
+  // Serbest alanı temizle
+  const serbest = document.getElementById('malzeme-serbest-input');
+  if (serbest) serbest.value = '';
+
   // Planlı bakımsa checklistı işaretlenebilir göster
   const clBolum = document.getElementById('kapat-checklist-bolum');
   const clItems = document.getElementById('checklist-items');
@@ -1688,6 +1706,29 @@ async function isEmriKaydet() {
         toplam_sure_dak: Math.floor(saniye / 60),
         aciklama: aciklama
       });
+
+      // Seçilen malzemeleri kaydet
+      const seciliMalzemeler = document.querySelectorAll('#kapat-malzeme-grid .malzeme-item.selected');
+      for (const el of seciliMalzemeler) {
+        const malzemeId = el.dataset.id;
+        if (malzemeId) {
+          await sbPost('is_emri_malzemeleri', {
+            is_emri_id: aktifIsEmri.id,
+            malzeme_id: malzemeId,
+            kullanilan_miktar: 1
+          });
+        }
+      }
+
+      // Serbest malzeme varsa kaydet
+      const serbest = document.getElementById('malzeme-serbest-input')?.value.trim();
+      if (serbest) {
+        await sbPost('is_emri_malzemeleri', {
+          is_emri_id: aktifIsEmri.id,
+          malzeme_serbest: serbest,
+          kullanilan_miktar: 1
+        });
+      }
 
       // Planlı bakımsa tamamlandı işaretle
       if (planliMod && aktifPlanliId) {
@@ -2032,20 +2073,27 @@ function isEmriBitir(){
 // isEmriKaydet - yukarida tanimli
 
 // Malzeme kategorisi
-function catSec(btn,cat){
-  btn.closest('.malzeme-cat').querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));
+async function catSec(btn, katId) {
+  btn.closest('.malzeme-cat').querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  const data={
-    'Civata':[['M6×20 İmbus','248 adet'],['M8×25 İmbus','182 adet'],['M10×30 Altıgen','94 adet'],['M6×16 İmbus','310 adet']],
-    'Pim':[['Ø8×40 Silindir Pim','56 adet'],['Ø10×50 Silindir Pim','34 adet'],['Ø6×30 Konik Pim','78 adet']],
-    'Rulman':[['6205 Rulman','3 adet ⚠'],['6206 Rulman','8 adet'],['6208 Rulman','5 adet']],
-    'Yay':[['Basma Yayı Ø20','24 adet'],['Basma Yayı Ø30','18 adet'],['Çekme Yayı','15 adet']],
-  };
-  const gridId=btn.closest('.form-section')?'kapat-malzeme-grid':'kapat-malzeme-grid';
-  const grid=btn.closest('.form-section-body').querySelector('.malzeme-grid');
-  if(!grid) return;
-  const liste=data[cat]||[['Malzeme 1','Stok: -'],['Malzeme 2','Stok: -']];
-  grid.innerHTML=liste.map(([ad,stok])=>`<div class="malzeme-item" onclick="this.classList.toggle('selected')"><div class="m-name">${ad}</div><div class="m-stok">Stok: ${stok}</div></div>`).join('');
+  const grid = document.getElementById('kapat-malzeme-grid');
+  if (!grid) return;
+  grid.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem">Yükleniyor...</div>';
+  try {
+    const malzemeler = await sbGet('malzemeler', `kategori_id=eq.${katId}&aktif=eq.true&order=malzeme_adi`);
+    if (!malzemeler || !malzemeler.length) {
+      grid.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem;grid-column:span 2">Bu kategoride malzeme yok</div>';
+      return;
+    }
+    grid.innerHTML = malzemeler.map(m =>
+      `<div class="malzeme-item" onclick="this.classList.toggle('selected')" data-id="${m.id}" data-adi="${m.malzeme_adi}">
+        <div class="m-name">${m.malzeme_adi}</div>
+        <div class="m-stok">Stok: ${m.stok_miktari} ${m.birim}</div>
+      </div>`
+    ).join('');
+  } catch(e) {
+    grid.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem;grid-column:span 2">Yüklenemedi</div>';
+  }
 }
 
 // Operatör modal
