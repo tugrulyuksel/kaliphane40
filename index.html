@@ -1711,11 +1711,13 @@ async function isEmriKaydet() {
       const seciliMalzemeler = document.querySelectorAll('#kapat-malzeme-grid .malzeme-item.selected');
       for (const el of seciliMalzemeler) {
         const malzemeId = el.dataset.id;
+        const adetInput = el.querySelector('input[data-adet]');
+        const adet = adetInput ? parseFloat(adetInput.dataset.adet) || 1 : 1;
         if (malzemeId) {
           await sbPost('is_emri_malzemeleri', {
             is_emri_id: aktifIsEmri.id,
             malzeme_id: malzemeId,
-            kullanilan_miktar: 1
+            kullanilan_miktar: adet
           });
         }
       }
@@ -2101,9 +2103,18 @@ async function catSec(btn, katId) {
         return;
       }
       grid.innerHTML = malzemeler.map(m =>
-        `<div class="malzeme-item" onclick="this.classList.toggle('selected')" data-id="${m.id}" data-adi="${m.malzeme_adi}">
+        `<div class="malzeme-item" data-id="${m.id}" data-adi="${m.malzeme_adi}" onclick="malzemeToggle(this)">
           <div class="m-name">${m.malzeme_adi}</div>
           <div class="m-stok">Stok: ${m.stok_miktari} ${m.birim}</div>
+          <div class="m-adet" style="display:none;margin-top:6px;display:none">
+            <div style="display:flex;align-items:center;gap:4px;margin-top:6px">
+              <input type="number" min="1" value="1"
+                style="width:60px;padding:4px 6px;background:var(--bg);border:1px solid var(--accent);border-radius:6px;color:var(--text);font-size:13px;text-align:center"
+                onclick="event.stopPropagation()" data-adet="1"
+                oninput="this.dataset.adet=this.value">
+              <span style="font-size:12px;color:var(--muted)">${m.birim}</span>
+            </div>
+          </div>
         </div>`
       ).join('');
     } catch(e) {
@@ -2112,7 +2123,15 @@ async function catSec(btn, katId) {
   }
 }
 
-async function altCatSec(btn, katId, katAdi) {
+function malzemeToggle(el) {
+  const secili = el.classList.toggle('selected');
+  const adetDiv = el.querySelector('.m-adet');
+  if (adetDiv) adetDiv.style.display = secili ? 'block' : 'none';
+  if (secili) {
+    const input = adetDiv?.querySelector('input');
+    if (input) setTimeout(() => input.focus(), 100);
+  }
+}
   const grid = document.getElementById('kapat-malzeme-grid');
   if (!grid) return;
 
@@ -2132,13 +2151,22 @@ async function altCatSec(btn, katId, katAdi) {
     grid.innerHTML = `
       <div style="grid-column:span 2;display:flex;align-items:center;gap:8px;margin-bottom:4px">
         <div style="padding:4px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--muted);font-size:12px;cursor:pointer"
-          onclick="catSec(document.querySelector('#kapat-malzeme-cat .cat-btn.active'), document.querySelector('#kapat-malzeme-cat .cat-btn.active').dataset.katId)">← Geri</div>
+          onclick="Promise.resolve(catSec(document.querySelector('#kapat-malzeme-cat .cat-btn.active'), document.querySelector('#kapat-malzeme-cat .cat-btn.active').dataset.katId)).catch(e=>console.error(e))">← Geri</div>
         <span style="font-size:12px;color:var(--muted)">${katAdi}</span>
       </div>
       ${malzemeler.map(m =>
-        `<div class="malzeme-item" onclick="this.classList.toggle('selected')" data-id="${m.id}" data-adi="${m.malzeme_adi}">
+        `<div class="malzeme-item" data-id="${m.id}" data-adi="${m.malzeme_adi}" onclick="malzemeToggle(this)">
           <div class="m-name">${m.malzeme_adi}</div>
           <div class="m-stok">Stok: ${m.stok_miktari} ${m.birim}</div>
+          <div class="m-adet" style="display:none">
+            <div style="display:flex;align-items:center;gap:4px;margin-top:6px">
+              <input type="number" min="1" value="1"
+                style="width:60px;padding:4px 6px;background:var(--bg);border:1px solid var(--accent);border-radius:6px;color:var(--text);font-size:13px;text-align:center"
+                onclick="event.stopPropagation()" data-adet="1"
+                oninput="this.dataset.adet=this.value">
+              <span style="font-size:12px;color:var(--muted)">${m.birim}</span>
+            </div>
+          </div>
         </div>`
       ).join('')}`;
   } catch(e) {
