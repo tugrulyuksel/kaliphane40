@@ -1646,7 +1646,7 @@ async function kapatEkraniHazirla() {
     const grid = document.getElementById('kapat-malzeme-grid');
     if (catEl && tumKategoriler.length) {
       catEl.innerHTML = tumKategoriler.map((k, i) =>
-        `<div class="cat-btn ${i===0?'active':''}" onclick="Promise.resolve(catSec(this,'${k.id}')).catch(e=>console.error(e))">${k.ad}</div>`
+        `<div class="cat-btn ${i===0?'active':''}" data-kat-id="${k.id}" onclick="Promise.resolve(catSec(this,'${k.id}')).catch(e=>console.error(e))">${k.ad}</div>`
       ).join('');
       // İlk kategoriyi otomatik yükle
       if (grid && tumKategoriler[0]) {
@@ -2078,19 +2078,69 @@ async function catSec(btn, katId) {
   btn.classList.add('active');
   const grid = document.getElementById('kapat-malzeme-grid');
   if (!grid) return;
-  grid.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem">Yükleniyor...</div>';
+
+  // Bu kategorinin alt kategorileri var mı?
+  const altKatlar = tumKategoriler.filter(k => k.ust_kategori_id === katId);
+
+  if (altKatlar.length > 0) {
+    // Alt kategorileri göster
+    grid.innerHTML = altKatlar.map(alt =>
+      `<div class="malzeme-item" style="background:var(--card2);border-color:var(--border2)"
+        onclick="Promise.resolve(altCatSec(this,'${alt.id}','${alt.ad}')).catch(e=>console.error(e))">
+        <div class="m-name">📁 ${alt.ad}</div>
+        <div class="m-stok">Alt kategori</div>
+      </div>`
+    ).join('');
+  } else {
+    // Direkt malzemeleri göster
+    grid.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem;grid-column:span 2">Yükleniyor...</div>';
+    try {
+      const malzemeler = await sbGet('malzemeler', `kategori_id=eq.${katId}&aktif=eq.true&order=malzeme_adi`);
+      if (!malzemeler || !malzemeler.length) {
+        grid.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem;grid-column:span 2">Bu kategoride malzeme yok</div>';
+        return;
+      }
+      grid.innerHTML = malzemeler.map(m =>
+        `<div class="malzeme-item" onclick="this.classList.toggle('selected')" data-id="${m.id}" data-adi="${m.malzeme_adi}">
+          <div class="m-name">${m.malzeme_adi}</div>
+          <div class="m-stok">Stok: ${m.stok_miktari} ${m.birim}</div>
+        </div>`
+      ).join('');
+    } catch(e) {
+      grid.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem;grid-column:span 2">Yüklenemedi</div>';
+    }
+  }
+}
+
+async function altCatSec(btn, katId, katAdi) {
+  const grid = document.getElementById('kapat-malzeme-grid');
+  if (!grid) return;
+
+  // Seçili alt kategoriyi vurgula
+  btn.style.borderColor = 'var(--accent)';
+  btn.style.background = 'var(--accent-dim)';
+  btn.querySelector('.m-name').style.color = 'var(--accent)';
+
+  grid.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem;grid-column:span 2">Yükleniyor...</div>';
   try {
     const malzemeler = await sbGet('malzemeler', `kategori_id=eq.${katId}&aktif=eq.true&order=malzeme_adi`);
     if (!malzemeler || !malzemeler.length) {
-      grid.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem;grid-column:span 2">Bu kategoride malzeme yok</div>';
+      grid.innerHTML = `<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem;grid-column:span 2">${katAdi} kategorisinde malzeme yok</div>`;
       return;
     }
-    grid.innerHTML = malzemeler.map(m =>
-      `<div class="malzeme-item" onclick="this.classList.toggle('selected')" data-id="${m.id}" data-adi="${m.malzeme_adi}">
-        <div class="m-name">${m.malzeme_adi}</div>
-        <div class="m-stok">Stok: ${m.stok_miktari} ${m.birim}</div>
-      </div>`
-    ).join('');
+    // Geri butonu + malzemeler
+    grid.innerHTML = `
+      <div style="grid-column:span 2;display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <div style="padding:4px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--muted);font-size:12px;cursor:pointer"
+          onclick="catSec(document.querySelector('#kapat-malzeme-cat .cat-btn.active'), document.querySelector('#kapat-malzeme-cat .cat-btn.active').dataset.katId)">← Geri</div>
+        <span style="font-size:12px;color:var(--muted)">${katAdi}</span>
+      </div>
+      ${malzemeler.map(m =>
+        `<div class="malzeme-item" onclick="this.classList.toggle('selected')" data-id="${m.id}" data-adi="${m.malzeme_adi}">
+          <div class="m-name">${m.malzeme_adi}</div>
+          <div class="m-stok">Stok: ${m.stok_miktari} ${m.birim}</div>
+        </div>`
+      ).join('')}`;
   } catch(e) {
     grid.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem;grid-column:span 2">Yüklenemedi</div>';
   }
