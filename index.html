@@ -1228,6 +1228,28 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
           <label>Net Süre (dakika)</label>
           <input type="number" id="ie-edit-sure" style="padding:8px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
         </div>
+
+        <!-- Ekip Üyesi -->
+        <div class="fg">
+          <label>Ekip Üyesi Ekle</label>
+          <div id="ie-edit-ekip-listesi" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
+          <select id="ie-edit-ekip-sec" style="padding:8px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
+            <option value="">Ekip üyesi seç...</option>
+          </select>
+          <div style="padding:8px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:8px;color:var(--accent);font-size:13px;cursor:pointer;text-align:center;margin-top:6px"
+            onclick="ieEditEkipEkle()">+ Ekle</div>
+        </div>
+
+        <!-- Malzeme Seçimi -->
+        <div class="fg">
+          <label>Kullanılan Malzeme</label>
+          <div class="malzeme-cat" id="ie-edit-malzeme-cat" style="margin-bottom:.5rem">
+            <div style="color:var(--muted);font-size:12px">Yükleniyor...</div>
+          </div>
+          <div class="malzeme-grid" id="ie-edit-malzeme-grid"></div>
+          <input type="text" id="ie-edit-malzeme-serbest" placeholder="Listede yok mu? Buraya yaz..."
+            style="width:100%;padding:8px 10px;background:var(--bg);border:1px dashed var(--border2);border-radius:8px;color:var(--muted);font-size:12px;font-family:inherit;margin-top:6px">
+        </div>
         <div style="display:flex;gap:8px">
           <div style="flex:1;padding:9px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;text-align:center;font-size:13px"
             onclick="document.getElementById('ie-modal-duzenle').style.display='none'">İptal</div>
@@ -1239,7 +1261,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 
     <div style="display:flex;gap:8px;margin-top:1rem">
       <div style="flex:1;padding:10px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;text-align:center;font-size:13px"
-        onclick="ieDetayDuzenleAc()">✏️ Düzenle</div>
+        onclick="Promise.resolve(ieDetayDuzenleAc()).catch(e=>console.error(e))">✏️ Düzenle</div>
       <div id="ie-modal-kapat-btn" style="display:none;flex:1;padding:10px;background:var(--red);border:none;border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:600"
         onclick="Promise.resolve(yoneticiIsEmriKapat()).catch(e=>console.error(e))">■ Kapat</div>
     </div>
@@ -2349,9 +2371,8 @@ async function altCatSec(btn, katId, katAdi) {
 // Operatör modal
 function operatorEkleModal(){
   const modal = document.getElementById('op-modal');
-  const opsEl = modal.querySelector('.modal-ops');
+  const opsEl = document.getElementById('modal-ops-liste');
 
-  // Aktif operatörü hariç tut, Supabase'den gelenlerden doldur
   opsEl.innerHTML = tumOperatorler
     .filter(o => o.id !== aktifOperator?.id)
     .map(o => {
@@ -2539,11 +2560,10 @@ async function ieDetayAc(isEmriId) {
   } catch(e) { console.warn(e); }
 }
 
-function ieDetayDuzenleAc() {
+async function ieDetayDuzenleAc() {
   const form = document.getElementById('ie-modal-duzenle');
   if (form.style.display === 'none' || !form.style.display) {
-    // Mevcut değerleri forma doldur
-    sbGet('is_emirleri', `id=eq.${seciiliIsEmriId}`).then(sonuc => {
+    sbGet('is_emirleri', `id=eq.${seciiliIsEmriId}`).then(async sonuc => {
       if (sonuc && sonuc[0]) {
         const ie = sonuc[0];
         document.getElementById('ie-edit-problem').value = ie.problem || '';
@@ -2552,10 +2572,131 @@ function ieDetayDuzenleAc() {
         document.getElementById('ie-edit-sure').value = ie.toplam_sure_dak || '';
       }
     });
+
+    // Ekip dropdown doldur
+    const ekipSec = document.getElementById('ie-edit-ekip-sec');
+    if (ekipSec) {
+      ekipSec.innerHTML = '<option value="">Ekip üyesi seç...</option>' +
+        tumOperatorler.map(o =>
+          `<option value="${o.id}">${o.ad_soyad}</option>`
+        ).join('');
+    }
+    document.getElementById('ie-edit-ekip-listesi').innerHTML = '';
+
+    // Malzeme kategorilerini yükle
+    Promise.resolve(ieEditMalzemeYukle()).catch(e => console.warn(e));
     form.style.display = 'block';
   } else {
     form.style.display = 'none';
   }
+}
+
+function ieEditEkipEkle() {
+  const sel = document.getElementById('ie-edit-ekip-sec');
+  const opId = sel?.value;
+  if (!opId) { alert('Önce ekip üyesi seçin.'); return; }
+
+  const liste = document.getElementById('ie-edit-ekip-listesi');
+  // Zaten eklenmiş mi?
+  if (liste.querySelector(`[data-op-id="${opId}"]`)) { alert('Bu kişi zaten eklendi.'); return; }
+
+  const op = tumOperatorler.find(o => o.id === opId);
+  if (!op) return;
+
+  const rolTR = {yonetici:'Yönetici', usta:'Usta', cirak:'Çırak', cnc:'CNC', muhendis:'Mühendis', formen:'Formen'};
+  const initials = op.ad_soyad.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+  const d = document.createElement('div');
+  d.className = 'operator-item';
+  d.dataset.opId = opId;
+  d.innerHTML = `
+    <div class="operator-avatar">${initials}</div>
+    <div class="op-name">${op.ad_soyad}</div>
+    <div style="margin-left:auto"><span class="badge badge-blue">${rolTR[op.rol]||op.rol}</span></div>
+    <div class="op-remove" onclick="this.parentElement.remove()">×</div>`;
+  liste.appendChild(d);
+  sel.value = '';
+}
+  if (!tumKategoriler.length) {
+    tumKategoriler = await sbGet('malzeme_kategoriler', 'order=ad') || [];
+  }
+  const catEl = document.getElementById('ie-edit-malzeme-cat');
+  const grid = document.getElementById('ie-edit-malzeme-grid');
+  if (!catEl || !tumKategoriler.length) return;
+
+  catEl.innerHTML = tumKategoriler.map((k, i) =>
+    `<div class="cat-btn ${i===0?'active':''}" data-kat-id="${k.id}"
+      onclick="Promise.resolve(ieEditCatSec(this,'${k.id}')).catch(e=>console.error(e))">${k.ad}</div>`
+  ).join('');
+
+  // İlk kategoriyi yükle
+  if (tumKategoriler[0]) {
+    await ieEditCatSec(catEl.querySelector('.cat-btn.active'), tumKategoriler[0].id);
+  }
+}
+
+async function ieEditCatSec(btn, katId) {
+  if (!btn) return;
+  btn.closest('.malzeme-cat').querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const grid = document.getElementById('ie-edit-malzeme-grid');
+  if (!grid) return;
+
+  const altKatlar = tumKategoriler.filter(k => k.ust_kategori_id === katId);
+  if (altKatlar.length > 0) {
+    grid.innerHTML = altKatlar.map(alt =>
+      `<div class="malzeme-item" style="background:var(--card2);border-color:var(--border2)"
+        onclick="Promise.resolve(ieEditAltCatSec('${alt.id}','${alt.ad}')).catch(e=>console.error(e))">
+        <div class="m-name">📁 ${alt.ad}</div>
+        <div class="m-stok">Alt kategori</div>
+      </div>`
+    ).join('');
+  } else {
+    grid.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;grid-column:span 2;padding:.5rem">Yükleniyor...</div>';
+    const malzemeler = await sbGet('malzemeler', `kategori_id=eq.${katId}&aktif=eq.true&order=malzeme_adi`);
+    grid.innerHTML = !malzemeler?.length
+      ? '<div style="color:var(--muted);font-size:12px;text-align:center;grid-column:span 2;padding:.5rem">Malzeme yok</div>'
+      : malzemeler.map(m => `
+          <div class="malzeme-item" onclick="malzemeToggle(this)" data-id="${m.id}" data-adi="${m.malzeme_adi}">
+            <div class="m-name">${m.malzeme_adi}</div>
+            <div class="m-stok">Stok: ${m.stok_miktari} ${m.birim}</div>
+            <div class="m-adet" style="display:none">
+              <div style="display:flex;align-items:center;gap:4px;margin-top:6px">
+                <input type="number" min="1" value="1"
+                  style="width:60px;padding:4px 6px;background:var(--bg);border:1px solid var(--accent);border-radius:6px;color:var(--text);font-size:13px;text-align:center"
+                  onclick="event.stopPropagation()" data-adet="1" oninput="this.dataset.adet=this.value">
+                <span style="font-size:12px;color:var(--muted)">${m.birim}</span>
+              </div>
+            </div>
+          </div>`).join('');
+  }
+}
+
+async function ieEditAltCatSec(katId, katAdi) {
+  const grid = document.getElementById('ie-edit-malzeme-grid');
+  if (!grid) return;
+  const malzemeler = await sbGet('malzemeler', `kategori_id=eq.${katId}&aktif=eq.true&order=malzeme_adi`);
+  grid.innerHTML = `
+    <div style="grid-column:span 2;display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <div style="padding:3px 8px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--muted);font-size:11px;cursor:pointer"
+        onclick="ieEditMalzemeYukle()">← Geri</div>
+      <span style="font-size:12px;color:var(--muted)">${katAdi}</span>
+    </div>
+    ${!malzemeler?.length
+      ? '<div style="color:var(--muted);font-size:12px;text-align:center;grid-column:span 2;padding:.5rem">Malzeme yok</div>'
+      : malzemeler.map(m => `
+          <div class="malzeme-item" onclick="malzemeToggle(this)" data-id="${m.id}" data-adi="${m.malzeme_adi}">
+            <div class="m-name">${m.malzeme_adi}</div>
+            <div class="m-stok">Stok: ${m.stok_miktari} ${m.birim}</div>
+            <div class="m-adet" style="display:none">
+              <div style="display:flex;align-items:center;gap:4px;margin-top:6px">
+                <input type="number" min="1" value="1"
+                  style="width:60px;padding:4px 6px;background:var(--bg);border:1px solid var(--accent);border-radius:6px;color:var(--text);font-size:13px;text-align:center"
+                  onclick="event.stopPropagation()" data-adet="1" oninput="this.dataset.adet=this.value">
+                <span style="font-size:12px;color:var(--muted)">${m.birim}</span>
+              </div>
+            </div>
+          </div>`).join('')}`;
 }
 
 async function yoneticiIsEmriGuncelle() {
@@ -2571,6 +2712,55 @@ async function yoneticiIsEmriGuncelle() {
     aciklama: aciklama || null,
     toplam_sure_dak: sure
   });
+
+  // Eklenen ekip üyelerini kaydet
+  const ekipItems = document.querySelectorAll('#ie-edit-ekip-listesi .operator-item');
+  for (const el of ekipItems) {
+    const opId = el.dataset.opId;
+    if (opId) {
+      await sbPost('is_emri_operatorler', {
+        is_emri_id: seciiliIsEmriId,
+        operator_id: opId,
+        rol: 'yardimci'
+      });
+    }
+  }
+
+  // Seçilen malzemeleri kaydet
+  const seciliMalzemeler = document.querySelectorAll('#ie-edit-malzeme-grid .malzeme-item.selected');
+  for (const el of seciliMalzemeler) {
+    const malzemeId = el.dataset.id;
+    const adetInput = el.querySelector('input[data-adet]');
+    const adet = adetInput ? parseFloat(adetInput.dataset.adet) || 1 : 1;
+    if (malzemeId) {
+      // Stok kontrolü
+      const malzeme = await sbGet('malzemeler', `id=eq.${malzemeId}`);
+      if (malzeme && malzeme[0] && malzeme[0].stok_miktari < adet) {
+        alert(`⚠ Yetersiz stok!\n"${el.dataset.adi}"\nMevcut: ${malzeme[0].stok_miktari} ${malzeme[0].birim}`);
+        return;
+      }
+      await sbPost('is_emri_malzemeleri', {
+        is_emri_id: seciiliIsEmriId,
+        malzeme_id: malzemeId,
+        kullanilan_miktar: adet
+      });
+      if (malzeme && malzeme[0]) {
+        await sbPatch('malzemeler', malzemeId, {
+          stok_miktari: Math.max(0, malzeme[0].stok_miktari - adet)
+        });
+      }
+    }
+  }
+
+  // Serbest malzeme
+  const serbest = document.getElementById('ie-edit-malzeme-serbest')?.value.trim();
+  if (serbest) {
+    await sbPost('is_emri_malzemeleri', {
+      is_emri_id: seciiliIsEmriId,
+      malzeme_serbest: serbest,
+      kullanilan_miktar: 1
+    });
+  }
 
   document.getElementById('ie-modal-duzenle').style.display = 'none';
   alert('Kaydedildi!');
