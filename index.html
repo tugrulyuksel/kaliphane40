@@ -2617,6 +2617,8 @@ function ieEditEkipEkle() {
   liste.appendChild(d);
   sel.value = '';
 }
+
+async function ieEditMalzemeYukle() {
   if (!tumKategoriler.length) {
     tumKategoriler = await sbGet('malzeme_kategoriler', 'order=ad') || [];
   }
