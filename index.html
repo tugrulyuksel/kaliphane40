@@ -1452,14 +1452,15 @@ async function renderAktifIsEmirleri() {
     // Kalıp adlarını bul
     liste.innerHTML = emirler.map(ie => {
       const kalip = tumKaliplar.find(k => k.id === ie.kalip_id);
-      const kalipAdi = kalip ? kalip.kalip_adi : ie.kalip_id;
+      const kalipAdi = kalip ? kalip.kalip_adi : (ie.kalip_id || '—');
+      const kalipAdiSafe = kalipAdi.replace(/'/g,"\\'").replace(/"/g,'&quot;');
       const bas = ie.baslangic_zaman ? new Date(ie.baslangic_zaman) : null;
       const gecen = bas ? Math.floor((Date.now() - bas.getTime()) / 60000) : 0;
       const gecenStr = gecen >= 60
         ? Math.floor(gecen/60) + 's ' + (gecen%60) + 'dk'
         : gecen + ' dk önce başladı';
       return `
-        <div class="planli-item" onclick="aktifIsEmriAc('${ie.id}','${kalipAdi.replace(/'/g,"\\'")}','${ie.is_emri_no}','${ie.tur}')">
+        <div class="planli-item" onclick="aktifIsEmriAc('${ie.id}','${kalipAdiSafe}','${ie.is_emri_no}','${ie.tur}')">
           <div class="pi-top">
             <span class="pi-kalip">${kalipAdi}</span>
             <span class="badge badge-amber">Devam Ediyor</span>
@@ -1477,21 +1478,45 @@ async function renderAktifIsEmirleri() {
 }
 
 function aktifIsEmriAc(isEmriId, kalipAdi, isEmriNo, tur) {
-  // Mevcut aktif iş emrini yükle
   sbGet('is_emirleri', `id=eq.${isEmriId}`).then(sonuc => {
     if (sonuc && sonuc[0]) {
       aktifIsEmri = sonuc[0];
       const kalip = tumKaliplar.find(k => k.id === aktifIsEmri.kalip_id);
       aktifKalip = kalip || null;
+      planliMod = (tur === 'P');
+
       document.getElementById('aktif-kalip-adi').textContent = kalipAdi;
-      document.getElementById('aktif-tur-badge').textContent = tur === 'P' ? 'Planli Bakim' : 'Ariza';
+      const detay = document.getElementById('aktif-kalip-detay');
+      if (detay) detay.textContent = kalipAdi;
+      document.getElementById('aktif-tur-badge').textContent = tur === 'P' ? 'Planlı Bakım' : 'Arıza';
       document.getElementById('aktif-tur-badge').className = 'badge ' + (tur === 'P' ? 'badge-blue' : 'badge-red');
+
+      // Üretim durdu butonu
+      const uretimBtn = document.getElementById('uretim-btn');
+      if (uretimBtn) uretimBtn.style.display = tur === 'P' ? 'none' : 'flex';
+
+      // Checklist
       const cl = document.getElementById('checklist-bolum');
-      if (cl) cl.style.display = tur === 'P' ? 'block' : 'none';
+      if (cl) {
+        if (tur === 'P' && aktifKalip) {
+          aktifChecklistKalipId = aktifKalip.id;
+          Promise.resolve(renderAktifChecklistBilgi(aktifKalip.id)).catch(e => console.warn(e));
+        } else {
+          cl.style.display = 'none';
+        }
+      }
+
       // Başlangıç zamanından süreyi hesapla
       if (aktifIsEmri.baslangic_zaman) {
         saniye = Math.floor((Date.now() - new Date(aktifIsEmri.baslangic_zaman).getTime()) / 1000);
       }
+
+      // Başlangıç zamanını göster
+      const basZaman = document.getElementById('aktif-bas-zaman');
+      if (basZaman && aktifIsEmri.baslangic_zaman) {
+        basZaman.textContent = new Date(aktifIsEmri.baslangic_zaman).toLocaleString('tr-TR');
+      }
+
       gosterEkran('screen-aktif');
     }
   });
