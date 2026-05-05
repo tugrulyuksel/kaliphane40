@@ -347,7 +347,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 <div id="screen-usta" class="screen">
   <div class="usta-header">
     <div class="logo">⚙️ Kalıphane 4.0 <span>USTA</span></div>
-    <div class="user-info"><strong id="usta-ad">—</strong><span id="usta-rol-bilgi">— · —</span></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="user-info"><strong id="usta-ad">—</strong><span id="usta-rol-bilgi">— · —</span></div>
+      <div onclick="cikisYap()" style="width:32px;height:32px;background:var(--red-dim);border:1px solid var(--red);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px" title="Çıkış">🚪</div>
+    </div>
   </div>
   <div class="usta-body">
 
