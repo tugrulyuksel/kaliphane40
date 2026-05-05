@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="zxing.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root {
   --bg:#0f1117;--card:#1a1d27;--card2:#21253a;
@@ -1140,6 +1141,28 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         <div class="stat-card"><div class="s-lbl">Planlı Tamamlanma</div><div class="s-val" id="r-planli-oran">—</div><div class="s-sub" id="r-planli-sub">—</div></div>
         <div class="stat-card"><div class="s-lbl">MTTR</div><div class="s-val" id="r-mttr">—</div><div class="s-sub" id="r-mttr-sub">—</div></div>
         <div class="stat-card"><div class="s-lbl">Arıza Oranı</div><div class="s-val" id="r-ariza-oran">—</div><div class="s-sub" id="r-ariza-sub">—</div></div>
+      </div>
+
+      <!-- Grafikler -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem" id="grafik-grid">
+        <div class="panel-card">
+          <div class="pc-header"><h3>📊 Aylık İş Emri Trendi</h3></div>
+          <div class="pc-body"><canvas id="grafik-trend" height="200"></canvas></div>
+        </div>
+        <div class="panel-card">
+          <div class="pc-header"><h3>🥧 Arıza / Planlı Dağılımı</h3></div>
+          <div class="pc-body" style="display:flex;align-items:center;justify-content:center">
+            <canvas id="grafik-dagilim" height="200" style="max-width:250px"></canvas>
+          </div>
+        </div>
+        <div class="panel-card">
+          <div class="pc-header"><h3>🔧 Kalıp Bazlı İş Emri</h3></div>
+          <div class="pc-body"><canvas id="grafik-kalip" height="200"></canvas></div>
+        </div>
+        <div class="panel-card">
+          <div class="pc-header"><h3>👷 Operatör İş Yükü</h3></div>
+          <div class="pc-body"><canvas id="grafik-operator" height="200"></canvas></div>
+        </div>
       </div>
 
       <!-- İş Emri Dağılımı -->
@@ -2878,6 +2901,9 @@ async function raporHesapla() {
 
   document.getElementById('r-liste-sayac').textContent = toplam + ' kayıt';
 
+  // Grafikleri çiz
+  grafiklerCiz(emirler);
+
   // Tablo
   const tbody = document.getElementById('rapor-tablo-body');
   tbody.innerHTML = emirler.map(e => {
@@ -2908,6 +2934,105 @@ async function raporHesapla() {
       <div style="display:flex;justify-content:space-between"><span style="color:var(--muted);font-size:13px">Devam Eden</span><span style="font-weight:700;color:var(--amber)">${toplam - kapalilar.length}</span></div>
       <div style="border-top:1px solid var(--border);padding-top:8px;display:flex;justify-content:space-between"><span style="color:var(--muted);font-size:13px">MTTR</span><span style="font-weight:700">${mttr.toFixed(1)} sa</span></div>
     </div>`;
+}
+
+// ── GRAFİKLER ──
+let grafikler = {};
+
+function grafikleriTemizle() {
+  Object.values(grafikler).forEach(g => { try { g.destroy(); } catch(e) {} });
+  grafikler = {};
+}
+
+function grafikOlustur(id, tip, data, options = {}) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  const defaultOptions = {
+    responsive: true,
+    plugins: {
+      legend: { labels: { color: '#8b92a8', font: { size: 11 } } }
+    },
+    scales: tip !== 'pie' && tip !== 'doughnut' ? {
+      x: { ticks: { color: '#8b92a8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+      y: { ticks: { color: '#8b92a8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
+    } : {}
+  };
+  grafikler[id] = new Chart(ctx, {
+    type: tip,
+    data: data,
+    options: { ...defaultOptions, ...options }
+  });
+}
+
+function grafiklerCiz(emirler) {
+  grafikleriTemizle();
+  if (!emirler || !emirler.length) return;
+
+  // 1. Aylık trend
+  const aylar = {};
+  emirler.forEach(e => {
+    const ay = new Date(e.created_at).toLocaleDateString('tr-TR', {month:'short', year:'2-digit'});
+    if (!aylar[ay]) aylar[ay] = {planli: 0, ariza: 0};
+    if (e.tur === 'P') aylar[ay].planli++;
+    else aylar[ay].ariza++;
+  });
+  const ayLabels = Object.keys(aylar).slice(-6);
+  grafikOlustur('grafik-trend', 'bar', {
+    labels: ayLabels,
+    datasets: [
+      { label: 'Planlı', data: ayLabels.map(a => aylar[a]?.planli || 0), backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 4 },
+      { label: 'Arıza', data: ayLabels.map(a => aylar[a]?.ariza || 0), backgroundColor: 'rgba(239,68,68,0.7)', borderRadius: 4 }
+    ]
+  }, { plugins: { legend: { labels: { color: '#8b92a8' } } } });
+
+  // 2. Arıza/Planlı dağılımı
+  const planliSay = emirler.filter(e => e.tur === 'P').length;
+  const arizaSay = emirler.filter(e => e.tur === 'C').length;
+  grafikOlustur('grafik-dagilim', 'doughnut', {
+    labels: ['Planlı', 'Arıza'],
+    datasets: [{
+      data: [planliSay, arizaSay],
+      backgroundColor: ['rgba(59,130,246,0.8)', 'rgba(239,68,68,0.8)'],
+      borderColor: ['#3b82f6', '#ef4444'],
+      borderWidth: 2
+    }]
+  });
+
+  // 3. Kalıp bazlı
+  const kalipSay = {};
+  emirler.forEach(e => {
+    const kalip = tumKaliplar.find(k => k.id === e.kalip_id);
+    const ad = kalip ? kalip.kalip_kodu : '—';
+    kalipSay[ad] = (kalipSay[ad] || 0) + 1;
+  });
+  const kalipSirali = Object.entries(kalipSay).sort((a,b) => b[1]-a[1]).slice(0, 6);
+  grafikOlustur('grafik-kalip', 'bar', {
+    labels: kalipSirali.map(k => k[0]),
+    datasets: [{
+      label: 'İş Emri',
+      data: kalipSirali.map(k => k[1]),
+      backgroundColor: 'rgba(245,158,11,0.7)',
+      borderRadius: 4
+    }]
+  }, { plugins: { legend: { display: false } }, indexAxis: 'y' });
+
+  // 4. Operatör iş yükü
+  const opSay = {};
+  emirler.forEach(e => {
+    const op = tumOperatorler.find(o => o.id === e.acik_eden_operator_id);
+    const ad = op ? op.ad_soyad.split(' ')[0] : '—';
+    opSay[ad] = (opSay[ad] || 0) + 1;
+  });
+  const opSirali = Object.entries(opSay).sort((a,b) => b[1]-a[1]).slice(0, 6);
+  grafikOlustur('grafik-operator', 'bar', {
+    labels: opSirali.map(o => o[0]),
+    datasets: [{
+      label: 'İş Emri',
+      data: opSirali.map(o => o[1]),
+      backgroundColor: 'rgba(34,197,94,0.7)',
+      borderRadius: 4
+    }]
+  }, { plugins: { legend: { display: false } } });
 }
 
 function raporPanelAc() {
