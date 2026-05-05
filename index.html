@@ -758,12 +758,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         </div>
         <div style="overflow-x:auto">
           <table class="data-table">
-            <thead><tr><th>İş Emri No</th><th>Kalıp</th><th>Tür</th><th>İşlem</th><th>Ekip</th><th>Net Süre</th><th>Durum</th></tr></thead>
-            <tbody>
-              <tr><td class="mono">#IE-2025-1877</td><td>ATROMIX ALT-ÜST</td><td><span class="badge badge-red">Arıza</span></td><td>Arıza Tamir</td><td>Ahmet Y. + Mehmet K.</td><td>Devam ediyor</td><td><span class="badge badge-green">● Aktif</span></td></tr>
-              <tr><td class="mono">#IE-2025-1876</td><td>ALARKO KENETLEME</td><td><span class="badge badge-blue">Planlı</span></td><td>Periyodik Bakım</td><td>Hasan D.</td><td>00:45</td><td><span class="badge badge-green">● Aktif</span></td></tr>
-              <tr><td class="mono">#IE-2025-1875</td><td>EMAS ÜK DELME</td><td><span class="badge badge-red">Arıza</span></td><td>Ayar</td><td>Ali K.</td><td>02:10</td><td><span class="badge badge-amber">Duraklatıldı</span></td></tr>
-              <tr><td class="mono">#IE-2025-1874</td><td>BOSCH C2000</td><td><span class="badge badge-blue">Planlı</span></td><td>Temizlik</td><td>Mehmet K.</td><td>01:20</td><td><span class="badge badge-purple">✓ Kapatıldı</span></td></tr>
+            <thead><tr><th>İş Emri No</th><th>Kalıp</th><th>Tür</th><th>İşlem</th><th>Operatör</th><th>Net Süre</th><th>Durum</th><th>İşlem</th></tr></thead>
+            <tbody id="panel-is-emirleri-body">
+              <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">Yükleniyor...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1188,6 +1185,23 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
   </div>
 </div>
 
+<!-- İş Emri Detay Modalı -->
+<div class="modal-overlay" id="ie-detay-modal">
+  <div class="modal" style="max-width:560px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+      <h3 id="ie-modal-no">—</h3>
+      <div onclick="document.getElementById('ie-detay-modal').classList.remove('open')" style="cursor:pointer;color:var(--muted);font-size:20px">✕</div>
+    </div>
+    <div id="ie-modal-icerik">
+      <div style="color:var(--muted);text-align:center;padding:2rem">Yükleniyor...</div>
+    </div>
+    <div id="ie-modal-kapat-btn" style="display:none;margin-top:1rem">
+      <div style="padding:12px;background:var(--red);border:none;border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:14px;font-weight:600"
+        onclick="Promise.resolve(yoneticiIsEmriKapat()).catch(e=>console.error(e))">■ İş Emrini Kapat</div>
+    </div>
+  </div>
+</div>
+
 <!-- Operatör Modal -->
 <div class="modal-overlay" id="op-modal">
   <div class="modal">
@@ -1300,6 +1314,9 @@ async function girisYap() {
   const rolTR = {yonetici:'Yönetici', usta:'Usta', cirak:'Çırak', cnc:'CNC Operatörü', muhendis:'Mühendis', formen:'Formen'};
   document.getElementById('usta-ad').textContent = aktifOperator.ad_soyad;
   document.getElementById('usta-rol-bilgi').textContent = (rolTR[aktifOperator.rol] || aktifOperator.rol) + ' · ' + aktifOperator.operator_kodu;
+
+  // Oturumu hatırla
+  localStorage.setItem('aktif_operator_id', aktifOperator.id);
 
   await verileriYukle();
 
@@ -1573,7 +1590,7 @@ async function renderYoneticiVeriler() {
 
     // İş emirleri tablosu
     if (tumEmir) {
-      const tbody = document.querySelector('#panel-is-emirleri tbody');
+      const tbody = document.getElementById('panel-is-emirleri-body') || document.querySelector('#panel-is-emirleri tbody');
       if (tbody) {
         tbody.innerHTML = tumEmir.slice(0, 50).map(ie => {
           const kalip = tumKaliplar.find(k => k.id === ie.kalip_id);
@@ -1592,6 +1609,10 @@ async function renderYoneticiVeriler() {
             <td>${op ? op.ad_soyad : '—'}</td>
             <td>${sure}</td>
             <td>${durumBadge}</td>
+            <td>
+              <div style="padding:4px 10px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:11px;cursor:pointer"
+                onclick="ieDetayAc('${ie.id}')">Detay</div>
+            </td>
           </tr>`;
         }).join('');
       }
@@ -1859,7 +1880,13 @@ function gosterEkran(id){
   // Sayfayı en üste al
   window.scrollTo(0,0);
 }
-function cikisYap(){gosterEkran('screen-login');}
+function cikisYap(){
+  localStorage.removeItem('aktif_operator_id');
+  aktifOperator = null;
+  aktifIsEmri = null;
+  aktifKalip = null;
+  gosterEkran('screen-login');
+}
 
 // ── QR OKUMA ──
 let qrStream = null;
@@ -2311,6 +2338,102 @@ function panelAc(id, btn){
   else renderYoneticiVeriler();
 }
 function opSec(el){document.querySelectorAll('.operator-kart').forEach(k=>k.classList.remove('selected'));el.classList.add('selected');}
+
+// ── YÖNETİCİ İŞ EMRİ DETAY ──
+let seciiliIsEmriId = null;
+
+async function ieDetayAc(isEmriId) {
+  seciiliIsEmriId = isEmriId;
+  document.getElementById('ie-detay-modal').classList.add('open');
+  document.getElementById('ie-modal-icerik').innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem">Yükleniyor...</div>';
+
+  try {
+    const sonuc = await sbGet('is_emirleri', `id=eq.${isEmriId}`);
+    const ie = sonuc && sonuc[0];
+    if (!ie) return;
+
+    const kalip = tumKaliplar.find(k => k.id === ie.kalip_id);
+    const op = tumOperatorler.find(o => o.id === ie.acik_eden_operator_id);
+    const bas = ie.baslangic_zaman ? new Date(ie.baslangic_zaman).toLocaleString('tr-TR') : '—';
+    const bit = ie.bitis_zaman ? new Date(ie.bitis_zaman).toLocaleString('tr-TR') : '—';
+    const sure = ie.toplam_sure_dak
+      ? Math.floor(ie.toplam_sure_dak/60) + ' sa ' + (ie.toplam_sure_dak%60) + ' dk'
+      : ie.acik_kapali === 'Acik' ? 'Devam ediyor' : '—';
+
+    document.getElementById('ie-modal-no').textContent = ie.is_emri_no;
+
+    document.getElementById('ie-modal-icerik').innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="padding:.75rem;background:var(--bg);border-radius:8px">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">KALIP</div>
+            <div style="font-size:13px;font-weight:600">${kalip ? kalip.kalip_kodu : '—'}</div>
+            <div style="font-size:12px;color:var(--muted)">${kalip ? kalip.kalip_adi : '—'}</div>
+          </div>
+          <div style="padding:.75rem;background:var(--bg);border-radius:8px">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">TÜR</div>
+            <span class="badge ${ie.tur==='C'?'badge-red':'badge-blue'}">${ie.tur==='C'?'Arıza':'Planlı'}</span>
+          </div>
+          <div style="padding:.75rem;background:var(--bg);border-radius:8px">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">PROBLEM</div>
+            <div style="font-size:13px">${ie.problem || '—'}</div>
+          </div>
+          <div style="padding:.75rem;background:var(--bg);border-radius:8px">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">YAPILAN İŞLEM</div>
+            <div style="font-size:13px">${ie.yapilan_islem || '—'}</div>
+          </div>
+          <div style="padding:.75rem;background:var(--bg);border-radius:8px">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">OPERATÖR</div>
+            <div style="font-size:13px">${op ? op.ad_soyad : '—'}</div>
+          </div>
+          <div style="padding:.75rem;background:var(--bg);border-radius:8px">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">NET SÜRE</div>
+            <div style="font-size:13px;font-weight:600;color:var(--amber)">${sure}</div>
+          </div>
+          <div style="padding:.75rem;background:var(--bg);border-radius:8px">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">BAŞLANGIÇ</div>
+            <div style="font-size:12px">${bas}</div>
+          </div>
+          <div style="padding:.75rem;background:var(--bg);border-radius:8px">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">BİTİŞ</div>
+            <div style="font-size:12px">${bit}</div>
+          </div>
+        </div>
+        ${ie.aciklama ? `
+          <div style="padding:.75rem;background:var(--bg);border-radius:8px">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">AÇIKLAMA</div>
+            <div style="font-size:13px">${ie.aciklama}</div>
+          </div>` : ''}
+        ${ie.acik_kapali === 'Acik' ? `
+          <div style="padding:.75rem;background:var(--amber-dim);border:1px solid var(--amber);border-radius:8px">
+            <div style="font-size:13px;color:var(--amber);font-weight:600">⚠ Bu iş emri hala açık</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">Yönetici olarak kapatabilirsiniz</div>
+          </div>` : ''}
+      </div>`;
+
+    // Açık iş emriyse kapat butonu göster
+    document.getElementById('ie-modal-kapat-btn').style.display =
+      ie.acik_kapali === 'Acik' ? 'block' : 'none';
+
+  } catch(e) { console.warn(e); }
+}
+
+async function yoneticiIsEmriKapat() {
+  if (!seciiliIsEmriId) return;
+  if (!confirm('Bu iş emri yönetici tarafından kapatılsın mı?')) return;
+
+  const not = prompt('Kapatma notu (opsiyonel):') || 'Yönetici tarafından kapatıldı';
+
+  await sbPatch('is_emirleri', seciiliIsEmriId, {
+    acik_kapali: 'Kapali',
+    bitis_zaman: new Date().toISOString(),
+    aciklama: not
+  });
+
+  document.getElementById('ie-detay-modal').classList.remove('open');
+  alert('İş emri kapatıldı.');
+  renderYoneticiVeriler();
+}
 
 // ── KPI & RAPORLAR ──
 function kpiHedefYukle() {
@@ -3152,7 +3275,7 @@ function kalipAra(q){
 }
 
 // ── Safari uyumlu event listener'lar ──
-document.addEventListener('DOMContentLoaded', function(){
+document.addEventListener('DOMContentLoaded', async function(){
   var btnGiris = document.getElementById('btn-giris');
   if(btnGiris) btnGiris.addEventListener('click', girisYap);
 
@@ -3162,6 +3285,28 @@ document.addEventListener('DOMContentLoaded', function(){
   });
 
   sureyiBaslat();
+
+  // Oturum kontrolü — sayfa yenilenince tekrar giriş yaptırma
+  const kayitliId = localStorage.getItem('aktif_operator_id');
+  if (kayitliId) {
+    try {
+      const sonuc = await sbGet('operatorler', `id=eq.${kayitliId}&aktif=eq.true`);
+      if (sonuc && sonuc[0]) {
+        aktifOperator = sonuc[0];
+        const rolTR = {yonetici:'Yönetici', usta:'Usta', cirak:'Çırak', cnc:'CNC Operatörü', muhendis:'Mühendis', formen:'Formen'};
+        document.getElementById('usta-ad').textContent = aktifOperator.ad_soyad;
+        document.getElementById('usta-rol-bilgi').textContent = (rolTR[aktifOperator.rol] || aktifOperator.rol) + ' · ' + aktifOperator.operator_kodu;
+        await verileriYukle();
+        if (aktifOperator.rol === 'yonetici') {
+          gosterEkran('screen-yonetici');
+          renderYoneticiVeriler();
+        } else {
+          gosterEkran('screen-usta');
+          Promise.resolve(renderUstaEkrani()).catch(e => console.warn(e));
+        }
+      }
+    } catch(e) { console.warn('Oturum kontrolü hatası:', e); }
+  }
 });
 </script>
 </body>
