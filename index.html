@@ -1709,18 +1709,33 @@ async function isEmriKaydet() {
 
       // Seçilen malzemeleri kaydet ve stoktan düş
       const seciliMalzemeler = document.querySelectorAll('#kapat-malzeme-grid .malzeme-item.selected');
+
+      // Önce stok kontrolü yap
+      for (const el of seciliMalzemeler) {
+        const malzemeId = el.dataset.id;
+        const malzemeAdi = el.dataset.adi;
+        const adetInput = el.querySelector('input[data-adet]');
+        const adet = adetInput ? parseFloat(adetInput.dataset.adet) || 1 : 1;
+        if (malzemeId) {
+          const malzeme = await sbGet('malzemeler', `id=eq.${malzemeId}`);
+          if (malzeme && malzeme[0] && malzeme[0].stok_miktari < adet) {
+            alert(`⚠ Yetersiz stok!\n\n"${malzemeAdi}"\nMevcut stok: ${malzeme[0].stok_miktari} ${malzeme[0].birim}\nGirilen miktar: ${adet} ${malzeme[0].birim}\n\nMiktarı düzeltin.`);
+            return;
+          }
+        }
+      }
+
+      // Stok yeterliyse kaydet ve düş
       for (const el of seciliMalzemeler) {
         const malzemeId = el.dataset.id;
         const adetInput = el.querySelector('input[data-adet]');
         const adet = adetInput ? parseFloat(adetInput.dataset.adet) || 1 : 1;
         if (malzemeId) {
-          // Kullanım kaydı ekle
           await sbPost('is_emri_malzemeleri', {
             is_emri_id: aktifIsEmri.id,
             malzeme_id: malzemeId,
             kullanilan_miktar: adet
           });
-          // Stoktan düş
           const malzeme = await sbGet('malzemeler', `id=eq.${malzemeId}`);
           if (malzeme && malzeme[0]) {
             const yeniStok = Math.max(0, (malzeme[0].stok_miktari || 0) - adet);
