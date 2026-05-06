@@ -22,7 +22,7 @@
   --radius:12px;--radius-lg:16px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-size:16px;min-height:100vh;}
 .screen{display:none;min-height:100vh;}
 .screen.active{display:block;}
 #screen-login.active{display:flex;}
@@ -151,7 +151,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 .malzeme-serbest{width:100%;padding:10px 12px;background:var(--bg);border:1px dashed var(--border2);border-radius:8px;color:var(--muted);font-size:13px;font-family:inherit;margin-top:8px;}
 .malzeme-serbest:focus{outline:none;border-color:var(--accent);color:var(--text);}
 
-/* Accordion */
+/* Yukarı çık butonu */
+.yukari-btn{position:fixed;bottom:80px;right:20px;width:44px;height:44px;background:var(--accent);border-radius:50%;display:none;align-items:center;justify-content:center;cursor:pointer;font-size:20px;box-shadow:0 4px 12px rgba(59,130,246,0.4);z-index:300;color:#fff;}
 .acc-ana{background:var(--card2);border:1px solid var(--border2);border-radius:10px;overflow:hidden;}
 .acc-ana-btn{display:flex;align-items:center;justify-content:space-between;padding:.875rem 1rem;cursor:pointer;font-size:15px;font-weight:600;user-select:none;-webkit-user-select:none;}
 .acc-ana-btn:hover{background:rgba(255,255,255,0.04);}
@@ -327,6 +328,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 .qr-basarili{color:var(--green);font-size:18px;font-weight:700;margin-top:1rem;}</style>
 </head>
 <body>
+
+<!-- Yukarı çık butonu -->
+<div class="yukari-btn" id="yukari-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</div>
 
 <!-- ══ QR OKUMA OVERLAY ══ -->
 <div class="qr-overlay" id="qr-overlay">
@@ -815,7 +819,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
           <div class="pc-body" style="display:flex;flex-direction:column;gap:1rem">
             <div class="fg">
               <label>Kalıp <span style="color:var(--red)">*</span></label>
-              <select id="pf-kalip" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+              <input type="text" id="pf-kalip-ara" placeholder="🔍 Kalıp kodu veya adı ara..."
+                oninput="planliKalipAra(this.value)"
+                style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;margin-bottom:6px">
+              <select id="pf-kalip" size="5" style="padding:6px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;width:100%">
                 <option value="">Kalıp seç...</option>
               </select>
             </div>
@@ -2320,7 +2327,11 @@ async function malzemeAccordionYukle(accordionId, gridId) {
 
 function accToggle(btn) {
   const acc = btn.closest('.acc-ana');
-  acc.classList.toggle('acik');
+  const wasOpen = acc.classList.contains('acik');
+  // Tüm açık olanları kapat
+  document.querySelectorAll('.acc-ana.acik').forEach(a => a.classList.remove('acik'));
+  // Kapalıysa aç
+  if (!wasOpen) acc.classList.add('acik');
 }
 
 async function accAltSec(btn, katId, gridId) {
@@ -2357,7 +2368,17 @@ async function accAltSec(btn, katId, gridId) {
   grid.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
-// Malzeme kategorisi (eski catSec - geriye uyumluluk için)
+// Malzeme seç/kaldır - çoklu seçim
+function malzemeToggle(el) {
+  el.classList.toggle('selected');
+  const secili = el.classList.contains('selected');
+  const adetDiv = el.querySelector('.m-adet');
+  if (adetDiv) adetDiv.style.display = secili ? 'block' : 'none';
+  if (secili) {
+    const input = adetDiv?.querySelector('input');
+    if (input) { input.dataset.adet = '1'; input.value = '1'; }
+  }
+}
 async function catSec(btn, katId) {
   await accAltSec(btn, katId, 'kapat-malzeme-grid');
 }
@@ -2496,7 +2517,29 @@ async function ieDetayAc(isEmriId) {
       ? Math.floor(ie.toplam_sure_dak/60) + ' sa ' + (ie.toplam_sure_dak%60) + ' dk'
       : ie.acik_kapali === 'Acik' ? 'Devam ediyor' : '—';
 
-    document.getElementById('ie-modal-no').textContent = ie.is_emri_no;
+    // Operatörler ve malzemeleri çek
+    const operatorler = await sbGet('is_emri_operatorler', `is_emri_id=eq.${isEmriId}`);
+    const malzemeler = await sbGet('is_emri_malzemeleri', `is_emri_id=eq.${isEmriId}`);
+
+    // Operatör adlarını bul
+    let opHtml = '—';
+    if (operatorler && operatorler.length) {
+      opHtml = operatorler.map(o => {
+        const op = tumOperatorler.find(x => x.id === o.operator_id);
+        return op ? `<span class="badge badge-blue">${op.ad_soyad}</span>` : '—';
+      }).join(' ');
+    }
+
+    // Malzeme adlarını bul
+    let malzHtml = '—';
+    if (malzemeler && malzemeler.length) {
+      const tumMalz = await sbGet('malzemeler', 'order=malzeme_adi');
+      malzHtml = malzemeler.map(m => {
+        if (m.malzeme_serbest) return `<span class="badge badge-amber">${m.malzeme_serbest} (${m.kullanilan_miktar})</span>`;
+        const malz = tumMalz?.find(x => x.id === m.malzeme_id);
+        return malz ? `<span class="badge badge-green">${malz.malzeme_adi} × ${m.kullanilan_miktar} ${malz.birim}</span>` : '—';
+      }).join(' ');
+    }
 
     document.getElementById('ie-modal-icerik').innerHTML = `
       <div style="display:flex;flex-direction:column;gap:8px">
@@ -2534,6 +2577,14 @@ async function ieDetayAc(isEmriId) {
             <div style="font-size:11px;color:var(--muted);margin-bottom:4px">BİTİŞ</div>
             <div style="font-size:12px">${bit}</div>
           </div>
+        </div>
+        <div style="padding:.75rem;background:var(--bg);border-radius:8px;margin-top:8px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">EKİP</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">${opHtml}</div>
+        </div>
+        <div style="padding:.75rem;background:var(--bg);border-radius:8px;margin-top:8px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">KULLANILAN MALZEME</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">${malzHtml}</div>
         </div>
         ${ie.aciklama ? `
           <div style="padding:.75rem;background:var(--bg);border-radius:8px">
@@ -2878,6 +2929,9 @@ function grafiklerCiz(emirler) {
   grafikleriTemizle();
   if (!emirler || !emirler.length) return;
 
+  const planliSay = emirler.filter(e => e.tur === 'P').length;
+  const arizaSay = emirler.filter(e => e.tur === 'C').length;
+
   // 1. Aylık trend
   const aylar = {};
   emirler.forEach(e => {
@@ -2896,16 +2950,21 @@ function grafiklerCiz(emirler) {
   }, { plugins: { legend: { labels: { color: '#8b92a8' } } } });
 
   // 2. Arıza/Planlı dağılımı
-  const planliSay = emirler.filter(e => e.tur === 'P').length;
-  const arizaSay = emirler.filter(e => e.tur === 'C').length;
   grafikOlustur('grafik-dagilim', 'doughnut', {
-    labels: ['Planlı', 'Arıza'],
+    labels: [`Planlı (${planliSay})`, `Arıza (${arizaSay})`],
     datasets: [{
       data: [planliSay, arizaSay],
-      backgroundColor: ['rgba(59,130,246,0.8)', 'rgba(239,68,68,0.8)'],
+      backgroundColor: ['rgba(59,130,246,0.85)', 'rgba(239,68,68,0.85)'],
       borderColor: ['#3b82f6', '#ef4444'],
-      borderWidth: 2
+      borderWidth: 2,
+      hoverOffset: 8
     }]
+  }, {
+    cutout: '60%',
+    plugins: {
+      legend: { position: 'bottom', labels: { color: '#f0f2f8', font: { size: 14 }, padding: 20 } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} iş emri` } }
+    }
   });
 
   // 3. Kalıp bazlı
@@ -3204,6 +3263,15 @@ async function renderPlanliTablo() {
       </tr>`;
     }).join('');
   } catch(e) { console.warn(e); }
+}
+
+function planliKalipAra(q) {
+  const sel = document.getElementById('pf-kalip');
+  if (!sel) return;
+  const filtre = q.toLowerCase();
+  Array.from(sel.options).forEach(opt => {
+    opt.style.display = !opt.value || opt.text.toLowerCase().includes(filtre) ? '' : 'none';
+  });
 }
 
 function yeniPlanliForm() {
@@ -3672,6 +3740,12 @@ document.addEventListener('DOMContentLoaded', async function(){
   });
 
   sureyiBaslat();
+
+  // Yukarı çık butonu
+  window.addEventListener('scroll', () => {
+    const btn = document.getElementById('yukari-btn');
+    if (btn) btn.style.display = window.scrollY > 300 ? 'flex' : 'none';
+  });
 
   // Oturum kontrolü — sayfa yenilenince tekrar giriş yaptırma
   const kayitliId = localStorage.getItem('aktif_operator_id');
