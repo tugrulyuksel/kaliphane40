@@ -282,8 +282,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 .btn-tanim-ekle{padding:8px 16px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;}
 
 /* Modal */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:none;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(4px);}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;display:none;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(4px);}
 .modal-overlay.open{display:flex;}
+.modal{max-height:85vh;overflow-y:auto;}
 .modal{background:var(--card);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:1.5rem;width:100%;max-width:400px;box-shadow:0 25px 60px rgba(0,0,0,0.5);}
 .modal h3{font-size:16px;font-weight:700;margin-bottom:1rem;}
 .modal-ops{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;}
@@ -2407,7 +2408,8 @@ async function accAltSec(btn, katId, gridId) {
     </div>`;
   }).join('');
 
-  grid.scrollIntoView({behavior:'smooth', block:'nearest'});
+  // Seçili özeti güncelle
+  seciliOzetGuncelle();
 }
 
 function malzemeToggle(el) {
@@ -3239,7 +3241,7 @@ async function renderMalzemeler() {
             <div style="padding:4px 10px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:11px;cursor:pointer"
               onclick="malzemeDuzenle('${m.id}')">Düzenle</div>
             <div style="padding:4px 10px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;cursor:pointer"
-              onclick="Promise.resolve(malzemePasif('${m.id}')).catch(e=>console.error(e))">Pasif</div>
+              onclick="Promise.resolve(malzemeSil('${m.id}','${m.malzeme_adi.replace(/'/g,"\\'")}')).catch(e=>console.error(e))">Sil</div>
           </div>
         </td>
       </tr>`;
@@ -3296,6 +3298,15 @@ async function malzemeKaydet() {
     await sbPost('malzemeler', veri);
   }
   malzemeFormIptal();
+  await renderMalzemeler();
+}
+
+async function malzemeSil(id, adi) {
+  if (!confirm(`"${adi}" silinsin mi? Bu işlem geri alınamaz.`)) return;
+  await fetch(`${SUPA_URL}/rest/v1/malzemeler?id=eq.${id}`, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+  });
   await renderMalzemeler();
 }
 
