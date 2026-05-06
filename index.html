@@ -151,6 +151,18 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 .malzeme-serbest{width:100%;padding:10px 12px;background:var(--bg);border:1px dashed var(--border2);border-radius:8px;color:var(--muted);font-size:13px;font-family:inherit;margin-top:8px;}
 .malzeme-serbest:focus{outline:none;border-color:var(--accent);color:var(--text);}
 
+/* Accordion */
+.acc-ana{background:var(--card2);border:1px solid var(--border2);border-radius:10px;overflow:hidden;}
+.acc-ana-btn{display:flex;align-items:center;justify-content:space-between;padding:.875rem 1rem;cursor:pointer;font-size:15px;font-weight:600;user-select:none;-webkit-user-select:none;}
+.acc-ana-btn:hover{background:rgba(255,255,255,0.04);}
+.acc-ana-btn .acc-ok{font-size:12px;color:var(--muted);transition:transform .2s;}
+.acc-ana.acik .acc-ana-btn .acc-ok{transform:rotate(90deg);}
+.acc-alt-liste{display:none;border-top:1px solid var(--border);padding:.5rem;}
+.acc-ana.acik .acc-alt-liste{display:block;}
+.acc-alt-btn{display:flex;align-items:center;gap:8px;padding:.625rem .875rem;border-radius:8px;cursor:pointer;font-size:14px;color:var(--muted);transition:all .15s;user-select:none;-webkit-user-select:none;}
+.acc-alt-btn:hover{background:var(--accent-dim);color:var(--accent);}
+.acc-alt-btn.aktif{background:var(--accent-dim);color:var(--accent);font-weight:600;}
+
 /* ── CHECKLİST ── */
 .checklist-item{display:flex;align-items:center;gap:12px;padding:.75rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all .15s;}
 .checklist-item.done{background:var(--green-dim);border-color:var(--green);}
@@ -647,11 +659,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
     <div class="form-section">
       <div class="form-section-title">Kullanılan Malzeme</div>
       <div class="form-section-body">
-        <div class="malzeme-cat" id="kapat-malzeme-cat">
-          <div style="color:var(--muted);font-size:13px">Yükleniyor...</div>
+        <div id="kapat-malzeme-accordion" style="display:flex;flex-direction:column;gap:6px">
+          <div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem">Yükleniyor...</div>
         </div>
-        <div class="malzeme-grid" id="kapat-malzeme-grid">
-        </div>
+        <div class="malzeme-grid" id="kapat-malzeme-grid" style="margin-top:8px"></div>
         <input type="text" class="malzeme-serbest" id="malzeme-serbest-input" placeholder="Listede yok mu? Buraya yaz...">
       </div>
     </div>
@@ -1147,21 +1158,21 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem" id="grafik-grid">
         <div class="panel-card">
           <div class="pc-header"><h3>📊 Aylık İş Emri Trendi</h3></div>
-          <div class="pc-body"><canvas id="grafik-trend" height="200"></canvas></div>
+          <div class="pc-body"><canvas id="grafik-trend" height="250"></canvas></div>
         </div>
         <div class="panel-card">
           <div class="pc-header"><h3>🥧 Arıza / Planlı Dağılımı</h3></div>
           <div class="pc-body" style="display:flex;align-items:center;justify-content:center">
-            <canvas id="grafik-dagilim" height="200" style="max-width:250px"></canvas>
+            <canvas id="grafik-dagilim" height="250" style="max-width:300px"></canvas>
           </div>
         </div>
         <div class="panel-card">
           <div class="pc-header"><h3>🔧 Kalıp Bazlı İş Emri</h3></div>
-          <div class="pc-body"><canvas id="grafik-kalip" height="200"></canvas></div>
+          <div class="pc-body"><canvas id="grafik-kalip" height="250"></canvas></div>
         </div>
         <div class="panel-card">
           <div class="pc-header"><h3>👷 Operatör İş Yükü</h3></div>
-          <div class="pc-body"><canvas id="grafik-operator" height="200"></canvas></div>
+          <div class="pc-body"><canvas id="grafik-operator" height="250"></canvas></div>
         </div>
       </div>
 
@@ -1266,7 +1277,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         <!-- Malzeme Seçimi -->
         <div class="fg">
           <label>Kullanılan Malzeme</label>
-          <div class="malzeme-cat" id="ie-edit-malzeme-cat" style="margin-bottom:.5rem">
+          <div id="ie-edit-malzeme-accordion" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
             <div style="color:var(--muted);font-size:12px">Yükleniyor...</div>
           </div>
           <div class="malzeme-grid" id="ie-edit-malzeme-grid"></div>
@@ -1824,34 +1835,14 @@ async function kapatEkraniHazirla() {
       </div>`;
   }
 
-  // Malzeme kategorilerini Supabase'den yükle
+  // Malzeme accordion yükle
   try {
     if (!tumKategoriler.length) {
       tumKategoriler = await sbGet('malzeme_kategoriler', 'order=ad') || [];
     }
-    const catEl = document.getElementById('kapat-malzeme-cat');
     const grid = document.getElementById('kapat-malzeme-grid');
-    if (catEl && tumKategoriler.length) {
-      catEl.innerHTML = tumKategoriler.map((k, i) =>
-        `<div class="cat-btn ${i===0?'active':''}" data-kat-id="${k.id}" onclick="Promise.resolve(catSec(this,'${k.id}')).catch(e=>console.error(e))">${k.ad}</div>`
-      ).join('');
-      // İlk kategoriyi otomatik yükle
-      if (grid && tumKategoriler[0]) {
-        const ilkMalzemeler = await sbGet('malzemeler', `kategori_id=eq.${tumKategoriler[0].id}&aktif=eq.true&order=malzeme_adi`);
-        if (ilkMalzemeler && ilkMalzemeler.length) {
-          grid.innerHTML = ilkMalzemeler.map(m =>
-            `<div class="malzeme-item" onclick="this.classList.toggle('selected')" data-id="${m.id}" data-adi="${m.malzeme_adi}">
-              <div class="m-name">${m.malzeme_adi}</div>
-              <div class="m-stok">Stok: ${m.stok_miktari} ${m.birim}</div>
-            </div>`
-          ).join('');
-        } else {
-          grid.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem;grid-column:span 2">Bu kategoride malzeme yok</div>';
-        }
-      }
-    } else if (catEl) {
-      catEl.innerHTML = '<div style="color:var(--muted);font-size:13px">Malzeme kategorisi yok</div>';
-    }
+    if (grid) grid.innerHTML = '';
+    await malzemeAccordionYukle('kapat-malzeme-accordion', 'kapat-malzeme-grid');
   } catch(e) { console.warn('Malzeme yüklenemedi:', e); }
 
   // Serbest alanı temizle
@@ -2289,8 +2280,87 @@ function isEmriBitir(){
 
 // isEmriKaydet - yukarida tanimli
 
-// Malzeme kategorisi
+// ── MALZEME ACCORDION ──
+async function malzemeAccordionYukle(accordionId, gridId) {
+  const accordion = document.getElementById(accordionId);
+  if (!accordion) return;
+
+  const analar = tumKategoriler.filter(k => !k.ust_kategori_id);
+  const altlar = tumKategoriler.filter(k => k.ust_kategori_id);
+
+  if (!analar.length) {
+    accordion.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem">Kategori yok</div>';
+    return;
+  }
+
+  accordion.innerHTML = analar.map(ana => {
+    const cocuklar = altlar.filter(a => a.ust_kategori_id === ana.id);
+    const altHtml = cocuklar.map(c =>
+      `<div class="acc-alt-btn" data-kat-id="${c.id}" data-grid-id="${gridId}"
+        onclick="Promise.resolve(accAltSec(this,'${c.id}','${gridId}')).catch(e=>console.error(e))">
+        ↳ ${c.ad}
+      </div>`
+    ).join('');
+
+    // Alt kategori yoksa direkt malzeme göster
+    const onclick = cocuklar.length === 0
+      ? `Promise.resolve(accAltSec(document.querySelector('#${accordionId} [data-kat-id=\\'${ana.id}\\']'),'${ana.id}','${gridId}')).catch(e=>console.error(e))`
+      : `accToggle(this)`;
+
+    return `
+      <div class="acc-ana">
+        <div class="acc-ana-btn" onclick="${onclick}">
+          <span>📁 ${ana.ad}</span>
+          ${cocuklar.length > 0 ? '<span class="acc-ok">›</span>' : '<span style="font-size:11px;color:var(--muted)">Seç</span>'}
+        </div>
+        ${cocuklar.length > 0 ? `<div class="acc-alt-liste">${altHtml}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function accToggle(btn) {
+  const acc = btn.closest('.acc-ana');
+  acc.classList.toggle('acik');
+}
+
+async function accAltSec(btn, katId, gridId) {
+  // Tüm aktif seçimleri kaldır
+  document.querySelectorAll('.acc-alt-btn.aktif').forEach(b => b.classList.remove('aktif'));
+  if (btn) btn.classList.add('aktif');
+
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  grid.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem;grid-column:span 2">Yükleniyor...</div>';
+
+  const malzemeler = await sbGet('malzemeler', `kategori_id=eq.${katId}&aktif=eq.true&order=malzeme_adi`);
+
+  if (!malzemeler || !malzemeler.length) {
+    grid.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem;grid-column:span 2">Bu kategoride malzeme yok</div>';
+    return;
+  }
+
+  grid.innerHTML = malzemeler.map(m => `
+    <div class="malzeme-item" data-id="${m.id}" data-adi="${m.malzeme_adi}" onclick="malzemeToggle(this)">
+      <div class="m-name">${m.malzeme_adi}</div>
+      <div class="m-stok">Stok: ${m.stok_miktari} ${m.birim}</div>
+      <div class="m-adet" style="display:none">
+        <div style="display:flex;align-items:center;gap:4px;margin-top:6px">
+          <input type="number" min="1" value="1"
+            style="width:60px;padding:4px 6px;background:var(--bg);border:1px solid var(--accent);border-radius:6px;color:var(--text);font-size:13px;text-align:center"
+            onclick="event.stopPropagation()" data-adet="1" oninput="this.dataset.adet=this.value">
+          <span style="font-size:12px;color:var(--muted)">${m.birim}</span>
+        </div>
+      </div>
+    </div>`).join('');
+
+  // Grid görünür yere kaydır
+  grid.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+// Malzeme kategorisi (eski catSec - geriye uyumluluk için)
 async function catSec(btn, katId) {
+  await accAltSec(btn, katId, 'kapat-malzeme-grid');
+}
   btn.closest('.malzeme-cat').querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   const grid = document.getElementById('kapat-malzeme-grid');
@@ -2645,83 +2715,9 @@ async function ieEditMalzemeYukle() {
   if (!tumKategoriler.length) {
     tumKategoriler = await sbGet('malzeme_kategoriler', 'order=ad') || [];
   }
-  const catEl = document.getElementById('ie-edit-malzeme-cat');
   const grid = document.getElementById('ie-edit-malzeme-grid');
-  if (!catEl || !tumKategoriler.length) return;
-
-  catEl.innerHTML = tumKategoriler.map((k, i) =>
-    `<div class="cat-btn ${i===0?'active':''}" data-kat-id="${k.id}"
-      onclick="Promise.resolve(ieEditCatSec(this,'${k.id}')).catch(e=>console.error(e))">${k.ad}</div>`
-  ).join('');
-
-  // İlk kategoriyi yükle
-  if (tumKategoriler[0]) {
-    await ieEditCatSec(catEl.querySelector('.cat-btn.active'), tumKategoriler[0].id);
-  }
-}
-
-async function ieEditCatSec(btn, katId) {
-  if (!btn) return;
-  btn.closest('.malzeme-cat').querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const grid = document.getElementById('ie-edit-malzeme-grid');
-  if (!grid) return;
-
-  const altKatlar = tumKategoriler.filter(k => k.ust_kategori_id === katId);
-  if (altKatlar.length > 0) {
-    grid.innerHTML = altKatlar.map(alt =>
-      `<div class="malzeme-item" style="background:var(--card2);border-color:var(--border2)"
-        onclick="Promise.resolve(ieEditAltCatSec('${alt.id}','${alt.ad}')).catch(e=>console.error(e))">
-        <div class="m-name">📁 ${alt.ad}</div>
-        <div class="m-stok">Alt kategori</div>
-      </div>`
-    ).join('');
-  } else {
-    grid.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;grid-column:span 2;padding:.5rem">Yükleniyor...</div>';
-    const malzemeler = await sbGet('malzemeler', `kategori_id=eq.${katId}&aktif=eq.true&order=malzeme_adi`);
-    grid.innerHTML = !malzemeler?.length
-      ? '<div style="color:var(--muted);font-size:12px;text-align:center;grid-column:span 2;padding:.5rem">Malzeme yok</div>'
-      : malzemeler.map(m => `
-          <div class="malzeme-item" onclick="malzemeToggle(this)" data-id="${m.id}" data-adi="${m.malzeme_adi}">
-            <div class="m-name">${m.malzeme_adi}</div>
-            <div class="m-stok">Stok: ${m.stok_miktari} ${m.birim}</div>
-            <div class="m-adet" style="display:none">
-              <div style="display:flex;align-items:center;gap:4px;margin-top:6px">
-                <input type="number" min="1" value="1"
-                  style="width:60px;padding:4px 6px;background:var(--bg);border:1px solid var(--accent);border-radius:6px;color:var(--text);font-size:13px;text-align:center"
-                  onclick="event.stopPropagation()" data-adet="1" oninput="this.dataset.adet=this.value">
-                <span style="font-size:12px;color:var(--muted)">${m.birim}</span>
-              </div>
-            </div>
-          </div>`).join('');
-  }
-}
-
-async function ieEditAltCatSec(katId, katAdi) {
-  const grid = document.getElementById('ie-edit-malzeme-grid');
-  if (!grid) return;
-  const malzemeler = await sbGet('malzemeler', `kategori_id=eq.${katId}&aktif=eq.true&order=malzeme_adi`);
-  grid.innerHTML = `
-    <div style="grid-column:span 2;display:flex;align-items:center;gap:8px;margin-bottom:4px">
-      <div style="padding:3px 8px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--muted);font-size:11px;cursor:pointer"
-        onclick="ieEditMalzemeYukle()">← Geri</div>
-      <span style="font-size:12px;color:var(--muted)">${katAdi}</span>
-    </div>
-    ${!malzemeler?.length
-      ? '<div style="color:var(--muted);font-size:12px;text-align:center;grid-column:span 2;padding:.5rem">Malzeme yok</div>'
-      : malzemeler.map(m => `
-          <div class="malzeme-item" onclick="malzemeToggle(this)" data-id="${m.id}" data-adi="${m.malzeme_adi}">
-            <div class="m-name">${m.malzeme_adi}</div>
-            <div class="m-stok">Stok: ${m.stok_miktari} ${m.birim}</div>
-            <div class="m-adet" style="display:none">
-              <div style="display:flex;align-items:center;gap:4px;margin-top:6px">
-                <input type="number" min="1" value="1"
-                  style="width:60px;padding:4px 6px;background:var(--bg);border:1px solid var(--accent);border-radius:6px;color:var(--text);font-size:13px;text-align:center"
-                  onclick="event.stopPropagation()" data-adet="1" oninput="this.dataset.adet=this.value">
-                <span style="font-size:12px;color:var(--muted)">${m.birim}</span>
-              </div>
-            </div>
-          </div>`).join('')}`;
+  if (grid) grid.innerHTML = '';
+  await malzemeAccordionYukle('ie-edit-malzeme-accordion', 'ie-edit-malzeme-grid');
 }
 
 async function yoneticiIsEmriGuncelle() {
@@ -2950,11 +2946,24 @@ function grafikOlustur(id, tip, data, options = {}) {
   const defaultOptions = {
     responsive: true,
     plugins: {
-      legend: { labels: { color: '#8b92a8', font: { size: 11 } } }
+      legend: {
+        labels: { color: '#f0f2f8', font: { size: 13 }, padding: 16 }
+      },
+      tooltip: {
+        titleFont: { size: 13 },
+        bodyFont: { size: 13 }
+      }
     },
     scales: tip !== 'pie' && tip !== 'doughnut' ? {
-      x: { ticks: { color: '#8b92a8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
-      y: { ticks: { color: '#8b92a8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
+      x: {
+        ticks: { color: '#8b92a8', font: { size: 12 } },
+        grid: { color: 'rgba(255,255,255,0.05)' }
+      },
+      y: {
+        ticks: { color: '#8b92a8', font: { size: 12 } },
+        grid: { color: 'rgba(255,255,255,0.05)' },
+        beginAtZero: true
+      }
     } : {}
   };
   grafikler[id] = new Chart(ctx, {
