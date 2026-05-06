@@ -666,6 +666,13 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         <div id="kapat-malzeme-accordion" style="display:flex;flex-direction:column;gap:6px">
           <div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem">Yükleniyor...</div>
         </div>
+
+        <!-- Seçilen malzemeler özeti -->
+        <div id="secili-malzeme-ozet" style="display:none;margin-top:10px;padding:.75rem;background:var(--green-dim);border:1px solid var(--green);border-radius:10px">
+          <div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:6px">✓ Seçilen Malzemeler</div>
+          <div id="secili-malzeme-liste" style="display:flex;flex-direction:column;gap:4px"></div>
+        </div>
+
         <div class="malzeme-grid" id="kapat-malzeme-grid" style="margin-top:8px"></div>
         <input type="text" class="malzeme-serbest" id="malzeme-serbest-input" placeholder="Listede yok mu? Buraya yaz...">
       </div>
@@ -1855,6 +1862,10 @@ async function kapatEkraniHazirla() {
   // Serbest alanı temizle
   const serbest = document.getElementById('malzeme-serbest-input');
   if (serbest) serbest.value = '';
+  // Seçili malzeme geçmişini sıfırla
+  window._seciliMalzemeler = {};
+  const ozet = document.getElementById('secili-malzeme-ozet');
+  if (ozet) ozet.style.display = 'none';
 
   // Planlı bakımsa checklistı işaretlenebilir göster
   const clBolum = document.getElementById('kapat-checklist-bolum');
@@ -1894,6 +1905,22 @@ async function isEmriKaydet() {
 
       // Seçilen malzemeleri kaydet ve stoktan düş
       const seciliMalzemeler = document.querySelectorAll('#kapat-malzeme-grid .malzeme-item.selected');
+
+      // _seciliMalzemeler objesindeki kayıtlı seçimleri de ekle
+      if (window._seciliMalzemeler) {
+        Object.keys(window._seciliMalzemeler).forEach(id => {
+          const zatenVar = Array.from(seciliMalzemeler).find(el => el.dataset.id === id);
+          if (!zatenVar) {
+            // Grid'de görünmüyor ama seçiliydi — sahte element oluştur
+            const sahte = document.createElement('div');
+            sahte.dataset.id = id;
+            const input = document.createElement('input');
+            input.dataset.adet = window._seciliMalzemeler[id].adet || '1';
+            sahte.appendChild(input);
+            seciliMalzemeler[seciliMalzemeler.length] = sahte;
+          }
+        });
+      }
 
       // Önce stok kontrolü yap
       for (const el of seciliMalzemeler) {
@@ -1952,6 +1979,7 @@ async function isEmriKaydet() {
 
   clearInterval(sureInterval);
   alert('✅ İş emri kapatıldı!');
+  window._seciliMalzemeler = {};
   aktifIsEmri = null;
   aktifPlanliId = null;
   planliMod = false;
@@ -2328,19 +2356,31 @@ async function malzemeAccordionYukle(accordionId, gridId) {
 function accToggle(btn) {
   const acc = btn.closest('.acc-ana');
   const wasOpen = acc.classList.contains('acik');
-  // Tüm açık olanları kapat
   document.querySelectorAll('.acc-ana.acik').forEach(a => a.classList.remove('acik'));
-  // Kapalıysa aç
   if (!wasOpen) acc.classList.add('acik');
+  // Kapatınca aktif alt buton stilini de temizle
+  if (wasOpen) {
+    acc.querySelectorAll('.acc-alt-btn.aktif').forEach(b => b.classList.remove('aktif'));
+  }
 }
 
 async function accAltSec(btn, katId, gridId) {
-  // Tüm aktif seçimleri kaldır
   document.querySelectorAll('.acc-alt-btn.aktif').forEach(b => b.classList.remove('aktif'));
   if (btn) btn.classList.add('aktif');
 
   const grid = document.getElementById(gridId);
   if (!grid) return;
+
+  // Mevcut seçili malzemeleri kaydet
+  if (!window._seciliMalzemeler) window._seciliMalzemeler = {};
+  grid.querySelectorAll('.malzeme-item.selected').forEach(el => {
+    if (el.dataset.id) {
+      window._seciliMalzemeler[el.dataset.id] = {
+        adet: el.querySelector('input[data-adet]')?.dataset.adet || '1'
+      };
+    }
+  });
+
   grid.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:.5rem;grid-column:span 2">Yükleniyor...</div>';
 
   const malzemeler = await sbGet('malzemeler', `kategori_id=eq.${katId}&aktif=eq.true&order=malzeme_adi`);
@@ -2350,25 +2390,26 @@ async function accAltSec(btn, katId, gridId) {
     return;
   }
 
-  grid.innerHTML = malzemeler.map(m => `
-    <div class="malzeme-item" data-id="${m.id}" data-adi="${m.malzeme_adi}" onclick="malzemeToggle(this)">
+  grid.innerHTML = malzemeler.map(m => {
+    const secili = window._seciliMalzemeler?.[m.id];
+    return `
+    <div class="malzeme-item ${secili ? 'selected' : ''}" data-id="${m.id}" data-adi="${m.malzeme_adi}" onclick="malzemeToggle(this)">
       <div class="m-name">${m.malzeme_adi}</div>
       <div class="m-stok">Stok: ${m.stok_miktari} ${m.birim}</div>
-      <div class="m-adet" style="display:none">
+      <div class="m-adet" style="display:${secili ? 'block' : 'none'}">
         <div style="display:flex;align-items:center;gap:4px;margin-top:6px">
-          <input type="number" min="1" value="1"
+          <input type="number" min="1" value="${secili?.adet || 1}"
             style="width:60px;padding:4px 6px;background:var(--bg);border:1px solid var(--accent);border-radius:6px;color:var(--text);font-size:13px;text-align:center"
-            onclick="event.stopPropagation()" data-adet="1" oninput="this.dataset.adet=this.value">
+            onclick="event.stopPropagation()" data-adet="${secili?.adet || 1}" oninput="this.dataset.adet=this.value; if(window._seciliMalzemeler?.['${m.id}']) { window._seciliMalzemeler['${m.id}'].adet=this.value; seciliOzetGuncelle(); }">
           <span style="font-size:12px;color:var(--muted)">${m.birim}</span>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
-  // Grid görünür yere kaydır
   grid.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
-// Malzeme seç/kaldır - çoklu seçim
 function malzemeToggle(el) {
   el.classList.toggle('selected');
   const secili = el.classList.contains('selected');
@@ -2378,6 +2419,55 @@ function malzemeToggle(el) {
     const input = adetDiv?.querySelector('input');
     if (input) { input.dataset.adet = '1'; input.value = '1'; }
   }
+
+  // _seciliMalzemeler güncelle
+  if (!window._seciliMalzemeler) window._seciliMalzemeler = {};
+  if (secili) {
+    window._seciliMalzemeler[el.dataset.id] = {
+      adi: el.dataset.adi,
+      adet: '1',
+      birim: el.querySelector('.m-stok')?.textContent?.replace('Stok:','').trim().split(' ').pop() || ''
+    };
+  } else {
+    delete window._seciliMalzemeler[el.dataset.id];
+  }
+
+  seciliOzetGuncelle();
+}
+
+function seciliOzetGuncelle() {
+  const ozet = document.getElementById('secili-malzeme-ozet');
+  const liste = document.getElementById('secili-malzeme-liste');
+  if (!ozet || !liste) return;
+
+  const secililar = Object.entries(window._seciliMalzemeler || {});
+
+  if (secililar.length === 0) {
+    ozet.style.display = 'none';
+    return;
+  }
+
+  ozet.style.display = 'block';
+  liste.innerHTML = secililar.map(([id, m]) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 6px;background:rgba(34,197,94,0.1);border-radius:6px">
+      <span style="font-size:13px;color:var(--text)">${m.adi}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--muted)">${m.adet} ${m.birim}</span>
+        <div onclick="malzemeOzetKaldir('${id}')" style="width:20px;height:20px;background:var(--red-dim);border:1px solid var(--red);border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:var(--red)">×</div>
+      </div>
+    </div>`).join('');
+}
+
+function malzemeOzetKaldir(id) {
+  // Gridte varsa seçimi kaldır
+  const gridEl = document.querySelector(`#kapat-malzeme-grid [data-id="${id}"]`);
+  if (gridEl && gridEl.classList.contains('selected')) {
+    gridEl.classList.remove('selected');
+    const adetDiv = gridEl.querySelector('.m-adet');
+    if (adetDiv) adetDiv.style.display = 'none';
+  }
+  delete window._seciliMalzemeler[id];
+  seciliOzetGuncelle();
 }
 async function catSec(btn, katId) {
   await accAltSec(btn, katId, 'kapat-malzeme-grid');
