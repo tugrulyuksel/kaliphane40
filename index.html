@@ -2483,7 +2483,7 @@ async function catSec(btn, katId) {
 async function operatorEkleModal(){
   const modal = document.getElementById('op-modal');
   const opsEl = document.getElementById('modal-ops-liste');
-  if (!opsEl) return;
+  if (!opsEl) { console.error('modal-ops-liste bulunamadı'); return; }
 
   // Operatörler yüklü değilse tekrar yükle
   if (!tumOperatorler.length) {
@@ -2493,16 +2493,30 @@ async function operatorEkleModal(){
   const rolTR = {yonetici:'Yönetici', usta:'Usta', cirak:'Çırak', cnc:'CNC', muhendis:'Mühendis', formen:'Formen'};
   const liste = tumOperatorler.filter(o => o.id !== aktifOperator?.id);
 
+  console.log('Modal açılıyor, operatör sayısı:', liste.length);
+
   let html = '';
   for (const o of liste) {
     const initials = o.ad_soyad.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     const rolAd = rolTR[o.rol] || o.rol;
     html += '<div class="modal-op-item" onclick="this.classList.toggle(\'selected\')" data-id="' + o.id + '" data-ad="' + o.ad_soyad + '" data-rol="' + rolAd + '">';
-    html += '<div style="width:36px;height:36px;border-radius:8px;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:15px;flex-shrink:0">' + initials + '</div>';
-    html += '<div><div style="font-size:16px;font-weight:500">' + o.ad_soyad + '</div><div style="font-size:13px;color:var(--muted)">' + rolAd + '</div></div>';
+    html += '<div style="width:44px;height:44px;border-radius:10px;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:16px;flex-shrink:0">' + initials + '</div>';
+    html += '<div style="flex:1"><div style="font-size:16px;font-weight:600">' + o.ad_soyad + '</div><div style="font-size:13px;color:var(--muted)">' + rolAd + '</div></div>';
     html += '</div>';
   }
-  opsEl.innerHTML = html || '<div style="color:var(--muted);text-align:center;padding:1rem">Operatör bulunamadı</div>';
+
+  if (!html) html = '<div style="color:var(--muted);text-align:center;padding:1rem;font-size:15px">Operatör bulunamadı</div>';
+
+  opsEl.style.display = 'flex';
+  opsEl.style.flexDirection = 'column';
+  opsEl.style.gap = '8px';
+  opsEl.style.minHeight = '100px';
+  opsEl.style.maxHeight = '350px';
+  opsEl.style.overflowY = 'auto';
+  opsEl.innerHTML = html;
+
+  console.log('HTML set edildi, height:', opsEl.offsetHeight);
+
   modal.classList.add('open');
 }
 function modalKapat(){document.getElementById('op-modal').classList.remove('open');}
