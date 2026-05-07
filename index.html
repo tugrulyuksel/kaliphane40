@@ -2507,17 +2507,14 @@ async function operatorEkleModal(){
 
   if (!html) html = '<div style="color:var(--muted);text-align:center;padding:1rem;font-size:15px">Operatör bulunamadı</div>';
 
-  opsEl.style.display = 'flex';
-  opsEl.style.flexDirection = 'column';
-  opsEl.style.gap = '8px';
-  opsEl.style.minHeight = '100px';
-  opsEl.style.maxHeight = '350px';
-  opsEl.style.overflowY = 'auto';
-  opsEl.innerHTML = html;
-
-  console.log('HTML set edildi, height:', opsEl.offsetHeight);
-
   modal.classList.add('open');
+
+  // Modal açıldıktan sonra innerHTML set et
+  setTimeout(() => {
+    opsEl.style.cssText = 'display:flex!important;flex-direction:column;gap:8px;min-height:200px;max-height:350px;overflow-y:auto;';
+    opsEl.innerHTML = html;
+    console.log('HTML set edildi, height:', opsEl.offsetHeight);
+  }, 50);
 }
 function modalKapat(){document.getElementById('op-modal').classList.remove('open');}
 function operatorEkle(){
