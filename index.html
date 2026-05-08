@@ -1029,18 +1029,41 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         <div class="panel-card" style="grid-column:span 2">
           <div class="pc-header">
             <h3>Checklist Yönetimi</h3>
-            <select id="checklist-kalip" onchange="renderChecklistTanim()" style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px">
-              <option value="">Kalıp seç...</option>
-            </select>
           </div>
-          <div class="pc-body">
-            <div class="tanim-liste" id="checklist-liste">
-              <div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Önce kalıp seçin</div>
+          <div class="pc-body" style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+
+            <!-- Sol: Master Madde Listesi -->
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.75rem">
+                📋 Master Checklist Maddeleri
+              </div>
+              <div id="master-checklist-liste" style="display:flex;flex-direction:column;gap:6px;max-height:400px;overflow-y:auto;margin-bottom:.75rem">
+                <div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Yükleniyor...</div>
+              </div>
+              <div class="tanim-ekle-row">
+                <input type="text" id="master-checklist-yeni" placeholder="Yeni madde ekle...">
+                <div class="btn-tanim-ekle" onclick="Promise.resolve(masterChecklistEkle()).catch(e=>console.error(e))">Ekle</div>
+              </div>
             </div>
-            <div class="tanim-ekle-row">
-              <input type="text" id="checklist-yeni" placeholder="Yeni checklist maddesi...">
-              <div class="btn-tanim-ekle" onclick="sbChecklistEkle()">Ekle</div>
+
+            <!-- Sağ: Kalıp Seç + Tik At -->
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.75rem">
+                🔧 Kalıba Madde Ata
+              </div>
+              <select id="checklist-kalip" onchange="Promise.resolve(renderChecklistTanim()).catch(e=>console.error(e))"
+                style="width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;margin-bottom:.75rem">
+                <option value="">Kalıp seç...</option>
+              </select>
+              <div id="checklist-atama-liste" style="display:flex;flex-direction:column;gap:6px;max-height:400px;overflow-y:auto">
+                <div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Önce kalıp seçin</div>
+              </div>
+              <div id="checklist-kaydet-btn" style="display:none;margin-top:.75rem">
+                <div style="padding:10px;background:var(--accent);border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;text-align:center"
+                  onclick="Promise.resolve(checklistKaydet()).catch(e=>console.error(e))">💾 Kaydet</div>
+              </div>
             </div>
+
           </div>
         </div>
 
@@ -3786,20 +3809,70 @@ async function yeniOperatorKaydet() {
   }
 }
 async function renderTanimlar() {
-  // Problem listesi
   const problemler = await sbGet('problem_tipleri', 'aktif=eq.true&order=ad');
   renderTanimListe('problem-liste', problemler, 'problem_tipleri');
-
-  // İşlem listesi
   const islemler = await sbGet('is_tipleri', 'aktif=eq.true&order=ad');
   renderTanimListe('islem-liste', islemler, 'is_tipleri');
-
-  // Checklist kalıp dropdown
   const kalipSel = document.getElementById('checklist-kalip');
   if (kalipSel && tumKaliplar.length) {
     kalipSel.innerHTML = '<option value="">Kalıp seç...</option>' +
       tumKaliplar.map(k => `<option value="${k.id}">${k.kalip_kodu} — ${k.kalip_adi}</option>`).join('');
   }
+  await renderMasterChecklist();
+}
+
+async function renderMasterChecklist() {
+  const masterlar = await sbGet('checklist_sablonlar', 'order=madde') || [];
+  const liste = document.getElementById('master-checklist-liste');
+  if (!liste) return;
+  if (!masterlar.length) {
+    liste.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Henüz madde yok. Ekleyin.</div>';
+    return;
+  }
+  const benzersiz = [...new Map(masterlar.map(m => [m.madde, m])).values()];
+  window._masterChecklistMaddeler = benzersiz;
+  liste.innerHTML = benzersiz.map(item => `
+    <div class="tanim-item" data-id="${item.id}" data-madde="${item.madde.replace(/"/g,'&quot;')}">
+      <span>${item.madde}</span>
+      <div class="tanim-actions">
+        <div class="btn-tanim-sil" onclick="masterChecklistSil('${item.id}','${item.madde.replace(/'/g,"\'")}')">Sil</div>
+      </div>
+    </div>`).join('');
+}
+
+async function masterChecklistEkle() {
+  const input = document.getElementById('master-checklist-yeni');
+  const val = input?.value.trim();
+  if (!val) { alert('Madde boş olamaz.'); return; }
+  await sbPost('checklist_sablonlar', { madde: val, kalip_id: null, sira: 0, aktif: true });
+  input.value = '';
+  await renderMasterChecklist();
+}
+
+async function masterChecklistSil(id, madde) {
+  if (!confirm(`"${madde}" silinsin mi?`)) return;
+  await fetch(`${SUPA_URL}/rest/v1/checklist_sablonlar?id=eq.${id}`, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+  });
+  await renderMasterChecklist();
+}
+
+async function checklistKaydet() {
+  const sel = document.getElementById('checklist-kalip');
+  const kalipId = sel?.value;
+  if (!kalipId) return;
+  const seciliMaddeler = [...document.querySelectorAll('#checklist-atama-liste .cl-secili')]
+    .map(el => el.dataset.madde);
+  await fetch(`${SUPA_URL}/rest/v1/checklist_sablonlar?kalip_id=eq.${kalipId}`, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+  });
+  for (let i = 0; i < seciliMaddeler.length; i++) {
+    await sbPost('checklist_sablonlar', { kalip_id: kalipId, madde: seciliMaddeler[i], sira: i+1, aktif: true });
+  }
+  alert(`✅ ${seciliMaddeler.length} madde kaydedildi!`);
+  await renderChecklistTanim();
 }
 
 function renderTanimListe(listeId, items, tablo) {
@@ -3863,23 +3936,48 @@ async function sbTanimSil(tablo, id, listeId) {
 async function renderChecklistTanim() {
   const sel = document.getElementById('checklist-kalip');
   const kalipId = sel ? sel.value : '';
-  if (!kalipId) return;
-
-  const liste = await sbGet('checklist_sablonlar', `kalip_id=eq.${kalipId}&aktif=eq.true&order=sira`);
-  const listEl = document.getElementById('checklist-liste');
-  if (!listEl) return;
-
-  if (!liste || liste.length === 0) {
-    listEl.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Bu kalıp için checklist yok. Ekleyin.</div>';
+  const atamaListe = document.getElementById('checklist-atama-liste');
+  const kaydetBtn = document.getElementById('checklist-kaydet-btn');
+  if (!kalipId) {
+    if (atamaListe) atamaListe.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Önce kalıp seçin</div>';
+    if (kaydetBtn) kaydetBtn.style.display = 'none';
     return;
   }
-  listEl.innerHTML = liste.map(item => `
-    <div class="tanim-item" data-id="${item.id}">
-      <span>${item.madde}</span>
-      <div class="tanim-actions">
-        <div class="btn-tanim-sil" onclick="sbChecklistSil('${item.id}')">Sil</div>
-      </div>
-    </div>`).join('');
+  const atananlar = await sbGet('checklist_sablonlar', `kalip_id=eq.${kalipId}&aktif=eq.true&order=sira`);
+  const atananMaddeler = new Set((atananlar || []).map(a => a.madde));
+  if (!window._masterChecklistMaddeler || !window._masterChecklistMaddeler.length) {
+    await renderMasterChecklist();
+  }
+  const masterlar = window._masterChecklistMaddeler || [];
+  if (!masterlar.length) {
+    if (atamaListe) atamaListe.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Önce sol tarafta madde ekleyin.</div>';
+    return;
+  }
+  if (atamaListe) {
+    atamaListe.innerHTML = masterlar.map(item => {
+      const secili = atananMaddeler.has(item.madde);
+      return `<div style="display:flex;align-items:center;gap:10px;padding:.75rem;background:var(--bg);border:1px solid ${secili?'var(--green)':'var(--border)'};border-radius:8px;cursor:pointer;transition:all .15s"
+        onclick="toggleChecklistAtama(this)"
+        class="${secili?'cl-secili':''}" data-madde="${item.madde.replace(/"/g,'&quot;')}">
+        <div class="cl-check" style="width:20px;height:20px;border:2px solid var(--border2);border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;background:${secili?'var(--green)':'transparent'}">
+          ${secili?'✓':''}
+        </div>
+        <span style="font-size:14px">${item.madde}</span>
+      </div>`;
+    }).join('');
+  }
+  if (kaydetBtn) kaydetBtn.style.display = 'block';
+}
+
+function toggleChecklistAtama(el) {
+  el.classList.toggle('cl-secili');
+  const secili = el.classList.contains('cl-secili');
+  el.style.borderColor = secili ? 'var(--green)' : 'var(--border)';
+  const check = el.querySelector('.cl-check');
+  if (check) {
+    check.style.background = secili ? 'var(--green)' : 'transparent';
+    check.textContent = secili ? '✓' : '';
+  }
 }
 
 async function sbChecklistEkle() {
