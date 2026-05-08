@@ -717,10 +717,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
       <div class="nav-item" onclick="panelAc('planli',this)"><span class="nav-icon">📅</span> Planlı Bakımlar</div>
       <div class="nav-section">Yönetim</div>
       <div class="nav-item" onclick="panelAc('kaliplar',this)"><span class="nav-icon">🔧</span> Kalıplar</div>
+      <div class="nav-item" onclick="panelAc('kalip-matrisi',this)"><span class="nav-icon">🗂️</span> Kalıp Matrisi</div>
+      <div class="nav-item" onclick="panelAc('gunluk-uretim',this)"><span class="nav-icon">📥</span> Günlük Üretim</div>
       <div class="nav-item" onclick="panelAc('operatorler',this)"><span class="nav-icon">👷</span> Operatörler & Yetki</div>
       <div class="nav-item" onclick="panelAc('malzemeler',this)"><span class="nav-icon">📦</span> Malzeme Stok</div>
       <div class="nav-item" onclick="panelAc('tanimlar',this)"><span class="nav-icon">⚙️</span> Tanımlar</div>
-      <div class="nav-item" onclick="panelAc('uretim-kodlari',this)"><span class="nav-icon">🏷️</span> Üretim Kodları</div>
       <div class="nav-section">Raporlar</div>
       <div class="nav-item" onclick="panelAc('raporlar',this)"><span class="nav-icon">📈</span> KPI & Raporlar</div>
     </nav>
@@ -771,6 +772,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
               <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--muted)">Gecikmiş Planlı</span><span style="font-size:20px;font-weight:700;color:var(--orange)">2</span></div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Kritik Kalıplar Widget -->
+      <div class="panel-card" id="dashboard-kritik-kaliplar">
+        <div class="pc-header">
+          <h3>⚠️ Ömrü Kritik Kalıplar</h3>
+          <span class="badge badge-red" id="kritik-sayac" style="display:none">0</span>
+        </div>
+        <div id="kritik-kalip-liste" style="padding:.75rem 1.25rem">
+          <div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Yükleniyor...</div>
         </div>
       </div>
     </div>
@@ -876,7 +888,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         </div>
         <div style="overflow-x:auto">
           <table class="data-table">
-            <thead><tr><th>Kalıp Kodu</th><th>Kalıp Adı</th><th>Tipi</th><th>Bakım Periyodu</th><th>Durum</th><th>İşlem</th></tr></thead>
+            <thead><tr><th>Kalıp Kodu</th><th>Kalıp Adı</th><th>Tipi</th><th>Toplam Baskı</th><th>Kalıp Ömrü</th><th>Bakım Periyodu</th><th>Durum</th><th>İşlem</th></tr></thead>
             <tbody id="kalip-tablo-body">
               <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Yükleniyor...</td></tr>
             </tbody>
@@ -1071,294 +1083,151 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
       </div>
     </div>
 
-    <!-- ÜRETİM KODLARI -->
-    <div class="panel" id="panel-uretim-kodlari">
+    <!-- KALIP MATRİSİ -->
+    <div class="panel" id="panel-kalip-matrisi">
 
-      <!-- Üst sekmeler -->
-      <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
-        <div id="uk-tab-kodlar" style="padding:8px 20px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer" onclick="ukTab('kodlar')">🏷️ Kod Listesi</div>
-        <div id="uk-tab-sablonlar" style="padding:8px 20px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer" onclick="ukTab('sablonlar')">📐 Şablonlar</div>
-        <div id="uk-tab-kurallar" style="padding:8px 20px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer" onclick="ukTab('kurallar')">⚙️ Oluşturma Kuralları</div>
+      <div style="display:flex;gap:8px;margin-bottom:1rem">
+        <div id="km-tab-urunler" style="padding:8px 20px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer" onclick="kmTab('urunler')">📦 Ürünler</div>
+        <div id="km-tab-matris" style="padding:8px 20px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer" onclick="kmTab('matris')">🗂️ Matris Görünümü</div>
       </div>
 
-      <!-- KOD LİSTESİ -->
-      <div id="uk-bolum-kodlar">
-
-        <!-- Özet kartlar -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem">
-          <div class="stat-card">
-            <div class="s-lbl">Toplam Kod</div>
-            <div class="s-val" style="color:var(--accent)" id="uk-toplam">—</div>
-            <div class="s-sub">Sistemde kayıtlı</div>
+      <!-- ÜRÜNLER -->
+      <div id="km-bolum-urunler">
+        <div class="panel-card">
+          <div class="pc-header">
+            <h3>Ürün Listesi</h3>
+            <div style="padding:7px 14px;background:var(--accent);border:none;border-radius:7px;color:#fff;font-size:12px;font-weight:600;cursor:pointer" onclick="kmYeniUrunForm()">+ Yeni Ürün</div>
           </div>
-          <div class="stat-card">
-            <div class="s-lbl">Aktif</div>
-            <div class="s-val" style="color:var(--green)" id="uk-aktif">—</div>
-            <div class="s-sub">Üretimde kullanılan</div>
-          </div>
-          <div class="stat-card">
-            <div class="s-lbl">Pasif</div>
-            <div class="s-val" style="color:var(--muted)" id="uk-pasif">—</div>
-            <div class="s-sub">Kullanım dışı</div>
-          </div>
-          <div class="stat-card">
-            <div class="s-lbl">Bu Ay Eklenen</div>
-            <div class="s-val" style="color:var(--purple)" id="uk-bu-ay">—</div>
-            <div class="s-sub">Yeni kayıt</div>
+          <div id="km-urun-liste" style="padding:1rem;display:flex;flex-direction:column;gap:8px">
+            <div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Yükleniyor...</div>
           </div>
         </div>
 
+        <!-- Yeni Ürün Formu -->
+        <div id="km-urun-form" style="display:none;margin-top:1rem">
+          <div class="panel-card">
+            <div class="pc-header"><h3 id="km-urun-form-baslik">Yeni Ürün Ekle</h3></div>
+            <div class="pc-body" style="display:flex;flex-direction:column;gap:1rem">
+              <div class="fg">
+                <label>Ürün Adı <span style="color:var(--red)">*</span></label>
+                <input type="text" id="km-urun-adi" placeholder="örn: ALARKO 10LT"
+                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+              </div>
+              <div class="fg">
+                <label>Açıklama</label>
+                <input type="text" id="km-urun-aciklama" placeholder="opsiyonel"
+                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+              </div>
+              <div style="display:flex;gap:8px">
+                <div style="flex:1;padding:10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;text-align:center;font-size:13px" onclick="kmUrunFormIptal()">İptal</div>
+                <div style="flex:2;padding:10px;background:var(--accent);border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:600" onclick="kmUrunKaydet()">Kaydet</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Operasyon Düzenleme Alanı -->
+        <div id="km-op-alan" style="display:none;margin-top:1rem">
+          <div class="panel-card">
+            <div class="pc-header">
+              <div>
+                <h3 id="km-op-baslik">— Operasyonları</h3>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px">Her operasyon için ana kalıp ve alternatiflerini tanımlayın</div>
+              </div>
+              <div style="padding:7px 14px;background:var(--green);border:none;border-radius:7px;color:#fff;font-size:12px;font-weight:600;cursor:pointer" onclick="kmOpEkle()">+ Operasyon Ekle</div>
+            </div>
+            <div id="km-op-liste" style="padding:1rem;display:flex;flex-direction:column;gap:10px">
+              <div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Henüz operasyon yok</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MATRİS GÖRÜNÜMÜ -->
+      <div id="km-bolum-matris" style="display:none">
         <div class="panel-card">
           <div class="pc-header">
-            <h3>Üretim Kodu Listesi</h3>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-              <input type="text" id="uk-filtre-kod" placeholder="🔍 Kod ara..."
-                oninput="ukFiltrele()"
-                style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px;width:130px">
-              <input type="text" id="uk-filtre-kalip" placeholder="Kalıp ara..."
-                oninput="ukFiltrele()"
-                style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px;width:130px">
-              <select id="uk-filtre-durum" onchange="ukFiltrele()"
-                style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px">
-                <option value="">Tüm Durumlar</option>
-                <option value="aktif">Aktif</option>
-                <option value="pasif">Pasif</option>
-              </select>
-              <select id="uk-filtre-tip" onchange="ukFiltrele()"
-                style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px">
-                <option value="">Tüm Tipler</option>
-                <option value="seri">Seri Üretim</option>
-                <option value="prototip">Prototip</option>
-                <option value="deneme">Deneme</option>
-                <option value="revizyon">Revizyon</option>
-              </select>
-              <div style="padding:7px 14px;background:var(--accent);border:none;border-radius:7px;color:#fff;font-size:12px;font-weight:600;cursor:pointer" onclick="ukYeniKodForm()">+ Yeni Kod</div>
-            </div>
+            <h3>Kalıp Matrisi</h3>
+            <input type="text" id="km-matris-filtre" placeholder="🔍 Ürün ara..." oninput="kmMatrisFiltrele()"
+              style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px;width:180px">
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table" id="km-matris-tablo">
+              <thead><tr><th>Ürün</th><th>Operasyon</th><th>Ana Kalıp</th><th>Alternatif 1</th><th>Alternatif 2</th></tr></thead>
+              <tbody id="km-matris-body">
+                <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">Yükleniyor...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- GÜNLÜK ÜRETİM GİRİŞİ -->
+    <div class="panel" id="panel-gunluk-uretim">
+
+      <!-- Tarih + Ürün Seçimi -->
+      <div class="panel-card" style="margin-bottom:1rem">
+        <div class="pc-header"><h3>Üretim Verisi Gir</h3></div>
+        <div class="pc-body" style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
+          <div class="fg" style="flex:1;min-width:180px">
+            <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Tarih <span style="color:var(--red)">*</span></label>
+            <input type="date" id="gu-tarih"
+              style="width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;margin-top:6px">
+          </div>
+          <div class="fg" style="flex:2;min-width:220px">
+            <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Ürün <span style="color:var(--red)">*</span></label>
+            <select id="gu-urun" onchange="guUrunSec()"
+              style="width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;margin-top:6px">
+              <option value="">Ürün seç...</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Operasyon Adet Tablosu -->
+      <div id="gu-tablo-kart" style="display:none">
+        <div class="panel-card">
+          <div class="pc-header">
+            <h3 id="gu-tablo-baslik">— Operasyonları</h3>
+            <span class="badge badge-blue" id="gu-toplam-badge">0 operasyon</span>
           </div>
           <div style="overflow-x:auto">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Üretim Kodu</th>
-                  <th>Açıklama</th>
-                  <th>Kalıp</th>
-                  <th>Tip</th>
-                  <th>Oluşturma Tarihi</th>
-                  <th>Oluşturan</th>
-                  <th>Durum</th>
-                  <th>İşlem</th>
+                  <th style="width:40px">#</th>
+                  <th>Operasyon</th>
+                  <th>Kullanılan Kalıp</th>
+                  <th style="width:160px">Adet</th>
+                  <th style="width:100px">Not</th>
                 </tr>
               </thead>
-              <tbody id="uk-tablo-body">
-                <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">Yükleniyor...</td></tr>
-              </tbody>
+              <tbody id="gu-op-tbody"></tbody>
             </table>
           </div>
-        </div>
-
-        <!-- Yeni / Düzenle Kod Formu -->
-        <div id="uk-kod-form-kart" style="display:none;margin-top:1rem">
-          <div class="panel-card">
-            <div class="pc-header"><h3 id="uk-form-baslik">Yeni Üretim Kodu Ekle</h3></div>
-            <div class="pc-body" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
-              <div class="fg">
-                <label>Üretim Kodu <span style="color:var(--red)">*</span></label>
-                <div style="display:flex;gap:8px">
-                  <input type="text" id="uk-kf-kod" placeholder="ÜK-2025-001"
-                    style="flex:1;padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:'JetBrains Mono',monospace">
-                  <div onclick="ukOtomatikKodUret()"
-                    style="padding:10px 14px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;font-size:12px;white-space:nowrap;display:flex;align-items:center;gap:4px">
-                    🔄 Otomatik
-                  </div>
-                </div>
-                <div style="font-size:11px;color:var(--muted);margin-top:4px" id="uk-kod-onizleme"></div>
-              </div>
-              <div class="fg">
-                <label>Kalıp <span style="color:var(--red)">*</span></label>
-                <select id="uk-kf-kalip"
-                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-                  <option value="">Kalıp seç...</option>
-                </select>
-              </div>
-              <div class="fg">
-                <label>Üretim Tipi <span style="color:var(--red)">*</span></label>
-                <select id="uk-kf-tip"
-                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-                  <option value="seri">Seri Üretim</option>
-                  <option value="prototip">Prototip</option>
-                  <option value="deneme">Deneme</option>
-                  <option value="revizyon">Revizyon</option>
-                </select>
-              </div>
-              <div class="fg">
-                <label>Versiyon</label>
-                <input type="text" id="uk-kf-versiyon" placeholder="v1.0"
-                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-              </div>
-              <div class="fg" style="grid-column:span 2">
-                <label>Açıklama</label>
-                <input type="text" id="uk-kf-aciklama" placeholder="Kısa açıklama..."
-                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-              </div>
-              <div class="fg" style="grid-column:span 2">
-                <label>Parametreler / Notlar</label>
-                <textarea id="uk-kf-notlar" placeholder="Üretim parametreleri, özel notlar..."
-                  style="width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;resize:vertical;min-height:80px"></textarea>
-              </div>
-              <div class="fg">
-                <label>Durum</label>
-                <select id="uk-kf-durum"
-                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-                  <option value="aktif">Aktif</option>
-                  <option value="pasif">Pasif</option>
-                </select>
-              </div>
-              <div class="fg">
-                <label>Geçerlilik Tarihi</label>
-                <input type="date" id="uk-kf-gecerlilik"
-                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-              </div>
-              <div style="grid-column:span 2;display:flex;gap:8px">
-                <div style="flex:1;padding:10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;text-align:center;font-size:13px" onclick="ukKodFormIptal()">İptal</div>
-                <div style="flex:2;padding:10px;background:var(--accent);border:none;border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:600" onclick="Promise.resolve(ukKodKaydet()).catch(e=>console.error(e))">Kaydet</div>
-              </div>
-            </div>
+          <div style="padding:1rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
+            <div onclick="guTemizle()" style="padding:10px 20px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;font-size:13px">Temizle</div>
+            <div onclick="guKaydet()" style="padding:10px 24px;background:var(--green);border-radius:8px;color:#fff;cursor:pointer;font-size:13px;font-weight:700">💾 Kaydet</div>
           </div>
         </div>
       </div>
 
-      <!-- ŞABLONLAR -->
-      <div id="uk-bolum-sablonlar" style="display:none">
-        <div class="panel-card">
-          <div class="pc-header">
-            <h3>Kod Şablonları</h3>
-            <div style="padding:7px 14px;background:var(--accent);border:none;border-radius:7px;color:#fff;font-size:12px;font-weight:600;cursor:pointer" onclick="ukYeniSablonForm()">+ Yeni Şablon</div>
-          </div>
-          <div id="uk-sablon-liste" style="padding:1rem;display:flex;flex-direction:column;gap:8px">
-            <!-- Şablonlar buraya render edilecek -->
-          </div>
+      <!-- Geçmiş Girişler -->
+      <div class="panel-card" style="margin-top:1rem">
+        <div class="pc-header">
+          <h3>Son Girişler</h3>
+          <input type="date" id="gu-gecmis-filtre" onchange="guGecmisRender()"
+            style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px">
         </div>
-
-        <!-- Yeni Şablon Formu -->
-        <div id="uk-sablon-form-kart" style="display:none;margin-top:1rem">
-          <div class="panel-card">
-            <div class="pc-header"><h3>Yeni Şablon Oluştur</h3></div>
-            <div class="pc-body" style="display:flex;flex-direction:column;gap:1rem">
-              <div class="fg">
-                <label>Şablon Adı <span style="color:var(--red)">*</span></label>
-                <input type="text" id="uk-sf-adi" placeholder="örn: Seri Üretim Şablonu"
-                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-              </div>
-              <div class="fg">
-                <label>Kod Öneki <span style="color:var(--red)">*</span></label>
-                <input type="text" id="uk-sf-onek" placeholder="örn: SÜ, PT, DN, RV"
-                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-              </div>
-              <div class="fg">
-                <label>Format</label>
-                <div style="display:flex;gap:8px;flex-wrap:wrap">
-                  <div class="chip" onclick="ukSablonFormatSec(this,'[ONEK]-[YIL]-[SIRA]')" data-val="[ONEK]-[YIL]-[SIRA]">[ONEK]-[YIL]-[SIRA]</div>
-                  <div class="chip" onclick="ukSablonFormatSec(this,'[ONEK][YIL][SIRA]')" data-val="[ONEK][YIL][SIRA]">[ONEK][YIL][SIRA]</div>
-                  <div class="chip" onclick="ukSablonFormatSec(this,'[ONEK]-[KALIP]-[SIRA]')" data-val="[ONEK]-[KALIP]-[SIRA]">[ONEK]-[KALIP]-[SIRA]</div>
-                </div>
-                <input type="text" id="uk-sf-format" placeholder="Özel format: [ONEK]-[YIL]-[SIRA]"
-                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:'JetBrains Mono',monospace;margin-top:8px">
-                <div style="font-size:11px;color:var(--muted);margin-top:4px">Önizleme: <span id="uk-sf-onizleme" style="color:var(--accent);font-family:'JetBrains Mono',monospace">—</span></div>
-              </div>
-              <div class="fg">
-                <label>Açıklama</label>
-                <input type="text" id="uk-sf-aciklama" placeholder="Şablon açıklaması..."
-                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-              </div>
-              <div style="display:flex;gap:8px">
-                <div style="flex:1;padding:10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;text-align:center;font-size:13px" onclick="ukSablonFormIptal()">İptal</div>
-                <div style="flex:2;padding:10px;background:var(--accent);border:none;border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:600" onclick="ukSablonKaydet()">Kaydet</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- OLUŞTURMA KURALLARI -->
-      <div id="uk-bolum-kurallar" style="display:none">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
-
-          <div class="panel-card">
-            <div class="pc-header"><h3>🔢 Numaralandırma Ayarları</h3></div>
-            <div class="pc-body" style="display:flex;flex-direction:column;gap:1rem">
-              <div class="fg">
-                <label>Sıra No Başlangıcı</label>
-                <input type="number" id="uk-kural-baslangic" value="1"
-                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-              </div>
-              <div class="fg">
-                <label>Basamak Sayısı</label>
-                <select id="uk-kural-basamak"
-                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-                  <option value="3">3 basamak (001)</option>
-                  <option value="4" selected>4 basamak (0001)</option>
-                  <option value="5">5 basamak (00001)</option>
-                </select>
-              </div>
-              <div class="fg">
-                <label>Yıl Formatı</label>
-                <select id="uk-kural-yil"
-                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-                  <option value="4">4 hane (2025)</option>
-                  <option value="2">2 hane (25)</option>
-                </select>
-              </div>
-              <div class="fg" style="border-top:1px solid var(--border);padding-top:1rem">
-                <label style="margin-bottom:.5rem;display:block">Önizleme</label>
-                <div style="padding:12px 16px;background:var(--bg);border:1px solid var(--accent);border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--accent);text-align:center" id="uk-kural-onizleme">SÜ-2025-0001</div>
-              </div>
-              <div style="padding:10px;background:var(--accent);border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:600" onclick="ukKuralKaydet()">💾 Ayarları Kaydet</div>
-            </div>
-          </div>
-
-          <div class="panel-card">
-            <div class="pc-header"><h3>🔄 Otomatik Kod Üretme</h3></div>
-            <div class="pc-body" style="display:flex;flex-direction:column;gap:1rem">
-              <div style="padding:.875rem;background:var(--accent-dim);border:1px solid var(--accent);border-radius:10px">
-                <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px">ℹ️ Nasıl Çalışır?</div>
-                <div style="font-size:13px;color:var(--muted);line-height:1.6">Yeni kod eklerken <strong style="color:var(--text)">"Otomatik"</strong> butonuna basıldığında seçili şablona ve kurallara göre bir sonraki uygun kod otomatik oluşturulur.</div>
-              </div>
-              <div class="fg">
-                <label>Varsayılan Şablon</label>
-                <select id="uk-kural-varsayilan-sablon"
-                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-                  <option value="">Şablon seç...</option>
-                </select>
-              </div>
-              <div class="fg">
-                <label style="display:flex;align-items:center;gap:8px;margin-bottom:.5rem">
-                  <div class="toggle" id="uk-kural-onayli-toggle" onclick="this.classList.toggle('on')"></div>
-                  Kayıt öncesi onay iste
-                </label>
-                <div style="font-size:12px;color:var(--muted)">Aktifse otomatik oluşturulan kod kullanıcı onayından sonra kaydedilir.</div>
-              </div>
-              <div class="fg">
-                <label style="display:flex;align-items:center;gap:8px;margin-bottom:.5rem">
-                  <div class="toggle on" id="uk-kural-benzersiz-toggle" onclick="this.classList.toggle('on')"></div>
-                  Benzersizlik kontrolü
-                </label>
-                <div style="font-size:12px;color:var(--muted)">Aynı kodu ikinci kez kaydetmeyi engeller.</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="panel-card" style="grid-column:span 2">
-            <div class="pc-header"><h3>📋 Değişiklik Geçmişi</h3></div>
-            <div style="overflow-x:auto">
-              <table class="data-table">
-                <thead><tr><th>Tarih</th><th>Kod</th><th>İşlem</th><th>Değişiklik</th><th>Kullanıcı</th></tr></thead>
-                <tbody id="uk-gecmis-body">
-                  <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">Henüz kayıt yok</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr><th>Tarih</th><th>Ürün</th><th>Operasyon</th><th>Kalıp</th><th>Adet</th><th>Kaydeden</th></tr></thead>
+            <tbody id="gu-gecmis-body">
+              <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Henüz giriş yok</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -1727,6 +1596,14 @@ async function verileriYukle() {
   } catch(e) {
     console.warn('Veri yükleme hatası:', e);
   }
+  // Günlük üretim girişlerinden biriken toplam baskı sayılarını restore et
+  try {
+    const baskiData = JSON.parse(localStorage.getItem('tumKaliplarBaski') || '[]');
+    baskiData.forEach(b => {
+      const k = tumKaliplar.find(x=>x.id===b.id);
+      if (k) k.toplam_baski = b.toplam_baski || 0;
+    });
+  } catch(e) {}
 }
 
 // ── GİRİŞ ──
@@ -2086,6 +1963,48 @@ async function renderYoneticiVeriler() {
   } catch(e) {
     console.warn('Yönetici verileri yüklenemedi:', e);
   }
+
+  // Kritik kalıplar widget
+  renderKritikKaliplar();
+}
+
+function renderKritikKaliplar() {
+  const liste = document.getElementById('kritik-kalip-liste');
+  const sayac = document.getElementById('kritik-sayac');
+  if (!liste) return;
+
+  const kritikler = tumKaliplar.filter(k => {
+    if (!k.toplam_omur_baski || !k.toplam_baski) return false;
+    return (k.toplam_baski / k.toplam_omur_baski) >= 0.70; // %70 ve üzeri
+  }).sort((a,b) => (b.toplam_baski/b.toplam_omur_baski) - (a.toplam_baski/a.toplam_omur_baski));
+
+  if (!kritikler.length) {
+    liste.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">✓ Kritik kalıp yok</div>';
+    if (sayac) sayac.style.display='none';
+    return;
+  }
+
+  if (sayac) { sayac.textContent = kritikler.length; sayac.style.display='inline-flex'; }
+  liste.innerHTML = kritikler.map(k => {
+    const oran = Math.min(100, Math.round(k.toplam_baski / k.toplam_omur_baski * 100));
+    const renk = oran >= 90 ? 'var(--red)' : 'var(--amber)';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:.75rem 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${k.kalip_adi}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;font-family:'JetBrains Mono',monospace">${k.kalip_kodu}</div>
+      </div>
+      <div style="min-width:140px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:11px;color:var(--muted)">${k.toplam_baski.toLocaleString('tr-TR')} baskı</span>
+          <span style="font-size:12px;font-weight:700;color:${renk}">${oran}%</span>
+        </div>
+        <div style="background:var(--border);border-radius:4px;height:6px">
+          <div style="width:${oran}%;background:${renk};height:100%;border-radius:4px"></div>
+        </div>
+      </div>
+      <span class="badge ${oran>=90?'badge-red':'badge-amber'}">${oran>=90?'Kritik':'Uyarı'}</span>
+    </div>`;
+  }).join('');
 }
 
 // ── İŞ EMRİ BAŞLAT ──
@@ -2681,11 +2600,8 @@ async function malzemeAccordionYukle(accordionId, gridId) {
           <span>📁 ${ana.ad}</span>
           ${cocuklar.length > 0 ? '<span class="acc-ok">›</span>' : '<span style="font-size:11px;color:var(--muted)">Seç ›</span>'}
         </div>
-        ${cocuklar.length === 0 ? `<div class="acc-alt-grid" id="grid-${ana.id}" style="display:none;margin-top:8px;padding:0 8px 8px"></div>` : ''}
-        ${cocuklar.length > 0 ? `
-          <div class="acc-alt-liste">
-            ${altHtml}
-          </div>` : ''}
+        ${cocuklar.length === 0 ? '<div class="acc-alt-grid" id="grid-' + ana.id + '" style="display:none;margin-top:8px;padding:0 8px 8px"></div>' : ''}
+        ${cocuklar.length > 0 ? '<div class="acc-alt-liste">' + altHtml + '</div>' : ''}
       </div>`;
   }).join('');
 }
@@ -2922,7 +2838,7 @@ function panelAc(id, btn){
   const p=document.getElementById('panel-'+id);
   if(p) p.classList.add('active');
   if(btn) btn.classList.add('active');
-  const b={'dashboard':'Dashboard','canli':'Anlık İzleme','is-emirleri':'İş Emirleri','planli':'Planlı Bakımlar','kaliplar':'Kalıplar','operatorler':'Operatörler & Yetki','malzemeler':'Malzeme Stok','tanimlar':'Tanımlar','uretim-kodlari':'Üretim Kodları','raporlar':'KPI & Raporlar'};
+  const b={'dashboard':'Dashboard','canli':'Anlık İzleme','is-emirleri':'İş Emirleri','planli':'Planlı Bakımlar','kaliplar':'Kalıplar','kalip-matrisi':'Kalıp Matrisi','gunluk-uretim':'Günlük Üretim Girişi','operatorler':'Operatörler & Yetki','malzemeler':'Malzeme Stok','tanimlar':'Tanımlar','raporlar':'KPI & Raporlar'};
   document.getElementById('panel-baslik').textContent=b[id]||id;
   if(id === 'tanimlar') renderTanimlar();
   else if(id === 'operatorler') renderOperatorler();
@@ -2931,7 +2847,8 @@ function panelAc(id, btn){
   else if(id === 'malzemeler') renderMalzemePanel();
   else if(id === 'raporlar') raporPanelAc();
   else if(id === 'is-emirleri') renderIsEmirleriTablosu();
-  else if(id === 'uretim-kodlari') ukRenderPanel();
+  else if(id === 'kalip-matrisi') kmRenderPanel();
+  else if(id === 'gunluk-uretim') guRenderPanel();
   else renderYoneticiVeriler();
 }
 function opSec(el){document.querySelectorAll('.operator-kart').forEach(k=>k.classList.remove('selected'));el.classList.add('selected');}
@@ -3092,16 +3009,8 @@ async function ieDetayAc(isEmriId) {
           <div style="font-size:11px;color:var(--muted);margin-bottom:6px">KULLANILAN MALZEME</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px">${malzHtml}</div>
         </div>
-        ${ie.aciklama ? `
-          <div style="padding:.75rem;background:var(--bg);border-radius:8px">
-            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">AÇIKLAMA</div>
-            <div style="font-size:13px">${ie.aciklama}</div>
-          </div>` : ''}
-        ${ie.acik_kapali === 'Acik' ? `
-          <div style="padding:.75rem;background:var(--amber-dim);border:1px solid var(--amber);border-radius:8px">
-            <div style="font-size:13px;color:var(--amber);font-weight:600">⚠ Bu iş emri hala açık</div>
-            <div style="font-size:12px;color:var(--muted);margin-top:4px">Yönetici olarak kapatabilirsiniz</div>
-          </div>` : ''}
+        ${ie.aciklama ? '<div style="padding:.75rem;background:var(--bg);border-radius:8px"><div style="font-size:11px;color:var(--muted);margin-bottom:4px">AÇIKLAMA</div><div style="font-size:13px">' + ie.aciklama + '</div></div>' : ''}
+        ${ie.acik_kapali === 'Acik' ? '<div style="padding:.75rem;background:var(--amber-dim);border:1px solid var(--amber);border-radius:8px"><div style="font-size:13px;color:var(--amber);font-weight:600">⚠ Bu iş emri hala açık</div><div style="font-size:12px;color:var(--muted);margin-top:4px">Yönetici olarak kapatabilirsiniz</div></div>' : ''}
       </div>`;
 
     // Açık iş emriyse kapat butonu göster
@@ -3769,8 +3678,7 @@ async function renderPlanliTablo() {
         <td>${clSay}</td>
         <td>
           <div style="display:flex;gap:6px">
-            ${!b.tamamlandi ? `<div style="padding:4px 10px;background:var(--green-dim);border:1px solid var(--green);border-radius:6px;color:var(--green);font-size:11px;cursor:pointer"
-              onclick="Promise.resolve(planliTamamla('${b.id}')).catch(e=>console.error(e))">Tamamlandı</div>` : ''}
+            ${!b.tamamlandi ? '<div style="padding:4px 10px;background:var(--green-dim);border:1px solid var(--green);border-radius:6px;color:var(--green);font-size:11px;cursor:pointer" onclick="Promise.resolve(planliTamamla(\'' + b.id + '\')).catch(e=>console.error(e))">Tamamlandı</div>' : ''}
             <div style="padding:4px 10px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;cursor:pointer"
               onclick="Promise.resolve(planliSil('${b.id}')).catch(e=>console.error(e))">Sil</div>
           </div>
@@ -3846,21 +3754,48 @@ async function renderKaliplar() {
   try {
     const kaliplar = await sbGet('kaliplar', 'aktif=eq.true&order=kalip_kodu');
     tumKaliplar = kaliplar || [];
+    // Baskı verilerini restore et
+    try {
+      const baskiData = JSON.parse(localStorage.getItem('tumKaliplarBaski') || '[]');
+      baskiData.forEach(b => {
+        const k = tumKaliplar.find(x=>x.id===b.id);
+        if (k) k.toplam_baski = b.toplam_baski || 0;
+      });
+    } catch(e) {}
+
     if (!kaliplar || kaliplar.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Kayıt yok</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">Kayıt yok</td></tr>';
       return;
     }
     tbody.innerHTML = kaliplar.map(k => {
       const sonBakim = k.son_bakim_tarihi
         ? new Date(k.son_bakim_tarihi).toLocaleDateString('tr-TR', {day:'2-digit', month:'2-digit', year:'numeric'}).replace(/\./g, '/')
         : '—';
-      const sonrakiBakim = k.son_bakim_tarihi && k.bakim_periyodu_gun
-        ? new Date(new Date(k.son_bakim_tarihi).getTime() + k.bakim_periyodu_gun * 86400000).toLocaleDateString('tr-TR', {day:'2-digit', month:'2-digit', year:'numeric'}).replace(/\./g, '/')
-        : '—';
+      // Ömür hesabı
+      const toplam = k.toplam_baski || 0;
+      const omur = k.toplam_omur_baski || 0;
+      let omurHTML = '—';
+      if (omur > 0) {
+        const oran = Math.min(100, Math.round(toplam / omur * 100));
+        const renk = oran >= 90 ? 'var(--red)' : oran >= 70 ? 'var(--amber)' : 'var(--green)';
+        omurHTML = `<div style="min-width:120px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span style="font-size:11px;color:var(--muted)">${toplam.toLocaleString('tr-TR')} / ${omur.toLocaleString('tr-TR')}</span>
+            <span style="font-size:11px;font-weight:700;color:${renk}">${oran}%</span>
+          </div>
+          <div style="background:var(--border);border-radius:4px;height:5px">
+            <div style="width:${oran}%;background:${renk};height:100%;border-radius:4px;transition:width .3s"></div>
+          </div>
+        </div>`;
+      } else if (toplam > 0) {
+        omurHTML = `<span style="font-family:'JetBrains Mono',monospace;font-size:12px">${toplam.toLocaleString('tr-TR')}</span>`;
+      }
       return `<tr>
         <td class="mono">${k.kalip_kodu}</td>
         <td>${k.kalip_adi}</td>
         <td>${k.kalip_tipi || '—'}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:13px;text-align:right">${toplam > 0 ? toplam.toLocaleString('tr-TR') : '—'}</td>
+        <td>${omurHTML}</td>
         <td>${k.bakim_periyodu_gun ? k.bakim_periyodu_gun + ' gün' : '—'}</td>
         <td><span class="badge badge-green">Aktif</span></td>
         <td>
@@ -4025,12 +3960,7 @@ function operatorDetayGoster(opId) {
       Yapabileceği İşlemler
     </div>
     <div id="yetki-islem-listesi" style="display:flex;flex-direction:column;gap:6px;margin-bottom:1rem">
-      ${tumIsTipleri.map(it => `
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .75rem;background:var(--bg);border-radius:8px;">
-          <label style="font-size:13px;cursor:pointer" for="yetki-${it.id}">${it.ad}</label>
-          <input type="checkbox" id="yetki-${it.id}" value="${it.id}" class="yetki-checkbox"
-            ${mevcutYetkiler.includes(it.id) ? 'checked' : ''}>
-        </div>`).join('')}
+      ${tumIsTipleri.map(it => '<div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .75rem;background:var(--bg);border-radius:8px;"><label style="font-size:13px;cursor:pointer" for="yetki-' + it.id + '">' + it.ad + '</label><input type="checkbox" id="yetki-' + it.id + '" value="' + it.id + '" class="yetki-checkbox" ' + (mevcutYetkiler.includes(it.id) ? 'checked' : '') + '></div>').join('')}
     </div>
 
     <div style="display:flex;gap:8px">
@@ -4320,475 +4250,418 @@ function kalipAra(q){
 }
 
 // ══════════════════════════════════════════════════
-// ÜRETİM KODLARI YÖNETİMİ
+// KALIP MATRİSİ
 // ══════════════════════════════════════════════════
 
-// Yerel state
-let ukKodlar = [];          // tüm kodlar (localStorage'dan veya Supabase'den)
-let ukSablonlar = [];        // şablonlar
-let ukDuzenlenenId = null;   // düzenleme modunda olan kaydın id'si
-let ukSiraSayac = 1;
+// State
+let kmUrunler = [];      // [{id, adi, aciklama, operasyonlar:[{id,sira,adi,ana_kalip_id,alternatifler:[kalip_id]}]}]
+let kmDuzlenenUrunId = null;
 
-// ── Sekme kontrolü ──
-function ukTab(sekme) {
-  ['kodlar','sablonlar','kurallar'].forEach(s => {
-    const btn = document.getElementById('uk-tab-'+s);
-    const div = document.getElementById('uk-bolum-'+s);
+// ── localStorage yardımcıları ──
+function kmYukle() {
+  try {
+    const s = localStorage.getItem('km_urunler');
+    kmUrunler = s ? JSON.parse(s) : kmDemoUrunler();
+  } catch(e) { kmUrunler = kmDemoUrunler(); }
+}
+function kmKaydetLS() {
+  localStorage.setItem('km_urunler', JSON.stringify(kmUrunler));
+}
+function kmDemoUrunler() {
+  const kalipIdleri = tumKaliplar.slice(0,6).map(k=>k.id);
+  return [
+    { id:1, adi:'ALARKO 10LT', aciklama:'10 litrelik alarko serisi', operasyonlar:[
+      { id:101, sira:1, adi:'Sıvama (Alt)', ana_kalip_id: kalipIdleri[0]||'', alternatifler:[] },
+      { id:102, sira:2, adi:'Çevre Kesme (Alt)', ana_kalip_id: kalipIdleri[1]||'', alternatifler:[] },
+      { id:103, sira:3, adi:'Sıvama (Üst)', ana_kalip_id: kalipIdleri[0]||'', alternatifler:[] },
+      { id:104, sira:4, adi:'Çevre Kesme (Üst)', ana_kalip_id: kalipIdleri[1]||'', alternatifler:[] },
+      { id:105, sira:5, adi:'Kenetleme', ana_kalip_id: kalipIdleri[2]||'', alternatifler:[] },
+    ]},
+    { id:2, adi:'ATROMIX ALT-ÜST KAPAK', aciklama:'', operasyonlar:[
+      { id:201, sira:1, adi:'Sıvama', ana_kalip_id: kalipIdleri[0]||'', alternatifler:[kalipIdleri[3]||''] },
+      { id:202, sira:2, adi:'Çevre Kesme', ana_kalip_id: kalipIdleri[1]||'', alternatifler:[] },
+      { id:203, sira:3, adi:'Kenetleme', ana_kalip_id: kalipIdleri[2]||'', alternatifler:[] },
+    ]},
+  ];
+}
+
+// ── Sekme ──
+function kmTab(sekme) {
+  ['urunler','matris'].forEach(s => {
+    const btn = document.getElementById('km-tab-'+s);
+    const div = document.getElementById('km-bolum-'+s);
     if (btn) btn.style.cssText = s===sekme
       ? 'padding:8px 20px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer'
       : 'padding:8px 20px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer';
     if (div) div.style.display = s===sekme ? 'block' : 'none';
   });
-  if (sekme === 'sablonlar') ukRenderSablonlar();
-  if (sekme === 'kurallar') ukRenderKurallar();
+  if (sekme === 'matris') kmRenderMatris();
 }
 
-// ── Veri yükleme (Supabase varsa, yoksa localStorage fallback) ──
-function ukYukle() {
-  // Supabase tablosu yoksa localStorage demo modunda çalışır
-  try {
-    const stored = localStorage.getItem('uk_kodlar');
-    if (stored) ukKodlar = JSON.parse(stored);
-    else ukKodlar = ukDemoVerisi();
-    const storedS = localStorage.getItem('uk_sablonlar');
-    if (storedS) ukSablonlar = JSON.parse(storedS);
-    else ukSablonlar = ukDemoSablonlar();
-    const storedSayac = localStorage.getItem('uk_sayac');
-    ukSiraSayac = storedSayac ? parseInt(storedSayac) : ukKodlar.length + 1;
-  } catch(e) {
-    ukKodlar = ukDemoVerisi();
-    ukSablonlar = ukDemoSablonlar();
-  }
+// ── Ana render ──
+function kmRenderPanel() {
+  kmYukle();
+  kmRenderUrunler();
 }
 
-function ukKaydet() {
-  localStorage.setItem('uk_kodlar', JSON.stringify(ukKodlar));
-  localStorage.setItem('uk_sablonlar', JSON.stringify(ukSablonlar));
-  localStorage.setItem('uk_sayac', String(ukSiraSayac));
-}
-
-// ── Demo verileri ──
-function ukDemoVerisi() {
-  return [
-    { id:1, kod:'SÜ-2025-0001', aciklama:'ATROMIX Alt Kapak Seri', kalip_id:'', kalip_adi:'ATROMIX ALT-ÜST KAPAK SIVAMA', tip:'seri', versiyon:'v1.0', durum:'aktif', olusturma:'2025-03-10', olusturan:'Tuğrul Y.', notlar:'Standart seri üretim parametreleri', gecerlilik:'' },
-    { id:2, kod:'PT-2025-0002', aciklama:'Alarko Prototip Deneme', kalip_id:'', kalip_adi:'ALARKO KORDONLU KENETLEME', tip:'prototip', versiyon:'v1.0', durum:'aktif', olusturma:'2025-03-12', olusturan:'Tuğrul Y.', notlar:'İlk prototip seri', gecerlilik:'2025-06-30' },
-    { id:3, kod:'RV-2025-0003', aciklama:'EMAS Revizyon R2', kalip_id:'', kalip_adi:'EMAS KORDONLU ÜK DELME', tip:'revizyon', versiyon:'v2.1', durum:'aktif', olusturma:'2025-04-01', olusturan:'Tuğrul Y.', notlar:'Delme açısı revize edildi', gecerlilik:'' },
-    { id:4, kod:'DN-2025-0004', aciklama:'Test hattı deneme kodu', kalip_id:'', kalip_adi:'', tip:'deneme', versiyon:'v0.1', durum:'pasif', olusturma:'2025-04-15', olusturan:'Ahmet Y.', notlar:'', gecerlilik:'2025-05-01' },
-    { id:5, kod:'SÜ-2025-0005', aciklama:'Atromix üst kapak v2', kalip_id:'', kalip_adi:'ATROMIX ALT-ÜST KAPAK SIVAMA', tip:'seri', versiyon:'v2.0', durum:'aktif', olusturma:'2025-04-20', olusturan:'Tuğrul Y.', notlar:'', gecerlilik:'' },
-  ];
-}
-
-function ukDemoSablonlar() {
-  return [
-    { id:1, adi:'Seri Üretim Şablonu', onek:'SÜ', format:'[ONEK]-[YIL]-[SIRA]', aciklama:'Standart seri üretim kodları için' },
-    { id:2, adi:'Prototip Şablonu', onek:'PT', format:'[ONEK]-[YIL]-[SIRA]', aciklama:'Prototip ve geliştirme kodları' },
-    { id:3, adi:'Revizyon Şablonu', onek:'RV', format:'[ONEK]-[YIL]-[SIRA]', aciklama:'Revizyon ve güncelleme kodları' },
-    { id:4, adi:'Deneme Şablonu', onek:'DN', format:'[ONEK]-[YIL]-[SIRA]', aciklama:'Test ve deneme üretim kodları' },
-  ];
-}
-
-// ── Panel render ana fonksiyonu ──
-function ukRenderPanel() {
-  ukYukle();
-  ukRenderOzetKartlar();
-  ukRenderTablo();
-  ukDoldurKalipSelectler();
-  ukDoldurSablonSelectler();
-}
-
-function ukRenderOzetKartlar() {
-  const toplam = ukKodlar.length;
-  const aktif = ukKodlar.filter(k => k.durum === 'aktif').length;
-  const pasif = toplam - aktif;
-  const buAy = ukKodlar.filter(k => {
-    const tarih = new Date(k.olusturma);
-    const simdi = new Date();
-    return tarih.getMonth() === simdi.getMonth() && tarih.getFullYear() === simdi.getFullYear();
-  }).length;
-  const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
-  set('uk-toplam', toplam);
-  set('uk-aktif', aktif);
-  set('uk-pasif', pasif);
-  set('uk-bu-ay', buAy);
-}
-
-function ukRenderTablo(liste) {
-  const body = document.getElementById('uk-tablo-body');
-  if (!body) return;
-  const veri = liste || ukKodlar;
-  if (!veri.length) {
-    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">Kayıt bulunamadı</td></tr>';
-    return;
-  }
-  const tipBadge = { seri:'<span class="badge badge-green">Seri</span>', prototip:'<span class="badge badge-purple">Prototip</span>', deneme:'<span class="badge badge-amber">Deneme</span>', revizyon:'<span class="badge badge-blue">Revizyon</span>' };
-  body.innerHTML = veri.map(k => `
-    <tr>
-      <td><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent);font-weight:600">${k.kod}</span></td>
-      <td style="max-width:180px">${k.aciklama || '<span style="color:var(--muted)">—</span>'}</td>
-      <td>${k.kalip_adi || '<span style="color:var(--muted)">—</span>'}</td>
-      <td>${tipBadge[k.tip] || k.tip}</td>
-      <td style="font-size:12px">${k.olusturma || '—'}</td>
-      <td style="font-size:12px">${k.olusturan || '—'}</td>
-      <td>${k.durum==='aktif' ? '<span class="badge badge-green">Aktif</span>' : '<span class="badge" style="background:var(--border);color:var(--muted)">Pasif</span>'}</td>
-      <td>
-        <div style="display:flex;gap:6px">
-          <div onclick="ukDuzenle(${k.id})" style="padding:4px 10px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:11px;cursor:pointer;font-weight:600">Düzenle</div>
-          <div onclick="ukDurumDegistir(${k.id})" style="padding:4px 10px;background:var(--card2);border:1px solid var(--border2);border-radius:6px;color:var(--muted);font-size:11px;cursor:pointer">${k.durum==='aktif'?'Pasif Yap':'Aktif Yap'}</div>
-          <div onclick="ukSil(${k.id})" style="padding:4px 10px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;cursor:pointer">Sil</div>
-        </div>
-      </td>
-    </tr>`).join('');
-}
-
-// ── Filtreleme ──
-function ukFiltrele() {
-  const kod = (document.getElementById('uk-filtre-kod')?.value||'').toLowerCase();
-  const kalip = (document.getElementById('uk-filtre-kalip')?.value||'').toLowerCase();
-  const durum = document.getElementById('uk-filtre-durum')?.value||'';
-  const tip = document.getElementById('uk-filtre-tip')?.value||'';
-  const sonuc = ukKodlar.filter(k =>
-    (!kod || k.kod.toLowerCase().includes(kod) || (k.aciklama||'').toLowerCase().includes(kod)) &&
-    (!kalip || (k.kalip_adi||'').toLowerCase().includes(kalip)) &&
-    (!durum || k.durum === durum) &&
-    (!tip || k.tip === tip)
-  );
-  ukRenderTablo(sonuc);
-}
-
-// ── Kalıp select doldur ──
-function ukDoldurKalipSelectler() {
-  const sel = document.getElementById('uk-kf-kalip');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">Kalıp seç...</option>' +
-    tumKaliplar.map(k => `<option value="${k.id}">${k.kalip_adi} (${k.kalip_kodu})</option>`).join('');
-}
-
-function ukDoldurSablonSelectler() {
-  const sel = document.getElementById('uk-kural-varsayilan-sablon');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">Şablon seç...</option>' +
-    ukSablonlar.map(s => `<option value="${s.id}">${s.adi}</option>`).join('');
-}
-
-// ── Form aç / kapat ──
-function ukYeniKodForm() {
-  ukDuzenlenenId = null;
-  const baslik = document.getElementById('uk-form-baslik');
-  if (baslik) baslik.textContent = 'Yeni Üretim Kodu Ekle';
-  ['uk-kf-kod','uk-kf-aciklama','uk-kf-versiyon','uk-kf-notlar','uk-kf-gecerlilik'].forEach(id => {
-    const el = document.getElementById(id); if(el) el.value = '';
-  });
-  const tip = document.getElementById('uk-kf-tip'); if(tip) tip.value = 'seri';
-  const durum = document.getElementById('uk-kf-durum'); if(durum) durum.value = 'aktif';
-  const kalip = document.getElementById('uk-kf-kalip'); if(kalip) kalip.value = '';
-  ukDoldurKalipSelectler();
-  const form = document.getElementById('uk-kod-form-kart');
-  if (form) { form.style.display = 'block'; form.scrollIntoView({behavior:'smooth'}); }
-}
-
-function ukKodFormIptal() {
-  const form = document.getElementById('uk-kod-form-kart');
-  if (form) form.style.display = 'none';
-  ukDuzenlenenId = null;
-}
-
-// ── Otomatik kod üret ──
-function ukOtomatikKodUret() {
-  const tip = document.getElementById('uk-kf-tip')?.value || 'seri';
-
-  // Varsayılan şablondan önek al, yoksa tipe göre fallback
-  const varsayilanSablonId = localStorage.getItem('uk_kural_varsayilan_sablon') || '';
-  const sablon = ukSablonlar.find(s => String(s.id) === varsayilanSablonId);
-  const onekMap = { seri:'SÜ', prototip:'PT', deneme:'DN', revizyon:'RV' };
-  const onek = sablon?.onek || onekMap[tip] || 'ÜK';
-
-  // Yıl formatı ayarına göre
-  const yilFmt = localStorage.getItem('uk_kural_yil') || '4';
-  const yil = yilFmt === '2'
-    ? String(new Date().getFullYear()).slice(-2)
-    : String(new Date().getFullYear());
-
-  const basamak = parseInt(localStorage.getItem('uk_kural_basamak') || '4');
-  const sira = String(ukSiraSayac).padStart(basamak, '0');
-  const kod = `${onek}-${yil}-${sira}`;
-
-  const input = document.getElementById('uk-kf-kod');
-  if (input) input.value = kod;
-  const onizleme = document.getElementById('uk-kod-onizleme');
-  if (onizleme) onizleme.innerHTML = `<span style="color:var(--accent);font-family:'JetBrains Mono',monospace">✓ ${kod}</span> — otomatik oluşturuldu`;
-}
-
-// ── Kaydet ──
-async function ukKodKaydet() {
-  const kod = document.getElementById('uk-kf-kod')?.value.trim();
-  const kalipSel = document.getElementById('uk-kf-kalip');
-  const kalipId = kalipSel?.value;
-  const kalipAdiSec = kalipSel?.options[kalipSel.selectedIndex]?.text || '';
-  const kalipAdi = kalipId ? kalipAdiSec.split(' (')[0] : '';
-  const tip = document.getElementById('uk-kf-tip')?.value || 'seri';
-  const aciklama = document.getElementById('uk-kf-aciklama')?.value.trim() || '';
-  const versiyon = document.getElementById('uk-kf-versiyon')?.value.trim() || 'v1.0';
-  const notlar = document.getElementById('uk-kf-notlar')?.value.trim() || '';
-  const durum = document.getElementById('uk-kf-durum')?.value || 'aktif';
-  const gecerlilik = document.getElementById('uk-kf-gecerlilik')?.value || '';
-
-  if (!kod) { alert('Üretim kodu zorunludur.'); return; }
-
-  // Benzersizlik kontrolü
-  const benzersizKontrol = !localStorage.getItem('uk_benzersiz') || localStorage.getItem('uk_benzersiz') === '1';
-  if (benzersizKontrol && ukDuzenlenenId === null) {
-    if (ukKodlar.find(k => k.kod === kod)) {
-      alert(`"${kod}" kodu zaten kayıtlı. Farklı bir kod girin.`);
-      return;
-    }
-  }
-
-  const bugun = new Date().toISOString().split('T')[0];
-  const olusturan = aktifOperator?.ad_soyad || 'Yönetici';
-
-  if (ukDuzenlenenId !== null) {
-    // Güncelle
-    const idx = ukKodlar.findIndex(k => k.id === ukDuzenlenenId);
-    if (idx >= 0) {
-      ukKodlar[idx] = { ...ukKodlar[idx], kod, kalip_id:kalipId, kalip_adi:kalipAdi, tip, aciklama, versiyon, notlar, durum, gecerlilik };
-      ukGecmisEkle(kod, 'Güncellendi', 'Bilgiler güncellendi', olusturan);
-    }
-  } else {
-    // Yeni kayıt
-    const yeniId = Date.now();
-    ukKodlar.push({ id:yeniId, kod, kalip_id:kalipId, kalip_adi:kalipAdi, tip, aciklama, versiyon, notlar, durum, gecerlilik, olusturma:bugun, olusturan });
-    ukSiraSayac++;
-    ukGecmisEkle(kod, 'Oluşturuldu', `Yeni ${tip} kodu eklendi`, olusturan);
-  }
-
-  ukKaydet();
-  ukRenderOzetKartlar();
-  ukRenderTablo();
-  ukKodFormIptal();
-}
-
-// ── Düzenle ──
-function ukDuzenle(id) {
-  const k = ukKodlar.find(x => x.id === id);
-  if (!k) return;
-  ukDuzenlenenId = id;
-  const baslik = document.getElementById('uk-form-baslik');
-  if (baslik) baslik.textContent = 'Kodu Düzenle';
-  ukDoldurKalipSelectler();
-  const set = (elId, val) => { const el = document.getElementById(elId); if(el) el.value = val||''; };
-  set('uk-kf-kod', k.kod);
-  set('uk-kf-aciklama', k.aciklama);
-  set('uk-kf-versiyon', k.versiyon);
-  set('uk-kf-notlar', k.notlar);
-  set('uk-kf-gecerlilik', k.gecerlilik);
-  set('uk-kf-tip', k.tip);
-  set('uk-kf-durum', k.durum);
-  set('uk-kf-kalip', k.kalip_id);
-  const form = document.getElementById('uk-kod-form-kart');
-  if (form) { form.style.display = 'block'; form.scrollIntoView({behavior:'smooth'}); }
-}
-
-// ── Durum değiştir ──
-function ukDurumDegistir(id) {
-  const k = ukKodlar.find(x => x.id === id);
-  if (!k) return;
-  k.durum = k.durum === 'aktif' ? 'pasif' : 'aktif';
-  ukGecmisEkle(k.kod, 'Durum Değiştirildi', `${k.durum === 'aktif' ? 'Aktif' : 'Pasif'} yapıldı`, aktifOperator?.ad_soyad || '—');
-  ukKaydet();
-  ukRenderOzetKartlar();
-  ukRenderTablo();
-}
-
-// ── Sil ──
-function ukSil(id) {
-  const k = ukKodlar.find(x => x.id === id);
-  if (!k) return;
-  if (!confirm(`"${k.kod}" kodunu silmek istediğinize emin misiniz?`)) return;
-  ukGecmisEkle(k.kod, 'Silindi', 'Kayıt silindi', aktifOperator?.ad_soyad || '—');
-  ukKodlar = ukKodlar.filter(x => x.id !== id);
-  ukKaydet();
-  ukRenderOzetKartlar();
-  ukRenderTablo();
-}
-
-// ── Değişiklik geçmişi ──
-let ukGecmis = [];
-function ukGecmisEkle(kod, islem, degisiklik, kullanici) {
-  const tarih = new Date().toLocaleString('tr-TR');
-  ukGecmis.unshift({ tarih, kod, islem, degisiklik, kullanici });
-  if (ukGecmis.length > 50) ukGecmis = ukGecmis.slice(0, 50);
-  ukRenderGecmis();
-}
-function ukRenderGecmis() {
-  const body = document.getElementById('uk-gecmis-body');
-  if (!body) return;
-  if (!ukGecmis.length) {
-    body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">Henüz kayıt yok</td></tr>';
-    return;
-  }
-  body.innerHTML = ukGecmis.map(g => `
-    <tr>
-      <td style="font-size:12px">${g.tarih}</td>
-      <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent)">${g.kod}</span></td>
-      <td><span class="badge badge-blue" style="font-size:10px">${g.islem}</span></td>
-      <td style="font-size:12px">${g.degisiklik}</td>
-      <td style="font-size:12px">${g.kullanici}</td>
-    </tr>`).join('');
-}
-
-// ── ŞABLONLAR ──
-function ukRenderSablonlar() {
-  ukYukle();
-  const liste = document.getElementById('uk-sablon-liste');
+function kmRenderUrunler() {
+  const liste = document.getElementById('km-urun-liste');
   if (!liste) return;
-  if (!ukSablonlar.length) {
-    liste.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Henüz şablon yok</div>';
+  if (!kmUrunler.length) {
+    liste.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Henüz ürün yok. + Yeni Ürün ile başlayın.</div>';
     return;
   }
-  liste.innerHTML = ukSablonlar.map(s => `
-    <div style="display:flex;align-items:center;gap:12px;padding:.875rem 1rem;background:var(--bg);border:1px solid var(--border);border-radius:10px">
+  liste.innerHTML = kmUrunler.map(u => {
+    const secili = kmDuzlenenUrunId === u.id;
+    const aciklamaHTML = u.aciklama ? '<div style="font-size:12px;color:var(--muted);margin-top:2px">' + u.aciklama + '</div>' : '';
+    const borderStyle = secili ? 'border:1px solid var(--accent)' : 'border:1px solid var(--border)';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:.875rem 1rem;background:var(--bg);${borderStyle};border-radius:10px">
       <div style="flex:1">
-        <div style="font-size:14px;font-weight:600">${s.adi}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">${s.aciklama}</div>
-        <div style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--accent);margin-top:4px">
-          <span style="padding:2px 6px;background:var(--accent-dim);border-radius:4px">${s.onek}</span>
-          <span style="margin-left:6px">${s.format}</span>
-        </div>
+        <div style="font-size:14px;font-weight:600">${u.adi}</div>
+        ${aciklamaHTML}
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">${u.operasyonlar.length} operasyon tanımlı</div>
       </div>
       <div style="display:flex;gap:6px">
-        <div onclick="ukSablonSil(${s.id})" style="padding:5px 10px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;cursor:pointer">Sil</div>
+        <div onclick="kmOpAlanAc(${u.id})" style="padding:6px 12px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:12px;cursor:pointer;font-weight:600">⚙️ Operasyonlar</div>
+        <div onclick="kmUrunSil(${u.id})" style="padding:6px 10px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:12px;cursor:pointer">Sil</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
-function ukYeniSablonForm() {
-  const form = document.getElementById('uk-sablon-form-kart');
-  if (form) { form.style.display = 'block'; form.scrollIntoView({behavior:'smooth'}); }
+// ── Ürün CRUD ──
+function kmYeniUrunForm() {
+  kmDuzlenenUrunId = null;
+  const f = document.getElementById('km-urun-form');
+  document.getElementById('km-urun-form-baslik').textContent = 'Yeni Ürün Ekle';
+  document.getElementById('km-urun-adi').value = '';
+  document.getElementById('km-urun-aciklama').value = '';
+  if (f) { f.style.display='block'; f.scrollIntoView({behavior:'smooth'}); }
 }
-function ukSablonFormIptal() {
-  const form = document.getElementById('uk-sablon-form-kart');
-  if (form) form.style.display = 'none';
+function kmUrunFormIptal() {
+  document.getElementById('km-urun-form').style.display = 'none';
 }
-function ukSablonFormatSec(el, val) {
-  document.querySelectorAll('#uk-sablon-form-kart .chip').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
-  const input = document.getElementById('uk-sf-format');
-  if (input) { input.value = val; ukSablonOnizle(); }
-}
-function ukSablonOnizle() {
-  const onek = document.getElementById('uk-sf-onek')?.value || 'XX';
-  const format = document.getElementById('uk-sf-format')?.value || '[ONEK]-[YIL]-[SIRA]';
-  const onizleme = format
-    .replace('[ONEK]', onek)
-    .replace('[YIL]', new Date().getFullYear())
-    .replace('[SIRA]', '0001')
-    .replace('[KALIP]', 'KALIP');
-  const el = document.getElementById('uk-sf-onizleme');
-  if (el) el.textContent = onizleme;
-}
-// Önizle format/onek değişince
-document.addEventListener('input', e => {
-  if (e.target.id === 'uk-sf-format' || e.target.id === 'uk-sf-onek') ukSablonOnizle();
-});
-function ukSablonKaydet() {
-  const adi = document.getElementById('uk-sf-adi')?.value.trim();
-  const onek = document.getElementById('uk-sf-onek')?.value.trim();
-  const format = document.getElementById('uk-sf-format')?.value.trim();
-  const aciklama = document.getElementById('uk-sf-aciklama')?.value.trim();
-  if (!adi || !onek || !format) { alert('Ad, önek ve format zorunludur.'); return; }
-  ukSablonlar.push({ id: Date.now(), adi, onek, format, aciklama: aciklama||'' });
-  ukKaydet();
-  ukSablonFormIptal();
-  ukRenderSablonlar();
-  ukDoldurSablonSelectler();
-}
-function ukSablonSil(id) {
-  if (!confirm('Şablon silinsin mi?')) return;
-  ukSablonlar = ukSablonlar.filter(s => s.id !== id);
-  ukKaydet();
-  ukRenderSablonlar();
-}
-
-// ── KURALLAR ──
-function ukRenderKurallar() {
-  ukDoldurSablonSelectler();
-
-  // ── Kayıtlı ayarları form'a geri yükle ──
-  const basamak = localStorage.getItem('uk_kural_basamak') || '4';
-  const yilFmt  = localStorage.getItem('uk_kural_yil')    || '4';
-  const benzersiz = localStorage.getItem('uk_benzersiz');   // '0' veya '1' veya null
-  const onayliStr  = localStorage.getItem('uk_kural_onayli'); // '0' veya '1' veya null
-  const varsayilanSablon = localStorage.getItem('uk_kural_varsayilan_sablon') || '';
-
-  const elBasamak = document.getElementById('uk-kural-basamak');
-  const elYil     = document.getElementById('uk-kural-yil');
-  const elBenzersiz = document.getElementById('uk-kural-benzersiz-toggle');
-  const elOnayli    = document.getElementById('uk-kural-onayli-toggle');
-  const elVarsayilan = document.getElementById('uk-kural-varsayilan-sablon');
-
-  if (elBasamak)  elBasamak.value  = basamak;
-  if (elYil)      elYil.value      = yilFmt;
-
-  // Toggle'ları restore et
-  // Benzersizlik: kayıt yoksa varsayılan ON
-  if (elBenzersiz) {
-    const isOn = benzersiz === null ? true : benzersiz === '1';
-    isOn ? elBenzersiz.classList.add('on') : elBenzersiz.classList.remove('on');
+function kmUrunKaydet() {
+  const adi = document.getElementById('km-urun-adi')?.value.trim();
+  if (!adi) { alert('Ürün adı zorunludur.'); return; }
+  const aciklama = document.getElementById('km-urun-aciklama')?.value.trim() || '';
+  if (kmDuzlenenUrunId !== null) {
+    const u = kmUrunler.find(x=>x.id===kmDuzlenenUrunId);
+    if (u) { u.adi=adi; u.aciklama=aciklama; }
+  } else {
+    kmUrunler.push({ id:Date.now(), adi, aciklama, operasyonlar:[] });
   }
-  // Onay: kayıt yoksa varsayılan OFF
-  if (elOnayli) {
-    const isOn = onayliStr === '1';
-    isOn ? elOnayli.classList.add('on') : elOnayli.classList.remove('on');
+  kmKaydetLS();
+  kmUrunFormIptal();
+  kmRenderUrunler();
+}
+function kmUrunSil(id) {
+  const u = kmUrunler.find(x=>x.id===id);
+  if (!u) return;
+  if (!confirm(`"${u.adi}" ürünü ve tüm operasyonları silinsin mi?`)) return;
+  kmUrunler = kmUrunler.filter(x=>x.id!==id);
+  if (kmDuzlenenUrunId===id) {
+    kmDuzlenenUrunId=null;
+    document.getElementById('km-op-alan').style.display='none';
   }
-  // Varsayılan şablon
-  if (elVarsayilan && varsayilanSablon) elVarsayilan.value = varsayilanSablon;
-
-  ukKuralOnizle();
-  ukRenderGecmis();
+  kmKaydetLS();
+  kmRenderUrunler();
 }
 
-function ukKuralOnizle() {
-  const basamak = parseInt(document.getElementById('uk-kural-basamak')?.value || '4');
-  const yilVal  = document.getElementById('uk-kural-yil')?.value || '4';
-  const yilHane = yilVal === '2' ? String(new Date().getFullYear()).slice(-2) : String(new Date().getFullYear());
-  const sira    = String(ukSiraSayac).padStart(basamak, '0');
-  // Varsayılan şablonun önekini kullan, yoksa 'SÜ'
-  const sablon = ukSablonlar.find(s => String(s.id) === (localStorage.getItem('uk_kural_varsayilan_sablon') || '')) || ukSablonlar[0];
-  const onek   = sablon?.onek || 'SÜ';
-  const el = document.getElementById('uk-kural-onizleme');
-  if (el) el.textContent = `${onek}-${yilHane}-${sira}`;
+// ── Operasyon alanı ──
+function kmOpAlanAc(urunId) {
+  kmDuzlenenUrunId = urunId;
+  const u = kmUrunler.find(x=>x.id===urunId);
+  if (!u) return;
+  const alan = document.getElementById('km-op-alan');
+  document.getElementById('km-op-baslik').textContent = u.adi + ' — Operasyonları';
+  alan.style.display = 'block';
+  alan.scrollIntoView({behavior:'smooth'});
+  kmRenderOpListe(u);
+  kmRenderUrunler(); // border güncelle
 }
 
-document.addEventListener('change', e => {
-  if (['uk-kural-basamak','uk-kural-yil','uk-kural-varsayilan-sablon'].includes(e.target.id)) ukKuralOnizle();
-});
+function kmRenderOpListe(u) {
+  const liste = document.getElementById('km-op-liste');
+  if (!liste) return;
+  if (!u.operasyonlar.length) {
+    liste.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Henüz operasyon yok. + Operasyon Ekle butonuna basın.</div>';
+    return;
+  }
 
-function ukKuralKaydet() {
-  const basamak = document.getElementById('uk-kural-basamak')?.value || '4';
-  const yil     = document.getElementById('uk-kural-yil')?.value || '4';
-  const benzersiz = document.getElementById('uk-kural-benzersiz-toggle')?.classList.contains('on') ? '1' : '0';
-  const onayli    = document.getElementById('uk-kural-onayli-toggle')?.classList.contains('on')    ? '1' : '0';
-  const varsayilan = document.getElementById('uk-kural-varsayilan-sablon')?.value || '';
+  liste.innerHTML = u.operasyonlar.map((op,i) => {
+    const anaKalip = tumKaliplar.find(k=>k.id===op.ana_kalip_id);
+    const altSecenek = tumKaliplar.map(k=>`<option value="${k.id}" ${op.ana_kalip_id===k.id?'selected':''}>${k.kalip_adi} (${k.kalip_kodu})</option>`).join('');
+    const altAlts = (op.alternatifler||[]).map((altId, ai) => {
+      const altKalipOpts = tumKaliplar.map(k=>`<option value="${k.id}" ${altId===k.id?'selected':''}>${k.kalip_adi} (${k.kalip_kodu})</option>`).join('');
+      return `<div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+        <span style="font-size:11px;color:var(--muted);white-space:nowrap">Alt ${ai+1}</span>
+        <select onchange="kmAltKalipDegistir(${u.id},${op.id},${ai},this.value)"
+          style="flex:1;padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit">
+          <option value="">— Kalıp seç —</option>${altKalipOpts}
+        </select>
+        <div onclick="kmAltKalipSil(${u.id},${op.id},${ai})" style="padding:4px 8px;background:var(--red-dim);border:1px solid var(--red);border-radius:5px;color:var(--red);font-size:11px;cursor:pointer">✕</div>
+      </div>`;
+    }).join('');
 
-  localStorage.setItem('uk_kural_basamak', basamak);
-  localStorage.setItem('uk_kural_yil',     yil);
-  localStorage.setItem('uk_benzersiz',     benzersiz);
-  localStorage.setItem('uk_kural_onayli',  onayli);
-  localStorage.setItem('uk_kural_varsayilan_sablon', varsayilan);
+    return `<div style="background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:.875rem 1rem">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:.75rem">
+        <div style="width:24px;height:24px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">${i+1}</div>
+        <input type="text" value="${op.adi}" onchange="kmOpAdiDegistir(${u.id},${op.id},this.value)"
+          style="flex:1;padding:7px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:14px;font-weight:600;font-family:inherit">
+        <div onclick="kmOpSil(${u.id},${op.id})" style="padding:5px 10px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;cursor:pointer">Sil</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap;min-width:60px">ANA KALIP</span>
+        <select onchange="kmAnaKalipDegistir(${u.id},${op.id},this.value)"
+          style="flex:1;padding:7px 10px;background:var(--bg);border:1px solid var(--accent);border-radius:7px;color:var(--text);font-size:13px;font-family:inherit">
+          <option value="">— Kalıp seç —</option>${altSecenek}
+        </select>
+      </div>
+      ${altAlts}
+      <div onclick="kmAltKalipEkle(${u.id},${op.id})" style="margin-top:8px;padding:6px;background:var(--bg);border:1px dashed var(--border2);border-radius:7px;color:var(--muted);cursor:pointer;font-size:12px;text-align:center">+ Alternatif Kalıp Ekle</div>
+    </div>`;
+  }).join('');
+}
 
-  // Kaydet bildirimi — alert yerine geçici banner
-  const btn = event?.target?.closest?.('div[onclick]') || document.querySelector('[onclick*="ukKuralKaydet"]');
+// ── Operasyon CRUD ──
+function kmOpEkle() {
+  const u = kmUrunler.find(x=>x.id===kmDuzlenenUrunId);
+  if (!u) return;
+  const sira = u.operasyonlar.length + 1;
+  u.operasyonlar.push({ id:Date.now(), sira, adi:`Operasyon ${sira}`, ana_kalip_id:'', alternatifler:[] });
+  kmKaydetLS();
+  kmRenderOpListe(u);
+}
+function kmOpSil(urunId, opId) {
+  const u = kmUrunler.find(x=>x.id===urunId);
+  if (!u || !confirm('Bu operasyon silinsin mi?')) return;
+  u.operasyonlar = u.operasyonlar.filter(o=>o.id!==opId);
+  u.operasyonlar.forEach((o,i)=>o.sira=i+1);
+  kmKaydetLS();
+  kmRenderOpListe(u);
+  kmRenderUrunler();
+}
+function kmOpAdiDegistir(urunId, opId, yeniAd) {
+  const u = kmUrunler.find(x=>x.id===urunId);
+  const op = u?.operasyonlar.find(o=>o.id===opId);
+  if (op) { op.adi = yeniAd; kmKaydetLS(); }
+}
+function kmAnaKalipDegistir(urunId, opId, kalipId) {
+  const u = kmUrunler.find(x=>x.id===urunId);
+  const op = u?.operasyonlar.find(o=>o.id===opId);
+  if (op) { op.ana_kalip_id = kalipId; kmKaydetLS(); }
+}
+function kmAltKalipEkle(urunId, opId) {
+  const u = kmUrunler.find(x=>x.id===urunId);
+  const op = u?.operasyonlar.find(o=>o.id===opId);
+  if (!op) return;
+  if (op.alternatifler.length >= 3) { alert('En fazla 3 alternatif kalıp eklenebilir.'); return; }
+  op.alternatifler.push('');
+  kmKaydetLS();
+  kmRenderOpListe(u);
+}
+function kmAltKalipDegistir(urunId, opId, idx, kalipId) {
+  const u = kmUrunler.find(x=>x.id===urunId);
+  const op = u?.operasyonlar.find(o=>o.id===opId);
+  if (op) { op.alternatifler[idx] = kalipId; kmKaydetLS(); }
+}
+function kmAltKalipSil(urunId, opId, idx) {
+  const u = kmUrunler.find(x=>x.id===urunId);
+  const op = u?.operasyonlar.find(o=>o.id===opId);
+  if (op) { op.alternatifler.splice(idx,1); kmKaydetLS(); kmRenderOpListe(u); }
+}
+
+// ── Matris görünümü ──
+function kmRenderMatris(filtre) {
+  const body = document.getElementById('km-matris-body');
+  if (!body) return;
+  const q = (filtre||'').toLowerCase();
+  const rows = [];
+  kmUrunler.forEach(u => {
+    if (q && !u.adi.toLowerCase().includes(q)) return;
+    u.operasyonlar.forEach((op,i) => {
+      const ana = tumKaliplar.find(k=>k.id===op.ana_kalip_id);
+      const alts = (op.alternatifler||[]).filter(Boolean).map(id => {
+        const k = tumKaliplar.find(k=>k.id===id);
+        return k ? '<span class="badge badge-amber" style="font-size:10px">' + k.kalip_kodu + '</span>' : '';
+      }).join(' ');
+      const trStyle = i===0 ? 'style="border-top:2px solid var(--border2)"' : '';
+      const urunTd = i===0
+        ? '<td rowspan="' + u.operasyonlar.length + '" style="font-weight:600;vertical-align:top;padding-top:12px">' + u.adi + '</td>'
+        : '';
+      const anaTd = ana
+        ? '<span class="badge badge-green" style="font-size:11px">' + ana.kalip_kodu + '</span> <span style="font-size:12px">' + ana.kalip_adi + '</span>'
+        : '<span style="color:var(--muted);font-size:12px">—</span>';
+      const altsTd = alts || '<span style="color:var(--muted);font-size:12px">—</span>';
+      rows.push(`<tr ${trStyle}>
+        ${urunTd}
+        <td><span style="font-size:11px;color:var(--muted);margin-right:6px">${op.sira}.</span>${op.adi}</td>
+        <td>${anaTd}</td>
+        <td>${altsTd}</td>
+        <td>—</td>
+      </tr>`);
+    });
+    if (!u.operasyonlar.length) {
+      rows.push('<tr style="border-top:2px solid var(--border2)"><td style="font-weight:600">' + u.adi + '</td><td colspan="4" style="color:var(--muted);font-size:12px">Operasyon tanımlı değil</td></tr>');
+    }
+  });
+  body.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">Kayıt bulunamadı</td></tr>';
+}
+function kmMatrisFiltrele() {
+  kmRenderMatris(document.getElementById('km-matris-filtre')?.value);
+}
+
+// ══════════════════════════════════════════════════
+// GÜNLÜK ÜRETİM GİRİŞİ
+// ══════════════════════════════════════════════════
+
+let guGecmis = []; // [{tarih, urun_id, urun_adi, op_id, op_adi, kalip_id, kalip_adi, adet, kaydeden}]
+
+function guRenderPanel() {
+  kmYukle(); // ürün listesi lazım
+  // Tarih: bugün
+  const tarihEl = document.getElementById('gu-tarih');
+  if (tarihEl && !tarihEl.value) tarihEl.value = new Date().toISOString().split('T')[0];
+  // Ürün dropdown
+  const sel = document.getElementById('gu-urun');
+  if (sel) {
+    sel.innerHTML = '<option value="">Ürün seç...</option>' +
+      kmUrunler.map(u=>`<option value="${u.id}">${u.adi}</option>`).join('');
+  }
+  // Geçmiş
+  try { guGecmis = JSON.parse(localStorage.getItem('gu_gecmis')||'[]'); } catch(e){ guGecmis=[]; }
+  guGecmisRender();
+}
+
+function guUrunSec() {
+  const urunId = parseInt(document.getElementById('gu-urun')?.value);
+  const u = kmUrunler.find(x=>x.id===urunId);
+  const kart = document.getElementById('gu-tablo-kart');
+  if (!u || !u.operasyonlar.length) {
+    if (kart) kart.style.display='none';
+    return;
+  }
+  document.getElementById('gu-tablo-baslik').textContent = u.adi + ' — Operasyonları';
+  document.getElementById('gu-toplam-badge').textContent = u.operasyonlar.length + ' operasyon';
+  kart.style.display = 'block';
+
+  const tbody = document.getElementById('gu-op-tbody');
+  tbody.innerHTML = u.operasyonlar.map(op => {
+    // Ana + alternatifler dropdown
+    const kaliplar = [op.ana_kalip_id, ...(op.alternatifler||[])].filter(Boolean);
+    const opts = kaliplar.map(kid => {
+      const k = tumKaliplar.find(x=>x.id===kid);
+      return k ? `<option value="${k.id}">${k.kalip_adi} (${k.kalip_kodu})</option>` : '';
+    }).join('');
+    return `<tr>
+      <td style="color:var(--muted);font-size:13px">${op.sira}</td>
+      <td style="font-weight:500">${op.adi}</td>
+      <td>
+        <select id="gu-kalip-${op.id}" style="width:100%;padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit">
+          ${opts || '<option value="">Kalıp tanımlı değil</option>'}
+        </select>
+      </td>
+      <td>
+        <input type="number" id="gu-adet-${op.id}" min="0" placeholder="0"
+          style="width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;font-family:'JetBrains Mono',monospace;text-align:right">
+      </td>
+      <td>
+        <input type="text" id="gu-not-${op.id}" placeholder="—"
+          style="width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit">
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function guKaydet() {
+  const tarih = document.getElementById('gu-tarih')?.value;
+  const urunId = parseInt(document.getElementById('gu-urun')?.value);
+  const u = kmUrunler.find(x=>x.id===urunId);
+  if (!tarih) { alert('Tarih seçin.'); return; }
+  if (!u) { alert('Ürün seçin.'); return; }
+
+  const kaydeden = aktifOperator?.ad_soyad || 'Yönetici';
+  let kaydSayisi = 0;
+
+  u.operasyonlar.forEach(op => {
+    const adetEl = document.getElementById('gu-adet-'+op.id);
+    const adet = parseInt(adetEl?.value) || 0;
+    if (adet <= 0) return; // boş bırakılanları atla
+
+    const kalipId = document.getElementById('gu-kalip-'+op.id)?.value || '';
+    const kalip = tumKaliplar.find(k=>k.id===kalipId);
+    const notEl = document.getElementById('gu-not-'+op.id);
+
+    guGecmis.unshift({
+      id: Date.now() + Math.random(),
+      tarih, urun_id: u.id, urun_adi: u.adi,
+      op_id: op.id, op_adi: op.adi,
+      kalip_id: kalipId, kalip_adi: kalip?.kalip_adi || '—',
+      kalip_kodu: kalip?.kalip_kodu || '—',
+      adet, not: notEl?.value||'', kaydeden
+    });
+
+    // Kalıp toplam baskı sayısını güncelle
+    if (kalip) {
+      kalip.toplam_baski = (kalip.toplam_baski || 0) + adet;
+    }
+    kaydSayisi++;
+  });
+
+  if (!kaydSayisi) { alert('En az bir operasyon için adet girilmesi gerekiyor.'); return; }
+
+  // Kaydet
+  if (guGecmis.length > 500) guGecmis = guGecmis.slice(0,500);
+  localStorage.setItem('gu_gecmis', JSON.stringify(guGecmis));
+  localStorage.setItem('tumKaliplarBaski', JSON.stringify(tumKaliplar.map(k=>({id:k.id, toplam_baski: k.toplam_baski||0}))));
+
+  guTemizle();
+  guGecmisRender();
+
+  // Başarı bildirimi
+  const btn = document.querySelector('[onclick="guKaydet()"]');
   if (btn) {
     const prev = btn.textContent;
-    btn.textContent = '✓ Kaydedildi';
-    btn.style.background = 'var(--green)';
-    setTimeout(() => { btn.textContent = prev; btn.style.background = 'var(--accent)'; }, 1800);
+    btn.textContent = `✓ ${kaydSayisi} operasyon kaydedildi`;
+    btn.style.background = 'var(--accent)';
+    setTimeout(()=>{ btn.textContent=prev; btn.style.background='var(--green)'; }, 2000);
   }
-
-  ukKuralOnizle();
 }
 
-// panelAc override — üretim-kodlari seçilince render tetikle
+function guTemizle() {
+  const urunId = parseInt(document.getElementById('gu-urun')?.value);
+  const u = kmUrunler.find(x=>x.id===urunId);
+  if (!u) return;
+  u.operasyonlar.forEach(op => {
+    const el = document.getElementById('gu-adet-'+op.id);
+    const notEl = document.getElementById('gu-not-'+op.id);
+    if (el) el.value = '';
+    if (notEl) notEl.value = '';
+  });
+}
+
+function guGecmisRender() {
+  const body = document.getElementById('gu-gecmis-body');
+  if (!body) return;
+  const filtreEl = document.getElementById('gu-gecmis-filtre');
+  const filtreTarih = filtreEl?.value || '';
+  const liste = filtreTarih ? guGecmis.filter(g=>g.tarih===filtreTarih) : guGecmis.slice(0,50);
+  if (!liste.length) {
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Henüz giriş yok</td></tr>';
+    return;
+  }
+  body.innerHTML = liste.map(g=>`
+    <tr>
+      <td style="font-size:12px">${g.tarih}</td>
+      <td style="font-weight:500">${g.urun_adi}</td>
+      <td>${g.op_adi}</td>
+      <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent)">${g.kalip_kodu}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-weight:700;text-align:right">${g.adet.toLocaleString('tr-TR')}</td>
+      <td style="font-size:12px;color:var(--muted)">${g.kaydeden}</td>
+    </tr>`).join('');
+}
+
 // ── Safari uyumlu event listener'lar ──
 document.addEventListener('DOMContentLoaded', async function(){
   var btnGiris = document.getElementById('btn-giris');
