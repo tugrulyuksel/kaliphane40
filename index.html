@@ -2641,62 +2641,6 @@ async function renderIsEmirleriTablosu() {
     </tr>`;
   }).join('');
 }
-  const durum = document.getElementById('filtre-durum')?.value || '';
-  const tur = document.getElementById('filtre-tur')?.value || '';
-  const kalipAra = document.getElementById('filtre-kalip')?.value?.toLowerCase() || '';
-
-  let filtre = 'order=created_at.desc';
-  if (durum) filtre += `&acik_kapali=eq.${durum}`;
-  if (tur) filtre += `&tur=eq.${tur}`;
-
-  const tumEmir = await sbGet('is_emirleri', filtre);
-  const tbody = document.getElementById('panel-is-emirleri-body');
-  if (!tbody) return;
-
-  if (!tumEmir || !tumEmir.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Kayıt yok</td></tr>';
-    return;
-  }
-
-  // Kalıp filtresi uygula
-  const filtreliEmir = kalipAra
-    ? tumEmir.filter(ie => {
-        const kalip = tumKaliplar.find(k => k.id === ie.kalip_id);
-        return kalip && (kalip.kalip_kodu.toLowerCase().includes(kalipAra) || kalip.kalip_adi.toLowerCase().includes(kalipAra));
-      })
-    : tumEmir;
-
-  if (!filtreliEmir.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Sonuç bulunamadı</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = filtreliEmir.slice(0, 100).map(ie => {
-    const kalip = tumKaliplar.find(k => k.id === ie.kalip_id);
-    const op = tumOperatorler.find(o => o.id === ie.acik_eden_operator_id);
-    const sure = ie.toplam_sure_dak
-      ? Math.floor(ie.toplam_sure_dak/60) + 'sa ' + (ie.toplam_sure_dak%60) + 'dk'
-      : ie.acik_kapali === 'Acik' ? 'Devam ediyor' : '—';
-    const durumBadge = ie.acik_kapali === 'Acik'
-      ? '<span class="badge badge-green">● Aktif</span>'
-      : '<span class="badge badge-purple">✓ Kapatıldı</span>';
-    const tarih = ie.created_at
-      ? new Date(ie.created_at).toLocaleDateString('tr-TR', {day:'2-digit', month:'2-digit', year:'2-digit'}).replace(/\./g,'/')
-      : '—';
-    return `<tr>
-      <td style="white-space:nowrap;font-size:12px">${tarih}</td>
-      <td class="mono" style="font-size:11px">${ie.is_emri_no}</td>
-      <td>${kalip ? '<div style="font-size:11px;color:var(--muted)">' + kalip.kalip_kodu + '</div><div style="font-size:13px">' + kalip.kalip_adi.slice(0,18) + '</div>' : '—'}</td>
-      <td><span class="badge ${ie.tur === 'C' ? 'badge-red' : 'badge-blue'}">${ie.tur === 'C' ? 'Arıza' : 'Planlı'}</span></td>
-      <td>${ie.yapilan_islem || '—'}</td>
-      <td>${op ? op.ad_soyad : '—'}</td>
-      <td>${sure}</td>
-      <td>${durumBadge}</td>
-      <td><div style="padding:4px 10px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:11px;cursor:pointer"
-        onclick="ieDetayAc('${ie.id}')">Detay</div></td>
-    </tr>`;
-  }).join('');
-}
 
 // ── YÖNETİCİ İŞ EMRİ DETAY ──
 let seciiliIsEmriId = null;
