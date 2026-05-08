@@ -781,18 +781,26 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         <div class="pc-header">
           <h3>Tüm İş Emirleri</h3>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <input type="text" id="filtre-kalip" placeholder="🔍 Kalıp ara..." oninput="renderIsEmirleriTablosu()"
-              style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px;width:140px">
-            <select id="filtre-durum" onchange="renderIsEmirleriTablosu()" style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px">
+            <input type="text" id="filtre-kalip" placeholder="🔍 Kalıp ara..." oninput="Promise.resolve(renderIsEmirleriTablosu()).catch(e=>console.error(e))"
+              style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px;width:130px">
+            <input type="text" id="filtre-islem" placeholder="İşlem ara..." oninput="Promise.resolve(renderIsEmirleriTablosu()).catch(e=>console.error(e))"
+              style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px;width:120px">
+            <input type="text" id="filtre-operator" placeholder="Operatör ara..." oninput="Promise.resolve(renderIsEmirleriTablosu()).catch(e=>console.error(e))"
+              style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px;width:120px">
+            <select id="filtre-durum" onchange="Promise.resolve(renderIsEmirleriTablosu()).catch(e=>console.error(e))" style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px">
               <option value="">Tüm Durumlar</option>
               <option value="Acik">Açık</option>
               <option value="Kapali">Kapalı</option>
             </select>
-            <select id="filtre-tur" onchange="renderIsEmirleriTablosu()" style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px">
+            <select id="filtre-tur" onchange="Promise.resolve(renderIsEmirleriTablosu()).catch(e=>console.error(e))" style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px">
               <option value="">Tüm Türler</option>
               <option value="P">Planlı</option>
               <option value="C">Arıza</option>
             </select>
+            <input type="date" id="filtre-tarih-bas" onchange="Promise.resolve(renderIsEmirleriTablosu()).catch(e=>console.error(e))"
+              style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px">
+            <input type="date" id="filtre-tarih-bit" onchange="Promise.resolve(renderIsEmirleriTablosu()).catch(e=>console.error(e))"
+              style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px">
           </div>
         </div>
         <div style="overflow-x:auto">
@@ -1324,8 +1332,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 <div class="modal-overlay" id="op-modal">
   <div class="modal">
     <h3>Ekip Üyesi Ekle</h3>
-    <div class="modal-ops" id="modal-ops-liste">
-      <div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Yükleniyor...</div>
+    <div id="modal-ops-liste" style="display:flex;flex-direction:column;gap:10px;min-height:150px;max-height:350px;overflow-y:auto;margin-bottom:1rem;padding:4px 0">
+      <div style="color:var(--muted);font-size:15px;text-align:center;padding:1rem">Yükleniyor...</div>
     </div>
     <div class="modal-btns">
       <div class="btn-cancel" onclick="modalKapat()">İptal</div>
@@ -2510,11 +2518,9 @@ async function operatorEkleModal(){
   modal.classList.add('open');
 
   // Modal açıldıktan sonra innerHTML set et
-  setTimeout(() => {
-    opsEl.style.cssText = 'display:flex!important;flex-direction:column;gap:8px;min-height:200px;max-height:350px;overflow-y:auto;';
+  requestAnimationFrame(() => {
     opsEl.innerHTML = html;
-    console.log('HTML set edildi, height:', opsEl.offsetHeight);
-  }, 50);
+  });
 }
 function modalKapat(){document.getElementById('op-modal').classList.remove('open');}
 function operatorEkle(){
@@ -2571,6 +2577,70 @@ function panelAc(id, btn){
 function opSec(el){document.querySelectorAll('.operator-kart').forEach(k=>k.classList.remove('selected'));el.classList.add('selected');}
 
 async function renderIsEmirleriTablosu() {
+  const durum = document.getElementById('filtre-durum')?.value || '';
+  const tur = document.getElementById('filtre-tur')?.value || '';
+  const kalipAra = document.getElementById('filtre-kalip')?.value?.toLowerCase() || '';
+  const islemAra = document.getElementById('filtre-islem')?.value?.toLowerCase() || '';
+  const opAra = document.getElementById('filtre-operator')?.value?.toLowerCase() || '';
+  const tarihBas = document.getElementById('filtre-tarih-bas')?.value || '';
+  const tarihBit = document.getElementById('filtre-tarih-bit')?.value || '';
+
+  let filtre = 'order=created_at.desc';
+  if (durum) filtre += `&acik_kapali=eq.${durum}`;
+  if (tur) filtre += `&tur=eq.${tur}`;
+  if (tarihBas) filtre += `&created_at=gte.${tarihBas}T00:00:00`;
+  if (tarihBit) filtre += `&created_at=lte.${tarihBit}T23:59:59`;
+
+  const tumEmir = await sbGet('is_emirleri', filtre);
+  const tbody = document.getElementById('panel-is-emirleri-body');
+  if (!tbody) return;
+
+  if (!tumEmir || !tumEmir.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Kayıt yok</td></tr>';
+    return;
+  }
+
+  // JS tarafında ek filtreler
+  const filtreliEmir = tumEmir.filter(ie => {
+    const kalip = tumKaliplar.find(k => k.id === ie.kalip_id);
+    const op = tumOperatorler.find(o => o.id === ie.acik_eden_operator_id);
+    if (kalipAra && kalip && !kalip.kalip_kodu.toLowerCase().includes(kalipAra) && !kalip.kalip_adi.toLowerCase().includes(kalipAra)) return false;
+    if (islemAra && !(ie.yapilan_islem || '').toLowerCase().includes(islemAra)) return false;
+    if (opAra && op && !op.ad_soyad.toLowerCase().includes(opAra)) return false;
+    return true;
+  });
+
+  if (!filtreliEmir.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Sonuç bulunamadı</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtreliEmir.slice(0, 100).map(ie => {
+    const kalip = tumKaliplar.find(k => k.id === ie.kalip_id);
+    const op = tumOperatorler.find(o => o.id === ie.acik_eden_operator_id);
+    const sure = ie.toplam_sure_dak
+      ? Math.floor(ie.toplam_sure_dak/60) + 'sa ' + (ie.toplam_sure_dak%60) + 'dk'
+      : ie.acik_kapali === 'Acik' ? 'Devam ediyor' : '—';
+    const durumBadge = ie.acik_kapali === 'Acik'
+      ? '<span class="badge badge-green">● Aktif</span>'
+      : '<span class="badge badge-purple">✓ Kapatıldı</span>';
+    const tarih = ie.created_at
+      ? new Date(ie.created_at).toLocaleDateString('tr-TR', {day:'2-digit', month:'2-digit', year:'2-digit'}).replace(/\./g,'/')
+      : '—';
+    return `<tr>
+      <td style="white-space:nowrap;font-size:12px">${tarih}</td>
+      <td class="mono" style="font-size:11px">${ie.is_emri_no}</td>
+      <td>${kalip ? '<div style="font-size:11px;color:var(--muted)">' + kalip.kalip_kodu + '</div><div style="font-size:13px">' + kalip.kalip_adi.slice(0,18) + '</div>' : '—'}</td>
+      <td><span class="badge ${ie.tur === 'C' ? 'badge-red' : 'badge-blue'}">${ie.tur === 'C' ? 'Arıza' : 'Planlı'}</span></td>
+      <td>${ie.yapilan_islem || '—'}</td>
+      <td>${op ? op.ad_soyad : '—'}</td>
+      <td>${sure}</td>
+      <td>${durumBadge}</td>
+      <td><div style="padding:4px 10px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:11px;cursor:pointer"
+        onclick="ieDetayAc('${ie.id}')">Detay</div></td>
+    </tr>`;
+  }).join('');
+}
   const durum = document.getElementById('filtre-durum')?.value || '';
   const tur = document.getElementById('filtre-tur')?.value || '';
   const kalipAra = document.getElementById('filtre-kalip')?.value?.toLowerCase() || '';
