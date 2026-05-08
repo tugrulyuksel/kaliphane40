@@ -656,7 +656,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
             <div style="margin-left:auto"><span class="badge badge-blue">Ana Usta</span></div>
           </div>
         </div>
-        <div class="btn-add-op" onclick="Promise.resolve(operatorEkleModal()).catch(e=>console.error(e))">+ Ekip Üyesi Ekle</div>
+        <div class="btn-add-op" style="display:flex;gap:8px;padding:0;background:none;border:none">
+          <select id="ekip-dropdown" style="flex:1;padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+            <option value="">Ekip üyesi seç...</option>
+          </select>
+          <div onclick="Promise.resolve(ekipDropdownEkle()).catch(e=>console.error(e))"
+            style="padding:10px 16px;background:var(--accent);border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">
+            + Ekle
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1871,7 +1879,15 @@ async function kapatEkraniHazirla() {
     await malzemeAccordionYukle('kapat-malzeme-accordion', 'kapat-malzeme-grid');
   } catch(e) { console.warn('Malzeme yüklenemedi:', e); }
 
-  // Serbest alanı temizle
+  // Ekip dropdown doldur
+  const ekipDropdown = document.getElementById('ekip-dropdown');
+  if (ekipDropdown) {
+    ekipDropdown.innerHTML = '<option value="">Ekip üyesi seç...</option>' +
+      tumOperatorler
+        .filter(o => o.id !== aktifOperator?.id)
+        .map(o => `<option value="${o.id}">${o.ad_soyad}</option>`)
+        .join('');
+  }
   const serbest = document.getElementById('malzeme-serbest-input');
   if (serbest) serbest.value = '';
   // Seçili malzeme geçmişini sıfırla
@@ -2488,6 +2504,32 @@ async function catSec(btn, katId) {
 }
 
 // Operatör modal
+async function ekipDropdownEkle() {
+  const sel = document.getElementById('ekip-dropdown');
+  const opId = sel?.value;
+  if (!opId) { alert('Önce ekip üyesi seçin.'); return; }
+
+  const liste = document.getElementById('kapat-operator-listesi');
+  if (liste.querySelector(`[data-op-id="${opId}"]`)) { alert('Bu kişi zaten eklendi.'); return; }
+
+  const op = tumOperatorler.find(o => o.id === opId);
+  if (!op) return;
+
+  const rolTR = {yonetici:'Yönetici', usta:'Usta', cirak:'Çırak', cnc:'CNC', muhendis:'Mühendis', formen:'Formen'};
+  const initials = op.ad_soyad.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+  const d = document.createElement('div');
+  d.className = 'operator-item';
+  d.dataset.opId = opId;
+  d.innerHTML = `
+    <div class="operator-avatar">${initials}</div>
+    <div class="op-name">${op.ad_soyad}</div>
+    <div style="margin-left:auto"><span class="badge badge-blue">${rolTR[op.rol]||op.rol}</span></div>
+    <div class="op-remove" onclick="this.parentElement.remove()">×</div>`;
+  liste.appendChild(d);
+  sel.value = '';
+}
+
 async function operatorEkleModal(){
   const modal = document.getElementById('op-modal');
   const opsEl = document.getElementById('modal-ops-liste');
