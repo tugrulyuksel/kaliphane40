@@ -512,27 +512,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
       </div>
     </div>
 
-    <div class="form-section" id="islem-section">
-      <div class="form-section-title">Yapılan İşlem <span style="color:var(--red)">*</span></div>
-      <div class="form-section-body">
-        <div class="chip-select">
-          <div class="chip" onclick="chipSec(this,'islem')">Parlatma</div>
-          <div class="chip" onclick="chipSec(this,'islem')">Model Değişimi</div>
-          <div class="chip" onclick="chipSec(this,'islem')">Tasarım Değişikliği</div>
-          <div class="chip" onclick="chipSec(this,'islem')">Arıza Tamir</div>
-          <div class="chip" onclick="chipSec(this,'islem')">Ayar</div>
-          <div class="chip" onclick="chipSec(this,'islem')">Yeni Kalıp İmalatı</div>
-          <div class="chip" onclick="chipSec(this,'islem')">Yeni Çelik İmalatı</div>
-          <div class="chip" onclick="chipSec(this,'islem')">Yedek Malzeme Yapımı</div>
-          <div class="chip" onclick="chipSec(this,'islem')">Üretim Sonrası Temizlik</div>
-          <div class="chip" onclick="chipSec(this,'islem')">Torna</div>
-          <div class="chip" onclick="chipSec(this,'islem')">Kaynak</div>
-          <div class="chip" onclick="chipSec(this,'islem')">Ar-Ge Denemesi</div>
-          <div class="chip" onclick="chipSec(this,'islem')">Parça Kesimi</div>
-        </div>
-      </div>
-    </div>
-
     <div class="form-section">
       <div class="form-section-title">Üretim Durumu</div>
       <div class="form-section-body">
@@ -631,6 +610,16 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
       </div>
     </div>
 
+    <!-- Yapılan İşlem — kapatırken seçilir -->
+    <div class="form-section" id="islem-section">
+      <div class="form-section-title">Yapılan İşlem <span style="color:var(--red)">*</span></div>
+      <div class="form-section-body">
+        <div class="chip-select" id="islem-chip-select">
+          <!-- Tanımlardan veya sabit listeden doldurulur -->
+        </div>
+      </div>
+    </div>
+
     <!-- Checklist — sadece planlı bakımda görünür, kapatırken işaretlenir -->
     <div id="kapat-checklist-bolum" class="form-section" style="display:none">
       <div class="form-section-title">
@@ -724,6 +713,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
       <div class="nav-item" onclick="panelAc('tanimlar',this)"><span class="nav-icon">⚙️</span> Tanımlar</div>
       <div class="nav-section">Raporlar</div>
       <div class="nav-item" onclick="panelAc('raporlar',this)"><span class="nav-icon">📈</span> KPI & Raporlar</div>
+      <div class="nav-item" onclick="panelAc('veri-yonetimi',this)"><span class="nav-icon">💾</span> Veri Yönetimi</div>
     </nav>
     <div class="sidebar-bottom">
       <div class="user-card">
@@ -1379,6 +1369,58 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 
     </div>
 
+    <!-- VERİ YÖNETİMİ -->
+    <div class="panel" id="panel-veri-yonetimi">
+
+      <!-- Dışa Aktar -->
+      <div class="panel-card" style="margin-bottom:1rem">
+        <div class="pc-header"><h3>📤 Dışa Aktar (Yedek Al)</h3></div>
+        <div class="pc-body">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:1rem">Seçilen tabloları JSON dosyası olarak indir. Verileri silmeden önce mutlaka yedek alın.</div>
+          <div style="display:flex;flex-direction:column;gap:8px" id="vy-tablo-liste">
+            <!-- JS ile doldurulacak -->
+          </div>
+          <div style="display:flex;gap:8px;margin-top:1rem;flex-wrap:wrap">
+            <div onclick="vyTumunuSec(true)" style="padding:7px 14px;background:var(--card2);border:1px solid var(--border2);border-radius:7px;color:var(--muted);font-size:12px;cursor:pointer">Tümünü Seç</div>
+            <div onclick="vyTumunuSec(false)" style="padding:7px 14px;background:var(--card2);border:1px solid var(--border2);border-radius:7px;color:var(--muted);font-size:12px;cursor:pointer">Temizle</div>
+            <div onclick="Promise.resolve(vyDisaAktar()).catch(e=>console.error(e))"
+              style="padding:7px 20px;background:var(--accent);border-radius:7px;color:#fff;font-size:12px;font-weight:700;cursor:pointer">📥 Seçilenleri İndir</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- İçe Aktar / Görüntüle -->
+      <div class="panel-card" style="margin-bottom:1rem">
+        <div class="pc-header"><h3>📂 İçe Aktar / Rapor Görüntüle</h3></div>
+        <div class="pc-body">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:1rem">Daha önce aldığınız JSON yedeğini yükleyip görüntüleyin. Veritabanına yazılmaz, sadece okuma amaçlıdır.</div>
+          <label style="display:flex;align-items:center;gap:10px;padding:1rem;background:var(--bg);border:2px dashed var(--border2);border-radius:10px;cursor:pointer">
+            <span style="font-size:24px">📁</span>
+            <div>
+              <div style="font-size:13px;font-weight:600">JSON dosyası seç</div>
+              <div style="font-size:12px;color:var(--muted)" id="vy-dosya-adi">Dosya seçilmedi</div>
+            </div>
+            <input type="file" accept=".json" onchange="vyDosyaOku(this)" style="display:none">
+          </label>
+          <div id="vy-onizleme" style="display:none;margin-top:1rem"></div>
+        </div>
+      </div>
+
+      <!-- Tablo Temizleme -->
+      <div class="panel-card" style="border:1px solid var(--red)">
+        <div class="pc-header"><h3 style="color:var(--red)">🗑️ Tablo Temizleme</h3></div>
+        <div class="pc-body">
+          <div style="padding:.875rem;background:var(--red-dim);border:1px solid var(--red);border-radius:8px;margin-bottom:1rem;font-size:13px;color:var(--red)">
+            ⚠️ Bu işlem <strong>geri alınamaz.</strong> Silmeden önce mutlaka dışa aktar ile yedek alın.
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px" id="vy-temizle-liste">
+            <!-- JS ile doldurulacak -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+
     <!-- RAPORLAR -->
     <div class="panel" id="panel-raporlar">
 
@@ -1647,24 +1689,64 @@ function kaydetWrapper() {
   Promise.resolve(isEmriKaydet()).catch(e => console.error('Kaydet hata:', e));
 }
 
+// ── GÜVENLİK: PIN kilidi state ──
+const GV_MAX_DENEME = 3;
+const GV_KILIT_SURE = 5 * 60 * 1000; // 5 dakika
+function gvDenemeKontrol() {
+  const veri = JSON.parse(localStorage.getItem('pin_kilit') || '{}');
+  const simdi = Date.now();
+  if (veri.kilit_bitis && simdi < veri.kilit_bitis) {
+    const kalan = Math.ceil((veri.kilit_bitis - simdi) / 1000);
+    return { kilitli: true, kalan };
+  }
+  return { kilitli: false, deneme: veri.deneme || 0 };
+}
+function gvBasarisizDeneme() {
+  const veri = JSON.parse(localStorage.getItem('pin_kilit') || '{}');
+  const deneme = (veri.deneme || 0) + 1;
+  if (deneme >= GV_MAX_DENEME) {
+    localStorage.setItem('pin_kilit', JSON.stringify({ deneme, kilit_bitis: Date.now() + GV_KILIT_SURE }));
+    return { kilitlendi: true, sure: GV_KILIT_SURE / 1000 };
+  }
+  localStorage.setItem('pin_kilit', JSON.stringify({ deneme }));
+  return { kilitlendi: false, kalan: GV_MAX_DENEME - deneme };
+}
+function gvBasariliGiris() {
+  localStorage.removeItem('pin_kilit');
+}
+
 async function girisYap() {
+  // Kilit kontrolü
+  const kilit = gvDenemeKontrol();
+  if (kilit.kilitli) {
+    const dk = Math.ceil(kilit.kalan / 60);
+    alert('🔒 Çok fazla hatalı deneme!\n\n' + dk + ' dakika sonra tekrar deneyin.');
+    document.getElementById('login-pin').value = '';
+    return;
+  }
+
   const pin = document.getElementById('login-pin').value;
   if (!pin) { alert('PIN girin.'); return; }
 
   const sonuc = await sbGet('operatorler', `pin=eq.${pin}&aktif=eq.true`);
   if (!sonuc || sonuc.length === 0) {
-    alert('Hatalı PIN. Tekrar deneyin.');
+    const r = gvBasarisizDeneme();
+    if (r.kilitlendi) {
+      alert('🔒 3 hatalı deneme! Hesap 5 dakika kilitlendi.');
+    } else {
+      alert('Hatalı PIN. ' + r.kalan + ' deneme hakkınız kaldı.');
+    }
+    document.getElementById('login-pin').value = '';
     return;
   }
 
+  gvBasariliGiris();
   aktifOperator = sonuc[0];
   const rolTR = {yonetici:'Yönetici', usta:'Usta', cirak:'Çırak', cnc:'CNC Operatörü', muhendis:'Mühendis', formen:'Formen'};
   document.getElementById('usta-ad').textContent = aktifOperator.ad_soyad;
   document.getElementById('usta-rol-bilgi').textContent = (rolTR[aktifOperator.rol] || aktifOperator.rol) + ' · ' + aktifOperator.operator_kodu;
 
-  // Oturumu hatırla
   localStorage.setItem('aktif_operator_id', aktifOperator.id);
-
   await verileriYukle();
 
   if (aktifOperator.rol === 'yonetici') {
@@ -2053,25 +2135,11 @@ async function isEmriBaslat() {
   let hata = '';
   const problemSec = document.querySelector('#problem-section .chip.selected');
   if (!problemSec) hata += '• Problem / Arıza\n';
-  const islemSec = document.querySelector('#islem-section .chip.selected');
-  if (!islemSec) hata += '• Yapılan İşlem\n';
   if (hata) { alert('⚠ Zorunlu alanlar:\n\n' + hata); return; }
-
-  // Yetki kontrolü
-  if (islemSec && aktifOperator) {
-    const islemId = islemSec.dataset.id;
-    let yetkiler = [];
-    try { yetkiler = aktifOperator.yetkiler ? JSON.parse(aktifOperator.yetkiler) : []; } catch(e) {}
-    // Yetki listesi doluysa kontrol et, boşsa kısıtlama yok
-    if (yetkiler.length > 0 && islemId && !yetkiler.includes(islemId)) {
-      alert('⛔ Bu işlem için yetkiniz yok.\n\n"' + islemSec.textContent + '" işlemini yapamazsınız.\nLütfen yöneticinizle iletişime geçin.');
-      return;
-    }
-  }
 
   const tur = 'C'; // Arıza formu her zaman C
   const problem = problemSec ? problemSec.textContent : '';
-  const islem = islemSec ? islemSec.textContent : '';
+  const islem = ''; // Kapatırken girilecek
   const uretimDurdu = document.getElementById('uretim-toggle').classList.contains('on');
   const not = document.querySelector('#screen-is-emri textarea')?.value || '';
 
@@ -2211,11 +2279,21 @@ async function kapatEkraniHazirla() {
 async function isEmriKaydet() {
   if (aktifIsEmri) {
     try {
+      // Yapılan İşlem zorunlu kontrolü
+      const islemSec = document.querySelector('#islem-section .chip.selected');
+      if (!islemSec) {
+        alert('⚠ Yapılan İşlemi seçmeden kapatılamaz.');
+        document.getElementById('islem-section')?.scrollIntoView({behavior:'smooth'});
+        return;
+      }
+      const islem = islemSec.textContent;
+
       const aciklama = document.querySelector('#screen-kapat textarea')?.value || '';
       await sbPatch('is_emirleri', aktifIsEmri.id, {
         acik_kapali: 'Kapali',
         bitis_zaman: new Date().toISOString(),
         toplam_sure_dak: Math.floor(saniye / 60),
+        yapilan_islem: islem,
         aciklama: aciklama
       });
 
@@ -2683,20 +2761,38 @@ function isEmriBitir() {
     if (items.length > 0 && done.length < items.length) {
       const eksik = items.length - done.length;
       alert(`⚠ Checklist tamamlanmadan bakım kapatılamaz!\n\n${done.length}/${items.length} madde işaretlendi.\n${eksik} madde eksik.\n\nTüm maddeleri kontrol edip işaretleyin.`);
-      // Eksik maddeleri vurgula
       items.forEach(item => {
         if (!item.classList.contains('done')) {
           item.style.borderColor = 'var(--red)';
           item.style.background = 'var(--red-dim)';
-          setTimeout(() => {
-            item.style.borderColor = '';
-            item.style.background = '';
-          }, 2500);
+          setTimeout(() => { item.style.borderColor = ''; item.style.background = ''; }, 2500);
         }
       });
       return;
     }
   }
+
+  // Yapılan İşlem chip listesini doldur
+  const chipSec = document.getElementById('islem-chip-select');
+  if (chipSec) {
+    const sabitIslemler = ['Arıza Tamir','Parlatma','Ayar','Kaynak','Torna','Model Değişimi',
+      'Tasarım Değişikliği','Yeni Kalıp İmalatı','Yeni Çelik İmalatı','Yedek Malzeme Yapımı',
+      'Üretim Sonrası Temizlik','Ar-Ge Denemesi','Parça Kesimi','Planli Bakim'];
+    const islemler = tumIsTipleri?.length
+      ? tumIsTipleri.map(t => t.ad)
+      : sabitIslemler;
+    chipSec.innerHTML = islemler.map(ad =>
+      '<div class="chip" onclick="chipSec(this,\'islem\')">' + ad + '</div>'
+    ).join('');
+    // Planlı bakımsa otomatik seç
+    if (planliMod) {
+      const planliChip = chipSec.querySelector('.chip');
+      chipSec.querySelectorAll('.chip').forEach(c => {
+        if (c.textContent === 'Planli Bakim') { c.classList.add('selected'); }
+      });
+    }
+  }
+
   gosterEkran('screen-kapat');
 }
 
@@ -2984,6 +3080,7 @@ function panelAc(id, btn){
   else if(id === 'is-emirleri') renderIsEmirleriTablosu();
   else if(id === 'kalip-matrisi') kmRenderPanel();
   else if(id === 'gunluk-uretim') guRenderPanel();
+  else if(id === 'veri-yonetimi') vyRenderPanel();
   else renderYoneticiVeriler();
 }
 function opSec(el){document.querySelectorAll('.operator-kart').forEach(k=>k.classList.remove('selected'));el.classList.add('selected');}
@@ -3061,14 +3158,15 @@ async function renderIsEmirleriTablosu() {
 }
 
 async function isEmriSil(id) {
-  if (!confirm('Bu iş emri kalıcı olarak silinsin mi?')) return;
-  try {
-    await fetch(`${SUPA_URL}/rest/v1/is_emirleri?id=eq.${id}`, {
-      method: 'DELETE',
-      headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY }
-    });
-    await renderIsEmirleriTablosu();
-  } catch(e) { console.error('Silme hatası:', e); alert('Silinemedi: ' + e.message); }
+  kritikOnay('Bu iş emri kalıcı olarak silinecek.\nBu işlem geri alınamaz.', async () => {
+    try {
+      await fetch(`${SUPA_URL}/rest/v1/is_emirleri?id=eq.${id}`, {
+        method: 'DELETE',
+        headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY }
+      });
+      await renderIsEmirleriTablosu();
+    } catch(e) { console.error('Silme hatası:', e); alert('Silinemedi: ' + e.message); }
+  });
 }
 
 // ── YÖNETİCİ İŞ EMRİ DETAY ──
@@ -4013,12 +4111,13 @@ async function planliTamamla(id) {
 }
 
 async function planliSil(id) {
-  if (!confirm('Bu planlı bakım silinsin mi?')) return;
-  await fetch(`${SUPA_URL}/rest/v1/planli_bakimlar?id=eq.${id}`, {
-    method: 'DELETE',
-    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+  kritikOnay('Bu planlı bakım kaydı silinecek.\nBu işlem geri alınamaz.', async () => {
+    await fetch(`${SUPA_URL}/rest/v1/planli_bakimlar?id=eq.${id}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+    });
+    await renderPlanliTablo();
   });
-  await renderPlanliTablo();
 }
 
 async function renderKaliplar() {
@@ -5020,6 +5119,206 @@ function clToggleDetay(id) {
 
 function clGecmisFiltrele() {
   clGecmisYukleVeRender(document.getElementById('cl-gecmis-filtre')?.value);
+}
+
+// ── GÜVENLİK: Kritik işlem onayı ──
+function kritikOnay(mesaj, islem) {
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem';
+  modal.innerHTML = '<div style="background:var(--card);border:1px solid var(--red);border-radius:16px;padding:1.5rem;width:100%;max-width:420px">' +
+    '<div style="font-size:22px;text-align:center;margin-bottom:.75rem">⚠️</div>' +
+    '<div style="font-size:15px;font-weight:700;text-align:center;margin-bottom:.5rem">Kritik İşlem Onayı</div>' +
+    '<div style="font-size:13px;color:var(--muted);text-align:center;margin-bottom:1.25rem">' + mesaj + '</div>' +
+    '<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Devam etmek için PIN\'inizi girin:</div>' +
+    '<input type="password" id="kritik-onay-pin" placeholder="PIN" maxlength="8" ' +
+      'style="width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:18px;text-align:center;letter-spacing:4px;font-family:\'JetBrains Mono\',monospace;box-sizing:border-box;margin-bottom:1rem">' +
+    '<div style="display:flex;gap:8px">' +
+      '<div onclick="document.getElementById(\'kritik-onay-modal\').remove()" ' +
+        'style="flex:1;padding:10px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;text-align:center;font-size:13px">İptal</div>' +
+      '<div id="kritik-onay-btn" ' +
+        'style="flex:2;padding:10px;background:var(--red);border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:700">Evet, Devam Et</div>' +
+    '</div>' +
+  '</div>';
+  modal.id = 'kritik-onay-modal';
+
+  document.body.appendChild(modal);
+  setTimeout(() => document.getElementById('kritik-onay-pin')?.focus(), 100);
+
+  const onayla = async () => {
+    const pin = document.getElementById('kritik-onay-pin')?.value;
+    if (pin !== aktifOperator?.pin) {
+      document.getElementById('kritik-onay-pin').style.borderColor = 'var(--red)';
+      document.getElementById('kritik-onay-pin').value = '';
+      document.getElementById('kritik-onay-pin').placeholder = 'Hatalı PIN!';
+      return;
+    }
+    modal.remove();
+    await islem();
+  };
+
+  document.getElementById('kritik-onay-btn').onclick = onayla;
+  document.getElementById('kritik-onay-pin').addEventListener('keydown', e => { if (e.key === 'Enter') onayla(); });
+}
+
+// ══════════════════════════════════════════════════
+// VERİ YÖNETİMİ
+// ══════════════════════════════════════════════════
+
+const VY_TABLOLAR = [
+  { key: 'is_emirleri',      ad: 'İş Emirleri',      aciklama: 'Tüm arıza ve planlı bakım iş emirleri' },
+  { key: 'planli_bakimlar',  ad: 'Planlı Bakımlar',  aciklama: 'Bakım takvimi kayıtları' },
+  { key: 'kaliplar',         ad: 'Kalıplar',          aciklama: 'Kalıp tanımları ve bilgileri' },
+  { key: 'operatorler',      ad: 'Operatörler',       aciklama: 'Kullanıcı ve yetki bilgileri' },
+  { key: 'checklist_sablonlari', ad: 'Checklist Şablonları', aciklama: 'Bakım kontrol listeleri' },
+];
+
+function vyRenderPanel() {
+  // Dışa aktar listesi
+  const aktar = document.getElementById('vy-tablo-liste');
+  if (aktar) {
+    aktar.innerHTML = VY_TABLOLAR.map(t => `
+      <label style="display:flex;align-items:center;gap:10px;padding:.75rem 1rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer">
+        <input type="checkbox" class="vy-cb" data-key="${t.key}" checked style="width:16px;height:16px;accent-color:var(--accent)">
+        <div>
+          <div style="font-size:13px;font-weight:600">${t.ad}</div>
+          <div style="font-size:12px;color:var(--muted)">${t.aciklama}</div>
+        </div>
+      </label>`).join('');
+  }
+
+  // Temizleme listesi
+  const temizle = document.getElementById('vy-temizle-liste');
+  if (temizle) {
+    temizle.innerHTML = VY_TABLOLAR.map(t => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;background:var(--bg);border:1px solid var(--border);border-radius:8px">
+        <div>
+          <div style="font-size:13px;font-weight:600">${t.ad}</div>
+          <div style="font-size:12px;color:var(--muted)">${t.aciklama}</div>
+        </div>
+        <div onclick="vyTemizle('${t.key}','${t.ad}')"
+          style="padding:6px 14px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">
+          Temizle
+        </div>
+      </div>`).join('');
+  }
+}
+
+function vyTumunuSec(sec) {
+  document.querySelectorAll('.vy-cb').forEach(cb => cb.checked = sec);
+}
+
+async function vyDisaAktar() {
+  const secili = [...document.querySelectorAll('.vy-cb:checked')].map(cb => cb.dataset.key);
+  if (!secili.length) { alert('En az bir tablo seçin.'); return; }
+
+  const yedek = {
+    meta: {
+      tarih: new Date().toISOString(),
+      versiyon: 'kaliphane-v58',
+      tablolar: secili
+    },
+    veri: {}
+  };
+
+  const btn = document.querySelector('[onclick*="vyDisaAktar"]');
+  if (btn) { btn.textContent = '⏳ Yükleniyor...'; btn.style.opacity = '.6'; }
+
+  try {
+    for (const tablo of secili) {
+      const veri = await sbGet(tablo, 'order=created_at.desc&limit=10000') || [];
+      yedek.veri[tablo] = veri;
+    }
+
+    const json = JSON.stringify(yedek, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const tarih = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = 'kaliphane-yedek-' + tarih + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+
+    if (btn) { btn.textContent = '✓ İndirildi'; btn.style.background = 'var(--green)'; btn.style.opacity = '1'; }
+    setTimeout(() => { if (btn) { btn.textContent = '📥 Seçilenleri İndir'; btn.style.background = 'var(--accent)'; } }, 2500);
+  } catch(e) {
+    if (btn) { btn.textContent = '📥 Seçilenleri İndir'; btn.style.opacity = '1'; }
+    alert('Dışa aktarma hatası: ' + e.message);
+  }
+}
+
+function vyDosyaOku(input) {
+  const dosya = input.files[0];
+  if (!dosya) return;
+  document.getElementById('vy-dosya-adi').textContent = dosya.name;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const veri = JSON.parse(e.target.result);
+      vyOnizlemeGoster(veri, dosya.name);
+    } catch(err) {
+      alert('Geçersiz JSON dosyası: ' + err.message);
+    }
+  };
+  reader.readAsText(dosya);
+}
+
+function vyOnizlemeGoster(veri, dosyaAdi) {
+  const el = document.getElementById('vy-onizleme');
+  if (!el) return;
+  el.style.display = 'block';
+
+  const meta = veri.meta || {};
+  const tablolar = Object.keys(veri.veri || {});
+
+  let html = '<div style="padding:.875rem;background:var(--accent-dim);border:1px solid var(--accent);border-radius:10px;margin-bottom:1rem">' +
+    '<div style="font-size:13px;font-weight:700;margin-bottom:4px">📋 ' + dosyaAdi + '</div>' +
+    '<div style="font-size:12px;color:var(--muted)">Yedek tarihi: ' + (meta.tarih ? new Date(meta.tarih).toLocaleString('tr-TR') : '—') + '</div>' +
+    '<div style="font-size:12px;color:var(--muted)">Versiyon: ' + (meta.versiyon || '—') + '</div>' +
+  '</div>';
+
+  tablolar.forEach(tablo => {
+    const kayitlar = veri.veri[tablo] || [];
+    const tInfo = VY_TABLOLAR.find(t => t.key === tablo);
+    html += '<div style="margin-bottom:.75rem">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">' +
+        '<div style="font-size:13px;font-weight:700">' + (tInfo?.ad || tablo) + '</div>' +
+        '<span class="badge badge-blue">' + kayitlar.length + ' kayıt</span>' +
+      '</div>';
+
+    if (kayitlar.length > 0) {
+      const cols = Object.keys(kayitlar[0]).slice(0, 6);
+      html += '<div style="overflow-x:auto"><table class="data-table"><thead><tr>' +
+        cols.map(c => '<th style="font-size:11px">' + c + '</th>').join('') +
+        '</tr></thead><tbody>' +
+        kayitlar.slice(0, 10).map(r =>
+          '<tr>' + cols.map(c => '<td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (r[c] ?? '—') + '</td>').join('') + '</tr>'
+        ).join('') +
+        (kayitlar.length > 10 ? '<tr><td colspan="' + cols.length + '" style="text-align:center;color:var(--muted);font-size:11px">... ve ' + (kayitlar.length - 10) + ' kayıt daha</td></tr>' : '') +
+        '</tbody></table></div>';
+    }
+    html += '</div>';
+  });
+
+  el.innerHTML = html;
+}
+
+async function vyTemizle(tablo, ad) {
+  kritikOnay(
+    '"' + ad + '" tablosundaki TÜM veriler silinecek.\nYedek almadıysanız İPTAL edin!',
+    async () => {
+      try {
+        // Supabase'de tüm satırları sil (id is not null = hepsi)
+        await fetch(`${SUPA_URL}/rest/v1/${tablo}?id=not.is.null`, {
+          method: 'DELETE',
+          headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY }
+        });
+        alert('"' + ad + '" tablosu temizlendi.');
+        await verileriYukle();
+      } catch(e) { alert('Temizleme hatası: ' + e.message); }
+    }
+  );
 }
 
 // ── Safari uyumlu event listener'lar ──
