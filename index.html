@@ -1406,16 +1406,18 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         </div>
       </div>
 
-      <!-- Tablo Temizleme -->
-      <div class="panel-card" style="border:1px solid var(--red)">
-        <div class="pc-header"><h3 style="color:var(--red)">🗑️ Tablo Temizleme</h3></div>
+      <!-- Tablo Temizleme — Supabase'e yönlendirme -->
+      <div class="panel-card" style="border:1px solid var(--border2)">
+        <div class="pc-header"><h3>🗑️ Toplu Veri Silme</h3></div>
         <div class="pc-body">
-          <div style="padding:.875rem;background:var(--red-dim);border:1px solid var(--red);border-radius:8px;margin-bottom:1rem;font-size:13px;color:var(--red)">
-            ⚠️ Bu işlem <strong>geri alınamaz.</strong> Silmeden önce mutlaka dışa aktar ile yedek alın.
+          <div style="padding:.875rem;background:var(--card2);border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--muted);line-height:1.7">
+            Toplu veri silme işlemleri yalnızca <strong style="color:var(--text)">Supabase Dashboard</strong> üzerinden yapılabilir.<br>
+            Bu kısıtlama yanlışlıkla veri kaybını önlemek için uygulanmıştır.
           </div>
-          <div style="display:flex;flex-direction:column;gap:8px" id="vy-temizle-liste">
-            <!-- JS ile doldurulacak -->
-          </div>
+          <a href="https://supabase.com/dashboard" target="_blank"
+            style="display:inline-flex;align-items:center;gap:8px;margin-top:1rem;padding:10px 20px;background:var(--accent);border-radius:8px;color:#fff;font-size:13px;font-weight:600;text-decoration:none">
+            🔗 Supabase Dashboard'a Git
+          </a>
         </div>
       </div>
 
@@ -3158,15 +3160,7 @@ async function renderIsEmirleriTablosu() {
 }
 
 async function isEmriSil(id) {
-  kritikOnay('Bu iş emri kalıcı olarak silinecek.\nBu işlem geri alınamaz.', async () => {
-    try {
-      await fetch(`${SUPA_URL}/rest/v1/is_emirleri?id=eq.${id}`, {
-        method: 'DELETE',
-        headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY }
-      });
-      await renderIsEmirleriTablosu();
-    } catch(e) { console.error('Silme hatası:', e); alert('Silinemedi: ' + e.message); }
-  });
+  alert('İş emirleri yalnızca Supabase dashboard üzerinden silinebilir.\n\nSupabase → Table Editor → is_emirleri');
 }
 
 // ── YÖNETİCİ İŞ EMRİ DETAY ──
@@ -5185,22 +5179,6 @@ function vyRenderPanel() {
         </div>
       </label>`).join('');
   }
-
-  // Temizleme listesi
-  const temizle = document.getElementById('vy-temizle-liste');
-  if (temizle) {
-    temizle.innerHTML = VY_TABLOLAR.map(t => `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;background:var(--bg);border:1px solid var(--border);border-radius:8px">
-        <div>
-          <div style="font-size:13px;font-weight:600">${t.ad}</div>
-          <div style="font-size:12px;color:var(--muted)">${t.aciklama}</div>
-        </div>
-        <div onclick="vyTemizle('${t.key}','${t.ad}')"
-          style="padding:6px 14px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">
-          Temizle
-        </div>
-      </div>`).join('');
-  }
 }
 
 function vyTumunuSec(sec) {
@@ -5305,20 +5283,7 @@ function vyOnizlemeGoster(veri, dosyaAdi) {
 }
 
 async function vyTemizle(tablo, ad) {
-  kritikOnay(
-    '"' + ad + '" tablosundaki TÜM veriler silinecek.\nYedek almadıysanız İPTAL edin!',
-    async () => {
-      try {
-        // Supabase'de tüm satırları sil (id is not null = hepsi)
-        await fetch(`${SUPA_URL}/rest/v1/${tablo}?id=not.is.null`, {
-          method: 'DELETE',
-          headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY }
-        });
-        alert('"' + ad + '" tablosu temizlendi.');
-        await verileriYukle();
-      } catch(e) { alert('Temizleme hatası: ' + e.message); }
-    }
-  );
+  alert('Toplu veri silme işlemi yalnızca Supabase Dashboard üzerinden yapılabilir.\n\nhttps://supabase.com/dashboard');
 }
 
 // ── Safari uyumlu event listener'lar ──
