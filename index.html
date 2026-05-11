@@ -969,7 +969,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
             <div class="fg" style="grid-column:span 2">
               <label>⚡ Sık Kullanılan Malzemeler <span style="font-weight:400;text-transform:none;color:var(--muted)">(İş emri kapatırken hızlı seçim için)</span></label>
               <div id="kf-malzeme-secim" style="display:flex;flex-direction:column;gap:8px">
-                <input type="text" id="kf-malzeme-ara" placeholder="🔍 Malzeme ara..." oninput="kfMalzemeFiltrele()"
+                <input type="text" id="kf-malzeme-ara" placeholder="🔍 Malzeme ara..." oninput="Promise.resolve(kfMalzemeFiltrele()).catch(e=>console.error(e))"
                   style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
                 <div id="kf-malzeme-sonuclar" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;max-height:200px;overflow-y:auto"></div>
                 <div id="kf-secili-malzemeler" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;padding:6px;background:var(--bg);border:1px solid var(--border);border-radius:8px">
@@ -5322,16 +5322,25 @@ async function vyTemizle(tablo, ad) {
 
 let kfSeciliMalzemeler = []; // [{id, adi, birim, stok}]
 
-function kfMalzemeFiltrele() {
+async function kfMalzemeFiltrele() {
   const q = (document.getElementById('kf-malzeme-ara')?.value || '').toLowerCase();
   const sonuclar = document.getElementById('kf-malzeme-sonuclar');
   if (!sonuclar) return;
 
   if (!q) { sonuclar.innerHTML = ''; return; }
 
-  const liste = tumMalzemeler?.filter(m =>
-    m.malzeme_adi.toLowerCase().includes(q)
-  ).slice(0, 12) || [];
+  // tumMalzemeler yoksa Supabase'den çek
+  let malzemeListe = window._tumMalzeme || [];
+  if (!malzemeListe.length) {
+    try {
+      malzemeListe = await sbGet('malzemeler', 'aktif=eq.true&order=malzeme_adi') || [];
+      window._tumMalzeme = malzemeListe;
+    } catch(e) { malzemeListe = []; }
+  }
+
+  const liste = malzemeListe.filter(m =>
+    (m.malzeme_adi||'').toLowerCase().includes(q)
+  ).slice(0, 12);
 
   if (!liste.length) {
     sonuclar.innerHTML = '<div style="color:var(--muted);font-size:12px;grid-column:span 3">Bulunamadı</div>';
@@ -5340,9 +5349,9 @@ function kfMalzemeFiltrele() {
 
   sonuclar.innerHTML = liste.map(m => {
     const secili = kfSeciliMalzemeler.find(s => s.id === m.id);
-    return '<div onclick="kfMalzemeSec(\'' + m.id + '\',\'' + m.malzeme_adi.replace(/'/g,"\\'") + '\',\'' + (m.birim||'') + '\',' + (m.stok_miktari||0) + ')"' +
+    return '<div onclick="kfMalzemeSec(\'' + m.id + '\',\'' + (m.malzeme_adi||'').replace(/'/g,"\\'") + '\',\'' + (m.birim||'') + '\',' + (m.stok_miktari||0) + ')"' +
       ' style="padding:8px 10px;background:' + (secili ? 'var(--green-dim)' : 'var(--bg)') + ';border:1px solid ' + (secili ? 'var(--green)' : 'var(--border)') + ';border-radius:8px;cursor:pointer;font-size:12px;text-align:center">' +
-      '<div style="font-weight:500">' + m.malzeme_adi + '</div>' +
+      '<div style="font-weight:500">' + (m.malzeme_adi||'') + '</div>' +
       '<div style="color:var(--muted);font-size:11px">' + (m.birim||'') + '</div>' +
     '</div>';
   }).join('');
