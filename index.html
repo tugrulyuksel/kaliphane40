@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Kalıphane 4.0</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#3b82f6">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kalıphane">
+<link rel="apple-touch-icon" href="icons/icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="zxing.min.js"></script>
@@ -273,8 +283,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 
 /* Tanımlar */
 .tanim-liste{display:flex;flex-direction:column;gap:8px;}
-.tanim-item{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;}
-.tanim-item span{font-size:13px;}
+.tanim-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:.75rem 1rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;}
+.tanim-item span{font-size:13px;flex:1;}
+.tanim-actions{display:flex;gap:6px;flex-shrink:0;}
+.btn-tanim-duzenle{padding:4px 10px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:11px;cursor:pointer;font-weight:600;}
+.btn-tanim-kaydet{padding:4px 10px;background:var(--green-dim);border:1px solid var(--green);border-radius:6px;color:var(--green);font-size:11px;cursor:pointer;font-weight:600;}
+.btn-tanim-iptal{padding:4px 10px;background:var(--card2);border:1px solid var(--border2);border-radius:6px;color:var(--muted);font-size:11px;cursor:pointer;}
 .tanim-actions{display:flex;gap:6px;}
 .btn-tanim-sil{padding:4px 10px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;cursor:pointer;font-family:inherit;}
 .tanim-ekle-row{display:flex;gap:8px;margin-top:.75rem;}
@@ -4505,11 +4519,52 @@ function renderTanimListe(listeId, items, tablo) {
   }
   liste.innerHTML = items.map(item => `
     <div class="tanim-item" data-id="${item.id}">
-      <span>${item.ad}</span>
+      <span id="tanim-text-${item.id}">${item.ad}</span>
+      <input id="tanim-input-${item.id}" value="${item.ad.replace(/"/g,'&quot;')}"
+        style="display:none;flex:1;padding:4px 8px;background:var(--bg);border:1px solid var(--accent);border-radius:6px;color:var(--text);font-size:13px;font-family:inherit"
+        onkeydown="if(event.key==='Enter') Promise.resolve(sbTanimGuncelle('${tablo}','${item.id}','${listeId}')).catch(e=>console.error(e)); if(event.key==='Escape') tanimDuzenlemeIptal('${item.id}')">
       <div class="tanim-actions">
+        <div id="tanim-duzenle-btn-${item.id}" class="btn-tanim-duzenle" onclick="tanimDuzenle('${item.id}')">Düzenle</div>
+        <div id="tanim-kaydet-btn-${item.id}" class="btn-tanim-kaydet" style="display:none" onclick="Promise.resolve(sbTanimGuncelle('${tablo}','${item.id}','${listeId}')).catch(e=>console.error(e))">Kaydet</div>
+        <div id="tanim-iptal-btn-${item.id}" class="btn-tanim-iptal" style="display:none" onclick="tanimDuzenlemeIptal('${item.id}')">İptal</div>
         <div class="btn-tanim-sil" onclick="sbTanimSil('${tablo}','${item.id}','${listeId}')">Sil</div>
       </div>
     </div>`).join('');
+}
+
+function tanimDuzenle(id) {
+  const text = document.getElementById('tanim-text-' + id);
+  const input = document.getElementById('tanim-input-' + id);
+  if (!text || !input) return;
+  text.style.display = 'none';
+  input.style.display = 'block';
+  input.focus(); input.select();
+  document.getElementById('tanim-duzenle-btn-' + id).style.display = 'none';
+  document.getElementById('tanim-kaydet-btn-' + id).style.display = 'block';
+  document.getElementById('tanim-iptal-btn-' + id).style.display = 'block';
+}
+
+function tanimDuzenlemeIptal(id) {
+  const text = document.getElementById('tanim-text-' + id);
+  const input = document.getElementById('tanim-input-' + id);
+  if (!text || !input) return;
+  input.value = text.textContent;
+  text.style.display = 'block';
+  input.style.display = 'none';
+  document.getElementById('tanim-duzenle-btn-' + id).style.display = 'block';
+  document.getElementById('tanim-kaydet-btn-' + id).style.display = 'none';
+  document.getElementById('tanim-iptal-btn-' + id).style.display = 'none';
+}
+
+async function sbTanimGuncelle(tablo, id, listeId) {
+  const input = document.getElementById('tanim-input-' + id);
+  const yeniAd = input?.value.trim();
+  if (!yeniAd) { alert('Boş bırakılamaz.'); return; }
+  await sbPatch(tablo, id, { ad: yeniAd });
+  const tumListe = await sbGet(tablo, 'aktif=eq.true&order=ad');
+  renderTanimListe(listeId, tumListe, tablo);
+  if (tablo === 'is_tipleri') tumIsTipleri = tumListe;
+  if (tablo === 'problem_tipleri') tumProblemler = tumListe;
 }
 
 async function sbTanimEkle(tablo, inputId, listeId) {
