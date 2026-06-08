@@ -1460,6 +1460,22 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
             <input type="date" id="gv-termin"
               style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
           </div>
+          <div class="fg">
+            <label>Atanan Kişi</label>
+            <select id="gv-atanan"
+              style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+              <option value="">— Seç —</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Başlangıç İlerlemesi (%)</label>
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="range" id="gv-ilerleme" min="0" max="100" step="5" value="0"
+                oninput="document.getElementById('gv-ilerleme-val').textContent=this.value+'%'"
+                style="flex:1;accent-color:var(--accent)">
+              <span id="gv-ilerleme-val" style="font-size:13px;font-weight:700;color:var(--accent);min-width:36px">0%</span>
+            </div>
+          </div>
           <div style="grid-column:span 2">
             <div onclick="Promise.resolve(gvEkle()).catch(e=>console.error(e))"
               style="padding:10px;background:var(--accent);border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:700">
@@ -5598,6 +5614,15 @@ let gvTumGorevler = [];
 async function gvRenderPanel() {
   try {
     gvTumGorevler = await sbGet('gorevler', 'order=olusturma_tarihi.desc') || [];
+
+    // Atanan dropdown'u doldur — yönetici + mühendis
+    const atananSel = document.getElementById('gv-atanan');
+    if (atananSel) {
+      const yetkiliOperatorler = tumOperatorler.filter(o => ['yonetici','muhendis'].includes(o.rol));
+      atananSel.innerHTML = '<option value="">— Seç —</option>' +
+        yetkiliOperatorler.map(o => '<option value="' + o.id + '">' + o.ad_soyad + '</option>').join('');
+    }
+
     gvOzetGuncelle();
     gvFiltrele();
   } catch(e) { console.warn('Görevler yüklenemedi:', e); }
@@ -5671,12 +5696,20 @@ function gvRenderListe(liste) {
     const yakin = termin && !gecmis && (termin - bugun) <= 3 * 86400000 && !g.tamamlandi;
     const terminStr = termin ? termin.toLocaleDateString('tr-TR', {day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
     const terminRenk = gecmis ? 'var(--red)' : yakin ? 'var(--amber)' : 'var(--muted)';
+    const ilerleme = g.ilerleme || 0;
+    const ilerRenk = ilerleme === 100 ? 'var(--green)' : ilerleme >= 60 ? 'var(--accent)' : ilerleme >= 30 ? 'var(--amber)' : 'var(--border2)';
+
+    // Atanan kişi
+    const atanan = tumOperatorler.find(o => o.id === g.atanan_id);
+    const atananBadge = atanan
+      ? '<span style="font-size:11px;padding:2px 8px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:12px;color:var(--accent)">👤 ' + atanan.ad_soyad + '</span>'
+      : '';
 
     return '<div style="display:flex;gap:12px;padding:1rem;background:var(--bg);border:1px solid ' +
       (g.tamamlandi ? 'var(--border)' : gecmis ? 'var(--red)' : 'var(--border)') +
-      ';border-radius:10px;opacity:' + (g.tamamlandi ? '0.6' : '1') + '">' +
+      ';border-radius:10px;opacity:' + (g.tamamlandi ? '0.65' : '1') + '">' +
 
-      // Tamamla checkbox
+      // Checkbox
       '<div onclick="Promise.resolve(gvToggle(\'' + g.id + '\',' + g.tamamlandi + ')).catch(e=>console.error(e))"' +
         ' style="width:28px;height:28px;border:2px solid ' + (g.tamamlandi ? 'var(--green)' : 'var(--border2)') + ';border-radius:8px;background:' + (g.tamamlandi ? 'var(--green)' : 'transparent') + ';cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;color:#fff;margin-top:2px">' +
         (g.tamamlandi ? '✓' : '') +
@@ -5684,20 +5717,39 @@ function gvRenderListe(liste) {
 
       // İçerik
       '<div style="flex:1;min-width:0">' +
-        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">' +
           '<span style="font-size:14px;font-weight:600;' + (g.tamamlandi ? 'text-decoration:line-through;color:var(--muted)' : '') + '">' + g.baslik + '</span>' +
           (oncelikBadge[g.oncelik] || '') +
+          atananBadge +
         '</div>' +
-        (g.aciklama ? '<div style="font-size:12px;color:var(--muted);margin-bottom:6px;white-space:pre-wrap">' + g.aciklama + '</div>' : '') +
-        '<div style="display:flex;align-items:center;gap:12px">' +
+        (g.aciklama ? '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;white-space:pre-wrap">' + g.aciklama + '</div>' : '') +
+
+        // İlerleme barı
+        (!g.tamamlandi ? 
+          '<div style="margin-bottom:8px">' +
+            '<div style="display:flex;justify-content:space-between;margin-bottom:3px">' +
+              '<span style="font-size:11px;color:var(--muted)">İlerleme</span>' +
+              '<span style="font-size:11px;font-weight:700;color:' + ilerRenk + '">' + ilerleme + '%</span>' +
+            '</div>' +
+            '<div style="background:var(--border);border-radius:4px;height:6px">' +
+              '<div style="width:' + ilerleme + '%;background:' + ilerRenk + ';height:100%;border-radius:4px;transition:width .3s"></div>' +
+            '</div>' +
+          '</div>'
+        : '') +
+
+        '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
           (g.termin ? '<span style="font-size:12px;color:' + terminRenk + '">' + (gecmis ? '⚠ ' : '📅 ') + terminStr + '</span>' : '') +
           '<span style="font-size:11px;color:var(--muted)">' + new Date(g.olusturma_tarihi).toLocaleDateString('tr-TR') + '</span>' +
         '</div>' +
       '</div>' +
 
-      // Sil
-      '<div onclick="Promise.resolve(gvSil(\'' + g.id + '\')).catch(e=>console.error(e))"' +
-        ' style="padding:4px 8px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;cursor:pointer;align-self:flex-start;flex-shrink:0">Sil</div>' +
+      // Aksiyon butonları
+      '<div style="display:flex;flex-direction:column;gap:6px;align-self:flex-start;flex-shrink:0">' +
+        '<div onclick="gvDuzenleModal(\'' + g.id + '\')"' +
+          ' style="padding:4px 10px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:11px;cursor:pointer;font-weight:600;text-align:center">Düzenle</div>' +
+        '<div onclick="Promise.resolve(gvSil(\'' + g.id + '\')).catch(e=>console.error(e))"' +
+          ' style="padding:4px 10px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;cursor:pointer;text-align:center">Sil</div>' +
+      '</div>' +
 
     '</div>';
   }).join('');
@@ -5710,18 +5762,23 @@ async function gvEkle() {
   const aciklama = document.getElementById('gv-aciklama')?.value.trim() || null;
   const oncelik = document.getElementById('gv-oncelik')?.value || 'normal';
   const termin = document.getElementById('gv-termin')?.value || null;
+  const atanan_id = document.getElementById('gv-atanan')?.value || null;
+  const ilerleme = parseInt(document.getElementById('gv-ilerleme')?.value) || 0;
 
   await sbPost('gorevler', {
-    baslik, aciklama, oncelik, termin,
+    baslik, aciklama, oncelik, termin, ilerleme,
+    atanan_id: atanan_id || null,
     tamamlandi: false,
     operator_id: aktifOperator?.id || null
   });
 
-  // Formu temizle
   ['gv-baslik','gv-aciklama','gv-termin'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
   });
   document.getElementById('gv-oncelik').value = 'normal';
+  document.getElementById('gv-atanan').value = '';
+  document.getElementById('gv-ilerleme').value = '0';
+  document.getElementById('gv-ilerleme-val').textContent = '0%';
 
   await gvRenderPanel();
 }
@@ -5730,6 +5787,7 @@ async function gvToggle(id, mevcutDurum) {
   const yeniDurum = !mevcutDurum;
   await sbPatch('gorevler', id, {
     tamamlandi: yeniDurum,
+    ilerleme: yeniDurum ? 100 : null,
     tamamlanma_tarihi: yeniDurum ? new Date().toISOString() : null
   });
   await gvRenderPanel();
@@ -5743,6 +5801,101 @@ async function gvSil(id) {
     });
     await gvRenderPanel();
   });
+}
+
+// ── Düzenleme Modalı ──
+function gvDuzenleModal(id) {
+  const g = gvTumGorevler.find(x => x.id === id);
+  if (!g) return;
+
+  const eskiModal = document.getElementById('gv-modal');
+  if (eskiModal) eskiModal.remove();
+
+  // Atanan kişi seçenekleri — sadece yönetici ve mühendis
+  const atananOpts = tumOperatorler
+    .filter(o => ['yonetici','muhendis'].includes(o.rol))
+    .map(o => '<option value="' + o.id + '" ' + (g.atanan_id === o.id ? 'selected' : '') + '>' + o.ad_soyad + '</option>')
+    .join('');
+
+  const modal = document.createElement('div');
+  modal.id = 'gv-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem';
+  modal.innerHTML =
+    '<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:1rem">' +
+
+      '<div style="display:flex;align-items:center;justify-content:space-between">' +
+        '<h3 style="font-size:16px;font-weight:700">✏️ Görevi Düzenle</h3>' +
+        '<div onclick="document.getElementById(\'gv-modal\').remove()" style="width:32px;height:32px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:var(--muted)">✕</div>' +
+      '</div>' +
+
+      '<div class="fg">' +
+        '<label>Başlık *</label>' +
+        '<input type="text" id="gvm-baslik" value="' + g.baslik.replace(/"/g,'&quot;') + '" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">' +
+      '</div>' +
+
+      '<div class="fg">' +
+        '<label>Açıklama / Not</label>' +
+        '<textarea id="gvm-aciklama" rows="3" style="width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;resize:vertical">' + (g.aciklama||'') + '</textarea>' +
+      '</div>' +
+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">' +
+        '<div class="fg">' +
+          '<label>Öncelik</label>' +
+          '<select id="gvm-oncelik" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">' +
+            '<option value="acil" ' + (g.oncelik==='acil'?'selected':'') + '>🔴 Acil</option>' +
+            '<option value="normal" ' + (g.oncelik==='normal'?'selected':'') + '>🟡 Normal</option>' +
+            '<option value="dusuk" ' + (g.oncelik==='dusuk'?'selected':'') + '>🟢 Düşük</option>' +
+          '</select>' +
+        '</div>' +
+        '<div class="fg">' +
+          '<label>Termin Tarihi</label>' +
+          '<input type="date" id="gvm-termin" value="' + (g.termin||'') + '" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">' +
+        '</div>' +
+        '<div class="fg">' +
+          '<label>Atanan Kişi</label>' +
+          '<select id="gvm-atanan" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">' +
+            '<option value="">— Seç —</option>' + atananOpts +
+          '</select>' +
+        '</div>' +
+        '<div class="fg">' +
+          '<label>İlerleme (%)</label>' +
+          '<div style="display:flex;align-items:center;gap:10px;margin-top:6px">' +
+            '<input type="range" id="gvm-ilerleme" min="0" max="100" step="5" value="' + (g.ilerleme||0) + '" oninput="document.getElementById(\'gvm-ilerleme-val\').textContent=this.value+\'%\'" style="flex:1;accent-color:var(--accent)">' +
+            '<span id="gvm-ilerleme-val" style="font-size:13px;font-weight:700;color:var(--accent);min-width:36px">' + (g.ilerleme||0) + '%</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="display:flex;gap:8px">' +
+        '<div onclick="document.getElementById(\'gv-modal\').remove()" style="flex:1;padding:10px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;text-align:center;font-size:13px">İptal</div>' +
+        '<div onclick="Promise.resolve(gvGuncelle(\'' + g.id + '\')).catch(e=>console.error(e))" style="flex:2;padding:10px;background:var(--accent);border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:700">💾 Kaydet</div>' +
+      '</div>' +
+
+    '</div>';
+
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+async function gvGuncelle(id) {
+  const baslik = document.getElementById('gvm-baslik')?.value.trim();
+  if (!baslik) { alert('Başlık zorunludur.'); return; }
+
+  const aciklama = document.getElementById('gvm-aciklama')?.value.trim() || null;
+  const oncelik = document.getElementById('gvm-oncelik')?.value || 'normal';
+  const termin = document.getElementById('gvm-termin')?.value || null;
+  const atanan_id = document.getElementById('gvm-atanan')?.value || null;
+  const ilerleme = parseInt(document.getElementById('gvm-ilerleme')?.value) || 0;
+
+  await sbPatch('gorevler', id, {
+    baslik, aciklama, oncelik, termin, ilerleme,
+    atanan_id: atanan_id || null,
+    tamamlandi: ilerleme === 100,
+    tamamlanma_tarihi: ilerleme === 100 ? new Date().toISOString() : null
+  });
+
+  document.getElementById('gv-modal')?.remove();
+  await gvRenderPanel();
 }
 
 // ── Safari uyumlu event listener'lar ──
