@@ -738,6 +738,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
       <div class="nav-section">Raporlar</div>
       <div class="nav-item" onclick="panelAc('raporlar',this)"><span class="nav-icon">📈</span> KPI & Raporlar</div>
       <div class="nav-item" onclick="panelAc('veri-yonetimi',this)"><span class="nav-icon">💾</span> Veri Yönetimi</div>
+      <div class="nav-item" onclick="panelAc('gorevlerim',this)"><span class="nav-icon">✅</span> Görevlerim</div>
     </nav>
     <div class="sidebar-bottom">
       <div class="user-card">
@@ -1399,6 +1400,100 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- GÖREVLERİM -->
+    <div class="panel" id="panel-gorevlerim">
+
+      <!-- Özet kartlar -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem">
+        <div class="stat-card">
+          <div class="s-lbl">Toplam</div>
+          <div class="s-val" style="color:var(--accent)" id="gv-say-toplam">—</div>
+          <div class="s-sub">Tüm görevler</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-lbl">Bekleyen</div>
+          <div class="s-val" style="color:var(--amber)" id="gv-say-bekleyen">—</div>
+          <div class="s-sub">Tamamlanmamış</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-lbl">Bu Hafta</div>
+          <div class="s-val" style="color:var(--red)" id="gv-say-bu-hafta">—</div>
+          <div class="s-sub">Terminli</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-lbl">Tamamlanan</div>
+          <div class="s-val" style="color:var(--green)" id="gv-say-tamamlanan">—</div>
+          <div class="s-sub">Bu ay</div>
+        </div>
+      </div>
+
+      <!-- Yeni Görev Formu -->
+      <div class="panel-card" style="margin-bottom:1rem">
+        <div class="pc-header"><h3>+ Yeni Görev</h3></div>
+        <div class="pc-body" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+          <div class="fg" style="grid-column:span 2">
+            <label>Başlık <span style="color:var(--red)">*</span></label>
+            <input type="text" id="gv-baslik" placeholder="Görev başlığı..."
+              style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+          </div>
+          <div class="fg" style="grid-column:span 2">
+            <label>Açıklama / Not</label>
+            <textarea id="gv-aciklama" placeholder="Detaylar, notlar..." rows="3"
+              style="width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;resize:vertical"></textarea>
+          </div>
+          <div class="fg">
+            <label>Öncelik</label>
+            <select id="gv-oncelik"
+              style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+              <option value="acil">🔴 Acil</option>
+              <option value="normal" selected>🟡 Normal</option>
+              <option value="dusuk">🟢 Düşük</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Termin Tarihi</label>
+            <input type="date" id="gv-termin"
+              style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
+          </div>
+          <div style="grid-column:span 2">
+            <div onclick="Promise.resolve(gvEkle()).catch(e=>console.error(e))"
+              style="padding:10px;background:var(--accent);border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:700">
+              ✅ Görevi Ekle
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtreler + Liste -->
+      <div class="panel-card">
+        <div class="pc-header">
+          <h3>Görev Listesi</h3>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <select id="gv-f-durum" onchange="gvFiltrele()"
+              style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px">
+              <option value="">Tümü</option>
+              <option value="bekleyen">Bekleyen</option>
+              <option value="tamamlanan">Tamamlanan</option>
+            </select>
+            <select id="gv-f-oncelik" onchange="gvFiltrele()"
+              style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px">
+              <option value="">Tüm Öncelikler</option>
+              <option value="acil">🔴 Acil</option>
+              <option value="normal">🟡 Normal</option>
+              <option value="dusuk">🟢 Düşük</option>
+            </select>
+            <input type="date" id="gv-f-tarih" onchange="gvFiltrele()"
+              style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px"
+              title="Terminli görevleri filtrele">
+          </div>
+        </div>
+        <div id="gv-liste" style="display:flex;flex-direction:column;gap:8px;padding:1rem">
+          <div style="color:var(--muted);font-size:13px;text-align:center;padding:2rem">Yükleniyor...</div>
         </div>
       </div>
 
@@ -3108,7 +3203,7 @@ function panelAc(id, btn){
   const p=document.getElementById('panel-'+id);
   if(p) p.classList.add('active');
   if(btn) btn.classList.add('active');
-  const b={'dashboard':'Dashboard','canli':'Anlık İzleme','is-emirleri':'İş Emirleri','planli':'Planlı Bakımlar','kaliplar':'Kalıplar','kalip-matrisi':'Kalıp Matrisi','gunluk-uretim':'Günlük Üretim Girişi','operatorler':'Operatörler & Yetki','malzemeler':'Malzeme Stok','tanimlar':'Tanımlar','raporlar':'KPI & Raporlar'};
+  const b={'dashboard':'Dashboard','canli':'Anlık İzleme','is-emirleri':'İş Emirleri','planli':'Planlı Bakımlar','kaliplar':'Kalıplar','kalip-matrisi':'Kalıp Matrisi','gunluk-uretim':'Günlük Üretim Girişi','operatorler':'Operatörler & Yetki','malzemeler':'Malzeme Stok','tanimlar':'Tanımlar','raporlar':'KPI & Raporlar','veri-yonetimi':'Veri Yönetimi','gorevlerim':'Görevlerim'};
   document.getElementById('panel-baslik').textContent=b[id]||id;
   if(id === 'tanimlar') renderTanimlar();
   else if(id === 'operatorler') renderOperatorler();
@@ -3120,6 +3215,7 @@ function panelAc(id, btn){
   else if(id === 'kalip-matrisi') kmRenderPanel();
   else if(id === 'gunluk-uretim') guRenderPanel();
   else if(id === 'veri-yonetimi') vyRenderPanel();
+  else if(id === 'gorevlerim') gvRenderPanel();
   else renderYoneticiVeriler();
 }
 function opSec(el){document.querySelectorAll('.operator-kart').forEach(k=>k.classList.remove('selected'));el.classList.add('selected');}
@@ -5491,6 +5587,162 @@ function hizliMalzemeSec(id, adi, birim, stok) {
     if (el) el.classList.add('selected');
   }
   seciliMalzemeOzetGuncelle();
+}
+
+// ══════════════════════════════════════════════════
+// GÖREVLERİM
+// ══════════════════════════════════════════════════
+
+let gvTumGorevler = [];
+
+async function gvRenderPanel() {
+  try {
+    gvTumGorevler = await sbGet('gorevler', 'order=olusturma_tarihi.desc') || [];
+    gvOzetGuncelle();
+    gvFiltrele();
+  } catch(e) { console.warn('Görevler yüklenemedi:', e); }
+}
+
+function gvOzetGuncelle() {
+  const bugun = new Date(); bugun.setHours(0,0,0,0);
+  const haftaSonu = new Date(bugun); haftaSonu.setDate(bugun.getDate() + 7);
+  const buAyBas = new Date(bugun.getFullYear(), bugun.getMonth(), 1);
+
+  const bekleyen = gvTumGorevler.filter(g => !g.tamamlandi);
+  const buHafta = bekleyen.filter(g => g.termin && new Date(g.termin) <= haftaSonu);
+  const buAyTam = gvTumGorevler.filter(g => g.tamamlandi && g.tamamlanma_tarihi && new Date(g.tamamlanma_tarihi) >= buAyBas);
+
+  const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+  set('gv-say-toplam', gvTumGorevler.length);
+  set('gv-say-bekleyen', bekleyen.length);
+  set('gv-say-bu-hafta', buHafta.length);
+  set('gv-say-tamamlanan', buAyTam.length);
+}
+
+function gvFiltrele() {
+  const durum = document.getElementById('gv-f-durum')?.value || '';
+  const oncelik = document.getElementById('gv-f-oncelik')?.value || '';
+  const tarih = document.getElementById('gv-f-tarih')?.value || '';
+
+  let liste = gvTumGorevler.filter(g => {
+    const durumOk = !durum ||
+      (durum === 'bekleyen' && !g.tamamlandi) ||
+      (durum === 'tamamlanan' && g.tamamlandi);
+    const oncelikOk = !oncelik || g.oncelik === oncelik;
+    const tarihOk = !tarih || (g.termin && g.termin <= tarih);
+    return durumOk && oncelikOk && tarihOk;
+  });
+
+  // Sıralama: tamamlanmayanlar önce, sonra termin tarihi
+  liste.sort((a, b) => {
+    if (a.tamamlandi !== b.tamamlandi) return a.tamamlandi ? 1 : -1;
+    if (a.oncelik !== b.oncelik) {
+      const s = { acil: 0, normal: 1, dusuk: 2 };
+      return (s[a.oncelik]||1) - (s[b.oncelik]||1);
+    }
+    if (a.termin && b.termin) return a.termin.localeCompare(b.termin);
+    if (a.termin) return -1;
+    if (b.termin) return 1;
+    return 0;
+  });
+
+  gvRenderListe(liste);
+}
+
+function gvRenderListe(liste) {
+  const el = document.getElementById('gv-liste');
+  if (!el) return;
+
+  if (!liste.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:2rem">Görev bulunamadı</div>';
+    return;
+  }
+
+  const bugun = new Date(); bugun.setHours(0,0,0,0);
+  const oncelikBadge = {
+    acil: '<span class="badge badge-red">🔴 Acil</span>',
+    normal: '<span class="badge badge-amber">🟡 Normal</span>',
+    dusuk: '<span class="badge badge-green">🟢 Düşük</span>'
+  };
+
+  el.innerHTML = liste.map(g => {
+    const termin = g.termin ? new Date(g.termin) : null;
+    const gecmis = termin && termin < bugun && !g.tamamlandi;
+    const yakin = termin && !gecmis && (termin - bugun) <= 3 * 86400000 && !g.tamamlandi;
+    const terminStr = termin ? termin.toLocaleDateString('tr-TR', {day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
+    const terminRenk = gecmis ? 'var(--red)' : yakin ? 'var(--amber)' : 'var(--muted)';
+
+    return '<div style="display:flex;gap:12px;padding:1rem;background:var(--bg);border:1px solid ' +
+      (g.tamamlandi ? 'var(--border)' : gecmis ? 'var(--red)' : 'var(--border)') +
+      ';border-radius:10px;opacity:' + (g.tamamlandi ? '0.6' : '1') + '">' +
+
+      // Tamamla checkbox
+      '<div onclick="Promise.resolve(gvToggle(\'' + g.id + '\',' + g.tamamlandi + ')).catch(e=>console.error(e))"' +
+        ' style="width:28px;height:28px;border:2px solid ' + (g.tamamlandi ? 'var(--green)' : 'var(--border2)') + ';border-radius:8px;background:' + (g.tamamlandi ? 'var(--green)' : 'transparent') + ';cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;color:#fff;margin-top:2px">' +
+        (g.tamamlandi ? '✓' : '') +
+      '</div>' +
+
+      // İçerik
+      '<div style="flex:1;min-width:0">' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">' +
+          '<span style="font-size:14px;font-weight:600;' + (g.tamamlandi ? 'text-decoration:line-through;color:var(--muted)' : '') + '">' + g.baslik + '</span>' +
+          (oncelikBadge[g.oncelik] || '') +
+        '</div>' +
+        (g.aciklama ? '<div style="font-size:12px;color:var(--muted);margin-bottom:6px;white-space:pre-wrap">' + g.aciklama + '</div>' : '') +
+        '<div style="display:flex;align-items:center;gap:12px">' +
+          (g.termin ? '<span style="font-size:12px;color:' + terminRenk + '">' + (gecmis ? '⚠ ' : '📅 ') + terminStr + '</span>' : '') +
+          '<span style="font-size:11px;color:var(--muted)">' + new Date(g.olusturma_tarihi).toLocaleDateString('tr-TR') + '</span>' +
+        '</div>' +
+      '</div>' +
+
+      // Sil
+      '<div onclick="Promise.resolve(gvSil(\'' + g.id + '\')).catch(e=>console.error(e))"' +
+        ' style="padding:4px 8px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;cursor:pointer;align-self:flex-start;flex-shrink:0">Sil</div>' +
+
+    '</div>';
+  }).join('');
+}
+
+async function gvEkle() {
+  const baslik = document.getElementById('gv-baslik')?.value.trim();
+  if (!baslik) { alert('Başlık zorunludur.'); return; }
+
+  const aciklama = document.getElementById('gv-aciklama')?.value.trim() || null;
+  const oncelik = document.getElementById('gv-oncelik')?.value || 'normal';
+  const termin = document.getElementById('gv-termin')?.value || null;
+
+  await sbPost('gorevler', {
+    baslik, aciklama, oncelik, termin,
+    tamamlandi: false,
+    operator_id: aktifOperator?.id || null
+  });
+
+  // Formu temizle
+  ['gv-baslik','gv-aciklama','gv-termin'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  document.getElementById('gv-oncelik').value = 'normal';
+
+  await gvRenderPanel();
+}
+
+async function gvToggle(id, mevcutDurum) {
+  const yeniDurum = !mevcutDurum;
+  await sbPatch('gorevler', id, {
+    tamamlandi: yeniDurum,
+    tamamlanma_tarihi: yeniDurum ? new Date().toISOString() : null
+  });
+  await gvRenderPanel();
+}
+
+async function gvSil(id) {
+  kritikOnay('Bu görev silinecek.', async () => {
+    await fetch(`${SUPA_URL}/rest/v1/gorevler?id=eq.${id}`, {
+      method: 'DELETE',
+      headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY }
+    });
+    await gvRenderPanel();
+  });
 }
 
 // ── Safari uyumlu event listener'lar ──
