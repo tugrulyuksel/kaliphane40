@@ -430,6 +430,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
       </div>
     </div>
 
+    <!-- Son kapatılan iş emirleri -->
+    <div class="planli-card" style="margin-top:1rem">
+      <div class="pc-hdr">
+        <h3>Son Kapatılan İş Emirlerim</h3>
+        <span class="badge badge-blue" id="gecmis-sayac">—</span>
+      </div>
+      <div id="usta-ana-gecmis-liste">
+        <div style="padding:1rem;text-align:center;color:var(--muted);font-size:13px">Yükleniyor...</div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -2008,6 +2019,7 @@ async function renderUstaEkrani() {
   // Aktif iş emirlerini yükle
   await renderAktifIsEmirleri();
   await renderPlanliGoster();
+  await ustaAnaGecmisYukle();
 }
 
 async function renderPlanliGoster() {
@@ -6106,7 +6118,7 @@ async function ustaGecmisYukle() {
   try {
     const opId = aktifOperator?.id;
     const kayitlar = await sbGet('is_emirleri',
-      'operator_id=eq.' + opId + '&order=baslangic_zaman.desc&limit=10') || [];
+      'acik_kapali=eq.Kapali&acik_eden_operator_id=eq.' + opId + '&order=baslangic_zaman.desc&limit=10') || [];
 
     if (!kayitlar.length) {
       liste.innerHTML = '<div style="color:var(--muted);font-size:15px;text-align:center;padding:2rem">Henüz iş emri yok</div>';
@@ -6212,6 +6224,45 @@ async function ustaIeGuncelle() {
     btn.style.background = 'var(--green)';
     setTimeout(() => { btn.textContent = prev; btn.style.background = ''; }, 2000);
   }
+}
+
+async function ustaAnaGecmisYukle() {
+  const liste = document.getElementById('usta-ana-gecmis-liste');
+  const sayac = document.getElementById('gecmis-sayac');
+  if (!liste) return;
+
+  try {
+    const opId = aktifOperator?.id;
+    if (!opId) return;
+
+    const kayitlar = await sbGet('is_emirleri',
+      'acik_kapali=eq.Kapali&acik_eden_operator_id=eq.' + opId + '&order=baslangic_zaman.desc&limit=10') || [];
+
+    if (sayac) sayac.textContent = kayitlar.length + ' kayıt';
+
+    if (!kayitlar.length) {
+      liste.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--muted);font-size:14px">Henüz kapatılan iş emri yok</div>';
+      return;
+    }
+
+    liste.innerHTML = kayitlar.map(ie => {
+      const kalip = tumKaliplar.find(k => k.id === ie.kalip_id);
+      const bas = ie.baslangic_zaman ? new Date(ie.baslangic_zaman).toLocaleString('tr-TR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+      const sure = ie.toplam_sure_dak ? (Math.floor(ie.toplam_sure_dak/60) + ' sa ' + (ie.toplam_sure_dak%60) + ' dk') : '—';
+
+      return '<div onclick="ustaIeDuzenleAc(\'' + ie.id + '\')" class="planli-item">' +
+        '<div class="pi-top">' +
+          '<span class="pi-kalip">' + (kalip?.kalip_adi || '—') + '</span>' +
+          '<span style="font-size:12px;color:var(--muted)">✏️</span>' +
+        '</div>' +
+        '<div class="pi-bottom">' +
+          '<span class="pi-tarih">' + bas + '</span>' +
+          '<span style="font-size:13px;color:var(--accent);font-weight:600">' + sure + '</span>' +
+          (ie.yapilan_islem ? '<span style="font-size:12px;color:var(--muted)">· ' + ie.yapilan_islem + '</span>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+  } catch(e) { console.warn(e); }
 }
 
 // ── Safari uyumlu event listener'lar ──
