@@ -381,6 +381,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
     <div class="logo">⚙️ Kalıphane 4.0 <span>USTA</span></div>
     <div style="display:flex;align-items:center;gap:10px">
       <div class="user-info"><strong id="usta-ad">—</strong><span id="usta-rol-bilgi">— · —</span></div>
+      <div onclick="gosterEkran('screen-usta-gecmis'); ustaGecmisYukle()" style="width:32px;height:32px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px" title="Son İş Emirlerim">📋</div>
       <div onclick="cikisYap()" style="width:32px;height:32px;background:var(--red-dim);border:1px solid var(--red);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px" title="Çıkış">🚪</div>
     </div>
   </div>
@@ -609,6 +610,58 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
   </div>
 </div>
 
+<!-- ══ USTA — SON İŞ EMİRLERİM ══ -->
+<div id="screen-usta-gecmis" class="screen">
+  <div class="form-header">
+    <div class="back-btn" onclick="gosterEkran('screen-usta')">‹</div>
+    <h2>Son İş Emirlerim</h2>
+  </div>
+  <div class="form-body">
+    <div id="usta-gecmis-liste" style="display:flex;flex-direction:column;gap:10px">
+      <div style="color:var(--muted);font-size:15px;text-align:center;padding:2rem">Yükleniyor...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ USTA — İŞ EMRİ DÜZENLE (GEÇMİŞ) ══ -->
+<div id="screen-usta-ie-duzenle" class="screen">
+  <div class="form-header">
+    <div class="back-btn" onclick="gosterEkran('screen-usta-gecmis')">‹</div>
+    <h2>İş Emri Düzenle</h2>
+    <div class="ie-no-badge" id="usta-duzenle-no">—</div>
+  </div>
+  <div class="form-body" style="display:flex;flex-direction:column;gap:1rem">
+
+    <div class="form-section">
+      <div class="form-section-title">⏱ Başlangıç Zamanı</div>
+      <div class="form-section-body">
+        <input type="datetime-local" id="usta-duzenle-bas"
+          style="width:100%;padding:12px 14px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:16px;font-family:inherit">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">⏱ Bitiş Zamanı</div>
+      <div class="form-section-body">
+        <input type="datetime-local" id="usta-duzenle-bitis"
+          style="width:100%;padding:12px 14px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:16px;font-family:inherit">
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">Bitiş değiştirilirse net süre otomatik hesaplanır</div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">📝 Açıklama</div>
+      <div class="form-section-body">
+        <textarea id="usta-duzenle-aciklama" rows="3"
+          style="width:100%;padding:12px 14px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:16px;font-family:inherit;resize:vertical"></textarea>
+      </div>
+    </div>
+
+    <div class="btn-kapat" onclick="Promise.resolve(ustaIeGuncelle()).catch(e=>console.error(e))">💾 Kaydet</div>
+    <div style="height:20px"></div>
+  </div>
+</div>
+
 <!-- ══ İŞ EMRİ KAPAT — AŞAMA 2 ══ -->
 <div id="screen-kapat" class="screen">
   <div class="form-header">
@@ -704,6 +757,18 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         <!-- Malzeme grid - seçilen alt kategorinin malzemeleri burada çıkar -->
         <div class="malzeme-grid" id="kapat-malzeme-grid" style="margin-top:8px"></div>
         <input type="text" class="malzeme-serbest" id="malzeme-serbest-input" placeholder="Listede yok mu? Buraya yaz...">
+      </div>
+    </div>
+
+    <!-- Bitiş Zamanı Düzenleme -->
+    <div class="form-section">
+      <div class="form-section-title">⏱ Bitiş Zamanı <span style="font-size:11px;color:var(--muted);font-weight:400;margin-left:6px">Boş bırakılırsa şu an kullanılır</span></div>
+      <div class="form-section-body">
+        <div class="fg">
+          <input type="datetime-local" id="kapat-bitis-zaman"
+            style="padding:12px 14px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:16px;font-family:inherit">
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">Ustanın kapatmayı unuttuğu durumlarda gerçek bitiş saatini girin</div>
+        </div>
       </div>
     </div>
 
@@ -2456,10 +2521,22 @@ async function isEmriKaydet() {
       const islem = islemSec.textContent;
 
       const aciklama = document.querySelector('#screen-kapat textarea')?.value || '';
+
+      // Bitiş zamanı — usta girdiyse onu kullan, yoksa şu an
+      const bitisZamanInput = document.getElementById('kapat-bitis-zaman')?.value;
+      const bitisZaman = bitisZamanInput ? new Date(bitisZamanInput).toISOString() : new Date().toISOString();
+
+      // Net süreyi hesapla
+      let netSureDak = Math.floor(saniye / 60);
+      if (bitisZamanInput && aktifIsEmri.baslangic_zaman) {
+        const fark = new Date(bitisZaman) - new Date(aktifIsEmri.baslangic_zaman);
+        if (fark > 0) netSureDak = Math.round(fark / 60000);
+      }
+
       await sbPatch('is_emirleri', aktifIsEmri.id, {
         acik_kapali: 'Kapali',
-        bitis_zaman: new Date().toISOString(),
-        toplam_sure_dak: Math.floor(saniye / 60),
+        bitis_zaman: bitisZaman,
+        toplam_sure_dak: netSureDak,
         yapilan_islem: islem,
         aciklama: aciklama
       });
@@ -6016,6 +6093,125 @@ async function ustaSaatKaydet() {
   if (basZaman) basZaman.textContent = new Date(yeniZaman).toLocaleString('tr-TR');
 
   document.getElementById('usta-saat-modal')?.remove();
+}
+
+// ── USTA: Son İş Emirleri ──
+let ustaDuzenleId = null;
+
+async function ustaGecmisYukle() {
+  const liste = document.getElementById('usta-gecmis-liste');
+  if (!liste) return;
+  liste.innerHTML = '<div style="color:var(--muted);font-size:15px;text-align:center;padding:2rem">Yükleniyor...</div>';
+
+  try {
+    const opId = aktifOperator?.id;
+    const kayitlar = await sbGet('is_emirleri',
+      'operator_id=eq.' + opId + '&order=baslangic_zaman.desc&limit=10') || [];
+
+    if (!kayitlar.length) {
+      liste.innerHTML = '<div style="color:var(--muted);font-size:15px;text-align:center;padding:2rem">Henüz iş emri yok</div>';
+      return;
+    }
+
+    liste.innerHTML = kayitlar.map(ie => {
+      const kalip = tumKaliplar.find(k => k.id === ie.kalip_id);
+      const bas = ie.baslangic_zaman ? new Date(ie.baslangic_zaman).toLocaleString('tr-TR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+      const bit = ie.bitis_zaman ? new Date(ie.bitis_zaman).toLocaleString('tr-TR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+      const sure = ie.toplam_sure_dak ? (Math.floor(ie.toplam_sure_dak/60) + ' sa ' + (ie.toplam_sure_dak%60) + ' dk') : '—';
+      const acikRenk = ie.acik_kapali === 'Acik' ? 'var(--amber)' : 'var(--green)';
+      const acikText = ie.acik_kapali === 'Acik' ? 'Açık' : 'Kapalı';
+
+      return '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden">' +
+        '<div style="padding:.875rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">' +
+          '<div>' +
+            '<div style="font-size:16px;font-weight:700">' + (kalip?.kalip_adi || '—') + '</div>' +
+            '<div style="font-size:12px;color:var(--muted);font-family:\'JetBrains Mono\',monospace;margin-top:2px">' + ie.is_emri_no + '</div>' +
+          '</div>' +
+          '<span style="padding:4px 10px;background:' + acikRenk + '20;border:1px solid ' + acikRenk + ';border-radius:6px;font-size:12px;color:' + acikRenk + ';font-weight:600">' + acikText + '</span>' +
+        '</div>' +
+        '<div style="padding:.875rem 1rem;display:flex;flex-direction:column;gap:6px">' +
+          '<div style="display:flex;justify-content:space-between"><span style="font-size:14px;color:var(--muted)">Başlangıç</span><span style="font-size:14px;font-weight:500">' + bas + '</span></div>' +
+          '<div style="display:flex;justify-content:space-between"><span style="font-size:14px;color:var(--muted)">Bitiş</span><span style="font-size:14px;font-weight:500">' + bit + '</span></div>' +
+          '<div style="display:flex;justify-content:space-between"><span style="font-size:14px;color:var(--muted)">Süre</span><span style="font-size:14px;font-weight:600;color:var(--accent)">' + sure + '</span></div>' +
+          (ie.yapilan_islem ? '<div style="display:flex;justify-content:space-between"><span style="font-size:14px;color:var(--muted)">Yapılan</span><span style="font-size:14px">' + ie.yapilan_islem + '</span></div>' : '') +
+        '</div>' +
+        '<div style="padding:.75rem 1rem;border-top:1px solid var(--border)">' +
+          '<div onclick="ustaIeDuzenleAc(\'' + ie.id + '\')" style="padding:12px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:8px;color:var(--accent);font-size:15px;font-weight:600;cursor:pointer;text-align:center">✏️ Zamanları Düzenle</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  } catch(e) {
+    liste.innerHTML = '<div style="color:var(--red);font-size:13px;text-align:center;padding:2rem">Yüklenemedi: ' + e.message + '</div>';
+  }
+}
+
+function ustaIeDuzenleAc(id) {
+  const kayitlar = window._ustaGecmisKayitlar || [];
+  // id'yi sakla
+  ustaDuzenleId = id;
+
+  // Supabase'den tekrar çek
+  sbGet('is_emirleri', 'id=eq.' + id).then(sonuc => {
+    const ie = sonuc?.[0];
+    if (!ie) return;
+
+    document.getElementById('usta-duzenle-no').textContent = ie.is_emri_no || '—';
+
+    // Başlangıç
+    if (ie.baslangic_zaman) {
+      const d = new Date(ie.baslangic_zaman);
+      document.getElementById('usta-duzenle-bas').value =
+        d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') +
+        'T' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+    } else { document.getElementById('usta-duzenle-bas').value = ''; }
+
+    // Bitiş
+    if (ie.bitis_zaman) {
+      const d = new Date(ie.bitis_zaman);
+      document.getElementById('usta-duzenle-bitis').value =
+        d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') +
+        'T' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+    } else { document.getElementById('usta-duzenle-bitis').value = ''; }
+
+    document.getElementById('usta-duzenle-aciklama').value = ie.aciklama || '';
+    gosterEkran('screen-usta-ie-duzenle');
+  });
+}
+
+async function ustaIeGuncelle() {
+  if (!ustaDuzenleId) return;
+
+  const basVal = document.getElementById('usta-duzenle-bas')?.value;
+  const bitisVal = document.getElementById('usta-duzenle-bitis')?.value;
+  const aciklama = document.getElementById('usta-duzenle-aciklama')?.value || '';
+
+  const basZaman = basVal ? new Date(basVal).toISOString() : null;
+  const bitisZaman = bitisVal ? new Date(bitisVal).toISOString() : null;
+
+  const guncelleme = { aciklama: aciklama || null };
+  if (basZaman) guncelleme.baslangic_zaman = basZaman;
+  if (bitisZaman) guncelleme.bitis_zaman = bitisZaman;
+
+  // Net süre otomatik hesapla
+  if (basZaman && bitisZaman) {
+    const fark = new Date(bitisZaman) - new Date(basZaman);
+    if (fark > 0) guncelleme.toplam_sure_dak = Math.round(fark / 60000);
+  }
+
+  await sbPatch('is_emirleri', ustaDuzenleId, guncelleme);
+
+  // Geri dön ve listeyi yenile
+  gosterEkran('screen-usta-gecmis');
+  await ustaGecmisYukle();
+
+  // Başarı mesajı
+  const btn = document.querySelector('[onclick*="ustaIeGuncelle"]');
+  if (btn) {
+    const prev = btn.textContent;
+    btn.textContent = '✓ Kaydedildi';
+    btn.style.background = 'var(--green)';
+    setTimeout(() => { btn.textContent = prev; btn.style.background = ''; }, 2000);
+  }
 }
 
 // ── Safari uyumlu event listener'lar ──
