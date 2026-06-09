@@ -1983,6 +1983,7 @@ async function girisYap() {
 
   gvBasariliGiris();
   aktifOperator = sonuc[0];
+  localStorage.setItem('aktif_operator_pin', pin);
   const rolTR = {yonetici:'Yönetici', usta:'Usta', cirak:'Çırak', cnc:'CNC Operatörü', muhendis:'Mühendis', formen:'Formen'};
   document.getElementById('usta-ad').textContent = aktifOperator.ad_soyad;
   document.getElementById('usta-rol-bilgi').textContent = (rolTR[aktifOperator.rol] || aktifOperator.rol) + ' · ' + aktifOperator.operator_kodu;
@@ -2697,6 +2698,7 @@ function gosterEkran(id){
 }
 function cikisYap(){
   localStorage.removeItem('aktif_operator_id');
+  localStorage.removeItem('aktif_operator_pin');
   aktifOperator = null;
   aktifIsEmri = null;
   aktifKalip = null;
@@ -5484,7 +5486,8 @@ function kritikOnay(mesaj, islem) {
 
   const onayla = async () => {
     const pin = document.getElementById('kritik-onay-pin')?.value;
-    if (pin !== aktifOperator?.pin) {
+    const dogruPin = aktifOperator?.pin || localStorage.getItem('aktif_operator_pin');
+    if (pin !== dogruPin) {
       document.getElementById('kritik-onay-pin').style.borderColor = 'var(--red)';
       document.getElementById('kritik-onay-pin').value = '';
       document.getElementById('kritik-onay-pin').placeholder = 'Hatalı PIN!';
