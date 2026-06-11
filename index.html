@@ -2357,8 +2357,12 @@ async function renderYoneticiVeriler() {
         tbody.innerHTML = tumEmir.slice(0, 50).map(ie => {
           const kalip = tumKaliplar.find(k => k.id === ie.kalip_id);
           const op = tumOperatorler.find(o => o.id === ie.acik_eden_operator_id);
-          const sure = (ie.toplam_sure_dak != null && ie.toplam_sure_dak > 0)
-            ? Math.floor(ie.toplam_sure_dak/60) + 'sa ' + (ie.toplam_sure_dak%60) + 'dk'
+          let _sureDak = ie.toplam_sure_dak;
+          if ((!_sureDak || _sureDak <= 0) && ie.baslangic_zaman && ie.bitis_zaman) {
+            _sureDak = Math.round((new Date(ie.bitis_zaman) - new Date(ie.baslangic_zaman)) / 60000);
+          }
+          const sure = (_sureDak != null && _sureDak > 0)
+            ? Math.floor(_sureDak/60) + 'sa ' + (_sureDak%60) + 'dk'
             : ie.acik_kapali === 'Acik' ? 'Devam ediyor' : '—';
           const durumBadge = ie.acik_kapali === 'Acik'
             ? '<span class="badge badge-green">● Aktif</span>'
@@ -3467,8 +3471,12 @@ async function renderIsEmirleriTablosu() {
   tbody.innerHTML = filtreliEmir.slice(0, 100).map(ie => {
     const kalip = tumKaliplar.find(k => k.id === ie.kalip_id);
     const op = tumOperatorler.find(o => o.id === ie.acik_eden_operator_id);
-    const sure = (ie.toplam_sure_dak != null && ie.toplam_sure_dak > 0)
-      ? Math.floor(ie.toplam_sure_dak/60) + 'sa ' + (ie.toplam_sure_dak%60) + 'dk'
+    let _sureDak = ie.toplam_sure_dak;
+    if ((!_sureDak || _sureDak <= 0) && ie.baslangic_zaman && ie.bitis_zaman) {
+      _sureDak = Math.round((new Date(ie.bitis_zaman) - new Date(ie.baslangic_zaman)) / 60000);
+    }
+    const sure = (_sureDak != null && _sureDak > 0)
+      ? Math.floor(_sureDak/60) + 'sa ' + (_sureDak%60) + 'dk'
       : ie.acik_kapali === 'Acik' ? 'Devam ediyor' : '—';
     const durumBadge = ie.acik_kapali === 'Acik'
       ? '<span class="badge badge-green">● Aktif</span>'
@@ -3569,8 +3577,10 @@ async function ieDetayAc(isEmriId) {
     const op = tumOperatorler.find(o => o.id === ie.acik_eden_operator_id);
     const bas = ie.baslangic_zaman ? new Date(ie.baslangic_zaman).toLocaleString('tr-TR') : '—';
     const bit = ie.bitis_zaman ? new Date(ie.bitis_zaman).toLocaleString('tr-TR') : '—';
-    const sure = ie.toplam_sure_dak
-      ? Math.floor(ie.toplam_sure_dak/60) + ' sa ' + (ie.toplam_sure_dak%60) + ' dk'
+    const _sd = (ie.toplam_sure_dak > 0) ? ie.toplam_sure_dak
+      : (ie.baslangic_zaman && ie.bitis_zaman) ? Math.round((new Date(ie.bitis_zaman)-new Date(ie.baslangic_zaman))/60000) : 0;
+    const sure = _sd > 0
+      ? Math.floor(_sd/60) + ' sa ' + (_sd%60) + ' dk'
       : ie.acik_kapali === 'Acik' ? 'Devam ediyor' : '—';
 
     // Operatörler ve malzemeleri çek
@@ -3945,8 +3955,10 @@ async function raporHesapla() {
   const tbody = document.getElementById('rapor-tablo-body');
   tbody.innerHTML = emirler.map(e => {
     const kalip = tumKaliplar.find(k => k.id === e.kalip_id);
-    const sure = e.toplam_sure_dak
-      ? Math.floor(e.toplam_sure_dak/60) + 'sa ' + (e.toplam_sure_dak%60) + 'dk'
+    const _sd2 = (e.toplam_sure_dak > 0) ? e.toplam_sure_dak
+      : (e.baslangic_zaman && e.bitis_zaman) ? Math.round((new Date(e.bitis_zaman)-new Date(e.baslangic_zaman))/60000) : 0;
+    const sure = _sd2 > 0
+      ? Math.floor(_sd2/60) + 'sa ' + (_sd2%60) + 'dk'
       : e.acik_kapali === 'Acik' ? 'Devam ediyor' : '—';
     const durum = e.acik_kapali === 'Acik'
       ? '<span class="badge badge-green">● Aktif</span>'
