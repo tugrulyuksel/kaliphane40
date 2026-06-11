@@ -1916,6 +1916,20 @@ async function sbPatch(tablo, id, veri) {
   return await r.json();
 }
 
+async function sbPatchFiltre(tablo, filtre, veri) {
+  const r = await fetch(`${SUPA_URL}/rest/v1/${tablo}?${filtre}`, {
+    method: 'PATCH',
+    headers: {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify(veri)
+  });
+  if (!r.ok) { const e = await r.text(); throw new Error(e); }
+}
+
 async function sbDelete(tablo, filtre) {
   const r = await fetch(`${SUPA_URL}/rest/v1/${tablo}?${filtre}`, {
     method: 'DELETE',
@@ -3376,8 +3390,8 @@ function panelAc(id, btn){
   else if(id === 'malzemeler') renderMalzemePanel();
   else if(id === 'raporlar') raporPanelAc();
   else if(id === 'is-emirleri') renderIsEmirleriTablosu();
-  else if(id === 'kalip-matrisi') kmRenderPanel();
-  else if(id === 'gunluk-uretim') guRenderPanel();
+  else if(id === 'kalip-matrisi') Promise.resolve(kmRenderPanel()).catch(e=>console.error(e));
+  else if(id === 'gunluk-uretim') Promise.resolve(guRenderPanel()).catch(e=>console.error(e));
   else if(id === 'veri-yonetimi') vyRenderPanel();
   else if(id === 'gorevlerim') gvRenderPanel();
   else renderYoneticiVeriler();
@@ -5058,35 +5072,33 @@ function kalipAra(q){
 // ══════════════════════════════════════════════════
 
 // State
-let kmUrunler = [];      // [{id, adi, aciklama, operasyonlar:[{id,sira,adi,ana_kalip_id,alternatifler:[kalip_id]}]}]
+let kmUrunler = [];
 let kmDuzlenenUrunId = null;
 
-// ── localStorage yardımcıları ──
-function kmYukle() {
+// ── Supabase yardımcıları ──
+async function kmYukle() {
   try {
-    const s = localStorage.getItem('km_urunler');
-    kmUrunler = s ? JSON.parse(s) : kmDemoUrunler();
-  } catch(e) { kmUrunler = kmDemoUrunler(); }
-}
-function kmKaydetLS() {
-  localStorage.setItem('km_urunler', JSON.stringify(kmUrunler));
-}
-function kmDemoUrunler() {
-  const kalipIdleri = tumKaliplar.slice(0,6).map(k=>k.id);
-  return [
-    { id:1, adi:'ALARKO 10LT', aciklama:'10 litrelik alarko serisi', operasyonlar:[
-      { id:101, sira:1, adi:'Sıvama (Alt)', ana_kalip_id: kalipIdleri[0]||'', alternatifler:[] },
-      { id:102, sira:2, adi:'Çevre Kesme (Alt)', ana_kalip_id: kalipIdleri[1]||'', alternatifler:[] },
-      { id:103, sira:3, adi:'Sıvama (Üst)', ana_kalip_id: kalipIdleri[0]||'', alternatifler:[] },
-      { id:104, sira:4, adi:'Çevre Kesme (Üst)', ana_kalip_id: kalipIdleri[1]||'', alternatifler:[] },
-      { id:105, sira:5, adi:'Kenetleme', ana_kalip_id: kalipIdleri[2]||'', alternatifler:[] },
-    ]},
-    { id:2, adi:'ATROMIX ALT-ÜST KAPAK', aciklama:'', operasyonlar:[
-      { id:201, sira:1, adi:'Sıvama', ana_kalip_id: kalipIdleri[0]||'', alternatifler:[kalipIdleri[3]||''] },
-      { id:202, sira:2, adi:'Çevre Kesme', ana_kalip_id: kalipIdleri[1]||'', alternatifler:[] },
-      { id:203, sira:3, adi:'Kenetleme', ana_kalip_id: kalipIdleri[2]||'', alternatifler:[] },
-    ]},
-  ];
+    const urunler = await sbGet('urunler', 'aktif=eq.true&order=adi');
+    const operasyonlar = await sbGet('urun_operasyonlar', 'order=urun_id,sira');
+    kmUrunler = (urunler || []).map(u => ({
+      id: u.id,
+      adi: u.adi,
+      aciklama: u.aciklama || '',
+      operasyonlar: (operasyonlar || [])
+        .filter(op => op.urun_id === u.id)
+        .sort((a,b) => a.sira - b.sira)
+        .map(op => ({
+          id: op.id,
+          sira: op.sira,
+          adi: op.adi,
+          ana_kalip_id: op.ana_kalip_id || '',
+          alternatifler: [op.alternatif1_kalip_id, op.alternatif2_kalip_id].filter(Boolean)
+        }))
+    }));
+  } catch(e) {
+    console.error('kmYukle hata:', e);
+    kmUrunler = [];
+  }
 }
 
 // ── Sekme ──
@@ -5099,12 +5111,12 @@ function kmTab(sekme) {
       : 'padding:8px 20px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer';
     if (div) div.style.display = s===sekme ? 'block' : 'none';
   });
-  if (sekme === 'matris') kmRenderMatris();
+  if (sekme === 'matris') Promise.resolve(kmRenderMatrisAsync()).catch(e=>console.error(e));
 }
 
 // ── Ana render ──
-function kmRenderPanel() {
-  kmYukle();
+async function kmRenderPanel() {
+  await kmYukle();
   kmRenderUrunler();
 }
 
@@ -5145,36 +5157,41 @@ function kmYeniUrunForm() {
 function kmUrunFormIptal() {
   document.getElementById('km-urun-form').style.display = 'none';
 }
-function kmUrunKaydet() {
+async function kmUrunKaydet() {
   const adi = document.getElementById('km-urun-adi')?.value.trim();
   if (!adi) { alert('Ürün adı zorunludur.'); return; }
   const aciklama = document.getElementById('km-urun-aciklama')?.value.trim() || '';
-  if (kmDuzlenenUrunId !== null) {
-    const u = kmUrunler.find(x=>x.id===kmDuzlenenUrunId);
-    if (u) { u.adi=adi; u.aciklama=aciklama; }
-  } else {
-    kmUrunler.push({ id:Date.now(), adi, aciklama, operasyonlar:[] });
-  }
-  kmKaydetLS();
-  kmUrunFormIptal();
-  kmRenderUrunler();
+  try {
+    if (kmDuzlenenUrunId !== null) {
+      await sbPatchFiltre('urunler', `id=eq.${kmDuzlenenUrunId}`, { adi, aciklama });
+    } else {
+      await sbPost('urunler', { adi, aciklama });
+    }
+    await kmYukle();
+    kmUrunFormIptal();
+    kmRenderUrunler();
+  } catch(e) { alert('Kayıt hatası: ' + e.message); }
 }
-function kmUrunSil(id) {
+async function kmUrunSil(id) {
   const u = kmUrunler.find(x=>x.id===id);
   if (!u) return;
   if (!confirm(`"${u.adi}" ürünü ve tüm operasyonları silinsin mi?`)) return;
-  kmUrunler = kmUrunler.filter(x=>x.id!==id);
-  if (kmDuzlenenUrunId===id) {
-    kmDuzlenenUrunId=null;
-    document.getElementById('km-op-alan').style.display='none';
-  }
-  kmKaydetLS();
-  kmRenderUrunler();
+  try {
+    await sbDelete('urun_operasyonlar', `urun_id=eq.${id}`);
+    await sbDelete('urunler', `id=eq.${id}`);
+    if (kmDuzlenenUrunId===id) {
+      kmDuzlenenUrunId=null;
+      document.getElementById('km-op-alan').style.display='none';
+    }
+    await kmYukle();
+    kmRenderUrunler();
+  } catch(e) { alert('Silme hatası: ' + e.message); }
 }
 
 // ── Operasyon alanı ──
-function kmOpAlanAc(urunId) {
+async function kmOpAlanAc(urunId) {
   kmDuzlenenUrunId = urunId;
+  await kmYukle();
   const u = kmUrunler.find(x=>x.id===urunId);
   if (!u) return;
   const alan = document.getElementById('km-op-alan');
@@ -5182,7 +5199,7 @@ function kmOpAlanAc(urunId) {
   alan.style.display = 'block';
   alan.scrollIntoView({behavior:'smooth'});
   kmRenderOpListe(u);
-  kmRenderUrunler(); // border güncelle
+  kmRenderUrunler();
 }
 
 function kmRenderOpListe(u) {
@@ -5229,54 +5246,84 @@ function kmRenderOpListe(u) {
 }
 
 // ── Operasyon CRUD ──
-function kmOpEkle() {
+async function kmOpEkle() {
   const u = kmUrunler.find(x=>x.id===kmDuzlenenUrunId);
   if (!u) return;
   const sira = u.operasyonlar.length + 1;
-  u.operasyonlar.push({ id:Date.now(), sira, adi:`Operasyon ${sira}`, ana_kalip_id:'', alternatifler:[] });
-  kmKaydetLS();
-  kmRenderOpListe(u);
+  try {
+    await sbPost('urun_operasyonlar', { urun_id: u.id, sira, adi: `Operasyon ${sira}`, ana_kalip_id: null, alternatif1_kalip_id: null, alternatif2_kalip_id: null });
+    await kmYukle();
+    const ug = kmUrunler.find(x=>x.id===kmDuzlenenUrunId);
+    if (ug) kmRenderOpListe(ug);
+  } catch(e) { alert('Hata: ' + e.message); }
 }
-function kmOpSil(urunId, opId) {
+async function kmOpSil(urunId, opId) {
   const u = kmUrunler.find(x=>x.id===urunId);
   if (!u || !confirm('Bu operasyon silinsin mi?')) return;
-  u.operasyonlar = u.operasyonlar.filter(o=>o.id!==opId);
-  u.operasyonlar.forEach((o,i)=>o.sira=i+1);
-  kmKaydetLS();
-  kmRenderOpListe(u);
-  kmRenderUrunler();
+  try {
+    await sbDelete('urun_operasyonlar', `id=eq.${opId}`);
+    await kmYukle();
+    const ug = kmUrunler.find(x=>x.id===urunId);
+    if (ug) { kmRenderOpListe(ug); kmRenderUrunler(); }
+  } catch(e) { alert('Hata: ' + e.message); }
 }
-function kmOpAdiDegistir(urunId, opId, yeniAd) {
-  const u = kmUrunler.find(x=>x.id===urunId);
-  const op = u?.operasyonlar.find(o=>o.id===opId);
-  if (op) { op.adi = yeniAd; kmKaydetLS(); }
+async function kmOpAdiDegistir(urunId, opId, yeniAd) {
+  try {
+    await sbPatchFiltre('urun_operasyonlar', `id=eq.${opId}`, { adi: yeniAd });
+    const u = kmUrunler.find(x=>x.id===urunId);
+    const op = u?.operasyonlar.find(o=>o.id===opId);
+    if (op) op.adi = yeniAd;
+  } catch(e) { console.error(e); }
 }
-function kmAnaKalipDegistir(urunId, opId, kalipId) {
-  const u = kmUrunler.find(x=>x.id===urunId);
-  const op = u?.operasyonlar.find(o=>o.id===opId);
-  if (op) { op.ana_kalip_id = kalipId; kmKaydetLS(); }
+async function kmAnaKalipDegistir(urunId, opId, kalipId) {
+  try {
+    await sbPatchFiltre('urun_operasyonlar', `id=eq.${opId}`, { ana_kalip_id: kalipId || null });
+    const u = kmUrunler.find(x=>x.id===urunId);
+    const op = u?.operasyonlar.find(o=>o.id===opId);
+    if (op) op.ana_kalip_id = kalipId;
+  } catch(e) { console.error(e); }
 }
 function kmAltKalipEkle(urunId, opId) {
   const u = kmUrunler.find(x=>x.id===urunId);
   const op = u?.operasyonlar.find(o=>o.id===opId);
   if (!op) return;
-  if (op.alternatifler.length >= 3) { alert('En fazla 3 alternatif kalıp eklenebilir.'); return; }
+  if (op.alternatifler.length >= 2) { alert('En fazla 2 alternatif kalıp eklenebilir.'); return; }
   op.alternatifler.push('');
-  kmKaydetLS();
   kmRenderOpListe(u);
 }
-function kmAltKalipDegistir(urunId, opId, idx, kalipId) {
+async function kmAltKalipDegistir(urunId, opId, idx, kalipId) {
   const u = kmUrunler.find(x=>x.id===urunId);
   const op = u?.operasyonlar.find(o=>o.id===opId);
-  if (op) { op.alternatifler[idx] = kalipId; kmKaydetLS(); }
+  if (!op) return;
+  op.alternatifler[idx] = kalipId;
+  const patch = {
+    alternatif1_kalip_id: op.alternatifler[0] || null,
+    alternatif2_kalip_id: op.alternatifler[1] || null
+  };
+  try {
+    await sbPatchFiltre('urun_operasyonlar', `id=eq.${opId}`, patch);
+  } catch(e) { console.error(e); }
 }
-function kmAltKalipSil(urunId, opId, idx) {
+async function kmAltKalipSil(urunId, opId, idx) {
   const u = kmUrunler.find(x=>x.id===urunId);
   const op = u?.operasyonlar.find(o=>o.id===opId);
-  if (op) { op.alternatifler.splice(idx,1); kmKaydetLS(); kmRenderOpListe(u); }
+  if (!op) return;
+  op.alternatifler.splice(idx, 1);
+  const patch = {
+    alternatif1_kalip_id: op.alternatifler[0] || null,
+    alternatif2_kalip_id: op.alternatifler[1] || null
+  };
+  try {
+    await sbPatchFiltre('urun_operasyonlar', `id=eq.${opId}`, patch);
+    kmRenderOpListe(u);
+  } catch(e) { console.error(e); }
 }
 
 // ── Matris görünümü ──
+async function kmRenderMatrisAsync() {
+  await kmYukle();
+  kmRenderMatris();
+}
 function kmRenderMatris(filtre) {
   const body = document.getElementById('km-matris-body');
   if (!body) return;
@@ -5322,8 +5369,8 @@ function kmMatrisFiltrele() {
 
 let guGecmis = []; // [{tarih, urun_id, urun_adi, op_id, op_adi, kalip_id, kalip_adi, adet, kaydeden}]
 
-function guRenderPanel() {
-  kmYukle(); // ürün listesi lazım
+async function guRenderPanel() {
+  await kmYukle(); // ürün listesi lazım
   // Tarih: bugün
   const tarihEl = document.getElementById('gu-tarih');
   if (tarihEl && !tarihEl.value) tarihEl.value = new Date().toISOString().split('T')[0];
@@ -5339,7 +5386,7 @@ function guRenderPanel() {
 }
 
 function guUrunSec() {
-  const urunId = parseInt(document.getElementById('gu-urun')?.value);
+  const urunId = document.getElementById('gu-urun')?.value;
   const u = kmUrunler.find(x=>x.id===urunId);
   const kart = document.getElementById('gu-tablo-kart');
   if (!u || !u.operasyonlar.length) {
