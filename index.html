@@ -806,7 +806,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
     <nav class="sidebar-nav">
       <div class="nav-section">Ana Menü</div>
       <div class="nav-item active" onclick="panelAc('dashboard',this)"><span class="nav-icon">📊</span> Dashboard</div>
-      <div class="nav-item" onclick="panelAc('canli',this)"><span class="nav-icon">🔴</span> Anlık İzleme <span class="nav-badge">3</span></div>
+      <div class="nav-item" onclick="panelAc('canli',this)"><span class="nav-icon">🔴</span> Anlık İzleme <span class="nav-badge" id="anlik-badge">0</span></div>
       <div class="nav-section">İş Emirleri</div>
       <div class="nav-item" onclick="panelAc('is-emirleri',this)"><span class="nav-icon">📋</span> Tüm İş Emirleri</div>
       <div class="nav-item" onclick="panelAc('planli',this)"><span class="nav-icon">📅</span> Planlı Bakımlar</div>
@@ -844,7 +844,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
     <div class="panel active" id="panel-dashboard">
       <div class="stat-grid">
         <div class="stat-card"><div class="s-lbl">Aktif İş Emri</div><div class="s-val" style="color:var(--green)">3</div><div class="s-sub">Şu an devam ediyor</div><div class="s-trend down">⚠ 1 üretim durduruldu</div></div>
-        <div class="stat-card"><div class="s-lbl">Bu Ay MTTR</div><div class="s-val" style="color:var(--amber)">2.4sa</div><div class="s-sub">Hedef: 2.0 sa</div><div class="s-trend down">✗ Hedefin üstünde</div></div>
+        <div class="stat-card"><div class="s-lbl">Bu Ay MTTR</div><div class="s-val" id="dash-mttr-val" style="color:var(--amber)">—</div><div class="s-sub" id="dash-mttr-sub">Yükleniyor...</div><div class="s-trend" id="dash-mttr-trend">—</div></div>
         <div class="stat-card"><div class="s-lbl">Planlı Tamamlanma</div><div class="s-val" style="color:var(--green)">87%</div><div class="s-sub">Hedef: %90</div><div class="s-trend down">✗ Hedefin altında</div></div>
         <div class="stat-card"><div class="s-lbl">Bu Ay Maliyet</div><div class="s-val" style="color:var(--accent)">₺84K</div><div class="s-sub">Hedef: ₺100K</div><div class="s-trend up">✓ Hedef altında</div></div>
       </div>
@@ -2357,7 +2357,7 @@ async function renderYoneticiVeriler() {
         tbody.innerHTML = tumEmir.slice(0, 50).map(ie => {
           const kalip = tumKaliplar.find(k => k.id === ie.kalip_id);
           const op = tumOperatorler.find(o => o.id === ie.acik_eden_operator_id);
-          const sure = ie.toplam_sure_dak
+          const sure = (ie.toplam_sure_dak != null && ie.toplam_sure_dak > 0)
             ? Math.floor(ie.toplam_sure_dak/60) + 'sa ' + (ie.toplam_sure_dak%60) + 'dk'
             : ie.acik_kapali === 'Acik' ? 'Devam ediyor' : '—';
           const durumBadge = ie.acik_kapali === 'Acik'
@@ -2378,6 +2378,33 @@ async function renderYoneticiVeriler() {
           </tr>`;
         }).join('');
       }
+    }
+
+    // Anlık badge güncelle
+    const anlikBadge = document.getElementById('anlik-badge');
+    if (anlikBadge) anlikBadge.textContent = aktifSay;
+
+    // Bu Ay MTTR hesapla
+    const buAyBas = new Date();
+    buAyBas.setDate(1); buAyBas.setHours(0,0,0,0);
+    const buAyKapali = tumEmir ? tumEmir.filter(e =>
+      e.acik_kapali === 'Kapali' && e.tur === 'C' &&
+      e.toplam_sure_dak != null && new Date(e.created_at) >= buAyBas
+    ) : [];
+    const hedefMttr = 2.0;
+    const mttrEl = document.getElementById('dash-mttr-val');
+    const mttrSub = document.getElementById('dash-mttr-sub');
+    const mttrTrend = document.getElementById('dash-mttr-trend');
+    if (buAyKapali.length > 0) {
+      const mttr = buAyKapali.reduce((t,e) => t + (e.toplam_sure_dak||0), 0) / buAyKapali.length / 60;
+      const renk = mttr <= hedefMttr ? 'var(--green)' : 'var(--amber)';
+      if (mttrEl) { mttrEl.textContent = mttr.toFixed(1) + 'sa'; mttrEl.style.color = renk; }
+      if (mttrSub) mttrSub.textContent = `Hedef: ${hedefMttr} sa · ${buAyKapali.length} arıza`;
+      if (mttrTrend) { mttrTrend.textContent = mttr <= hedefMttr ? '✓ Hedef altında' : '✗ Hedefin üstünde'; mttrTrend.className = 's-trend ' + (mttr <= hedefMttr ? 'up' : 'down'); }
+    } else {
+      if (mttrEl) { mttrEl.textContent = '—'; mttrEl.style.color = 'var(--muted)'; }
+      if (mttrSub) mttrSub.textContent = 'Bu ay arıza kaydı yok';
+      if (mttrTrend) { mttrTrend.textContent = ''; }
     }
 
   } catch(e) {
@@ -3440,7 +3467,7 @@ async function renderIsEmirleriTablosu() {
   tbody.innerHTML = filtreliEmir.slice(0, 100).map(ie => {
     const kalip = tumKaliplar.find(k => k.id === ie.kalip_id);
     const op = tumOperatorler.find(o => o.id === ie.acik_eden_operator_id);
-    const sure = ie.toplam_sure_dak
+    const sure = (ie.toplam_sure_dak != null && ie.toplam_sure_dak > 0)
       ? Math.floor(ie.toplam_sure_dak/60) + 'sa ' + (ie.toplam_sure_dak%60) + 'dk'
       : ie.acik_kapali === 'Acik' ? 'Devam ediyor' : '—';
     const durumBadge = ie.acik_kapali === 'Acik'
