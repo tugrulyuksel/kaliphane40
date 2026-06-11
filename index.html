@@ -393,35 +393,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
       <p>Kalıba yapıştırılı QR kodu tarat — Arıza / Plansız</p>
     </div>
 
-    <div class="divider">veya manuel seç</div>
-
-    <div class="manuel-card">
-      <h3>Kalıp Seç — Arıza / Plansız</h3>
-      <input type="text" class="search-input" placeholder="🔍  Kalıp kodu veya adı ara..." oninput="kalipAra(this.value)">
-      <div class="kalip-list" id="kalip-listesi">
-        <div class="kalip-item" onclick="kalipSec('ON2E1405','ATROMIX ALT-ÜST KAPAK SIVAMA','ariza')">
-          <div><div class="k-name">ATROMIX ALT-ÜST KAPAK SIVAMA</div><div class="k-code">ON2E1405</div></div><span>›</span>
-        </div>
-        <div class="kalip-item" onclick="kalipSec('ON2E1412','ALARKO-ATROMIX KORDONLU KENETLEME','ariza')">
-          <div><div class="k-name">ALARKO-ATROMIX KORDONLU KENETLEME</div><div class="k-code">ON2E1412</div></div><span>›</span>
-        </div>
-        <div class="kalip-item" onclick="kalipSec('ON2F0267','EMAS KORDONLU ÜK DELME FİKSTÜRÜ','ariza')">
-          <div><div class="k-name">EMAS KORDONLU ÜK DELME FİKSTÜRÜ</div><div class="k-code">ON2F0267</div></div><span>›</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Planlı Bakımlar -->
-    <div class="planli-card">
-      <div class="pc-hdr">
-        <h3>📅 Planlı Bakımlar</h3>
-        <span class="badge badge-red" id="planli-gecikme-sayac" style="display:none">0 Gecikmiş</span>
-      </div>
-      <div id="planli-bakim-listesi">
-        <div style="padding:1rem;text-align:center;color:var(--muted);font-size:13px">Yükleniyor...</div>
-      </div>
-    </div>
-
     <!-- Aktif iş emri -->
     <div class="planli-card" id="aktif-is-emirleri-kart">
       <div class="pc-hdr"><h3>Aktif İş Emirlerim</h3><span class="badge badge-green" id="aktif-sayac">0 Aktif</span></div>
@@ -438,6 +409,48 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
       </div>
       <div id="usta-ana-gecmis-liste">
         <div style="padding:1rem;text-align:center;color:var(--muted);font-size:13px">Yükleniyor...</div>
+      </div>
+    </div>
+
+    <div class="divider">veya manuel seç</div>
+
+    <!-- Akordeon: Kalıp Seç -->
+    <div class="planli-card" style="margin-top:0">
+      <div class="pc-hdr" onclick="akordeonToggle('acc-kalip-sec','acc-arrow-kalip')" style="cursor:pointer;user-select:none">
+        <h3>🔧 Kalıp Seç — Arıza / Plansız</h3>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="acc-arrow-kalip" style="font-size:18px;color:var(--muted);transition:transform .25s">▼</span>
+        </div>
+      </div>
+      <div id="acc-kalip-sec" style="display:none;padding-top:8px">
+        <input type="text" class="search-input" placeholder="🔍  Kalıp kodu veya adı ara..." oninput="kalipAra(this.value)">
+        <div class="kalip-list" id="kalip-listesi">
+          <div class="kalip-item" onclick="kalipSec('ON2E1405','ATROMIX ALT-ÜST KAPAK SIVAMA','ariza')">
+            <div><div class="k-name">ATROMIX ALT-ÜST KAPAK SIVAMA</div><div class="k-code">ON2E1405</div></div><span>›</span>
+          </div>
+          <div class="kalip-item" onclick="kalipSec('ON2E1412','ALARKO-ATROMIX KORDONLU KENETLEME','ariza')">
+            <div><div class="k-name">ALARKO-ATROMIX KORDONLU KENETLEME</div><div class="k-code">ON2E1412</div></div><span>›</span>
+          </div>
+          <div class="kalip-item" onclick="kalipSec('ON2F0267','EMAS KORDONLU ÜK DELME FİKSTÜRÜ','ariza')">
+            <div><div class="k-name">EMAS KORDONLU ÜK DELME FİKSTÜRÜ</div><div class="k-code">ON2F0267</div></div><span>›</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Akordeon: Planlı Bakımlar -->
+    <div class="planli-card" style="margin-top:1rem">
+      <div class="pc-hdr" onclick="akordeonToggle('acc-planli','acc-arrow-planli')" style="cursor:pointer;user-select:none">
+        <h3>📅 Planlı Bakımlar</h3>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="badge badge-red" id="planli-gecikme-sayac" style="display:none">0 Gecikmiş</span>
+          <span id="acc-arrow-planli" style="font-size:18px;color:var(--muted);transition:transform .25s">▼</span>
+        </div>
+      </div>
+      <div id="acc-planli" style="display:none">
+        <div id="planli-bakim-listesi">
+          <div style="padding:1rem;text-align:center;color:var(--muted);font-size:13px">Yükleniyor...</div>
+        </div>
       </div>
     </div>
 
@@ -2146,6 +2159,11 @@ async function renderPlanliGoster() {
       if (gecikmisSay > 0) {
         sayac.textContent = gecikmisSay + ' Gecikmiş';
         sayac.style.display = 'inline-flex';
+        // Gecikmiş varsa otomatik aç
+        const accPlanli = document.getElementById('acc-planli');
+        const accArrow = document.getElementById('acc-arrow-planli');
+        if (accPlanli) accPlanli.style.display = 'block';
+        if (accArrow) accArrow.style.transform = 'rotate(180deg)';
       } else {
         sayac.style.display = 'none';
       }
@@ -6486,6 +6504,15 @@ document.addEventListener('DOMContentLoaded', async function(){
     } catch(e) { console.warn('Oturum kontrolü hatası:', e); }
   }
 });
+
+function akordeonToggle(icerikId, okId) {
+  const icerik = document.getElementById(icerikId);
+  const ok = document.getElementById(okId);
+  if (!icerik) return;
+  const acik = icerik.style.display !== 'none';
+  icerik.style.display = acik ? 'none' : 'block';
+  if (ok) ok.style.transform = acik ? 'rotate(0deg)' : 'rotate(180deg)';
+}
 </script>
 </body>
 </html>
