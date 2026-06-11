@@ -2839,14 +2839,37 @@ async function qrOkut(tip) {
     zxingReader = new ZXing.BrowserQRCodeReader(hints);
     const video = document.getElementById('qr-video');
 
-    await zxingReader.decodeFromVideoDevice(null, video, (result, err) => {
+    // Android uyumluluğu: arka kamera → ön kamera → varsayılan sırasıyla dene
+    let deviceId = null;
+    try {
+      const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+      // Arka kamera öncelikli
+      const arkaKamera = devices.find(d =>
+        /back|rear|environment/i.test(d.label)
+      );
+      if (arkaKamera) {
+        deviceId = arkaKamera.deviceId;
+      } else if (devices.length > 0) {
+        deviceId = devices[devices.length - 1].deviceId; // genelde son = arka
+      }
+    } catch(e) {
+      console.warn('Kamera listesi alınamadı, varsayılan kullanılacak');
+    }
+
+    await zxingReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
       if (result) {
         qrBulundu(result.getText().trim().toUpperCase());
       }
     });
   } catch(e) {
     console.warn('QR hata:', e);
-    alert('Kamera açılamadı. Manuel seçim kullanın.');
+    // Kullanıcıya daha açıklayıcı hata ver
+    const mesaj = e.name === 'NotAllowedError'
+      ? 'Kamera izni reddedildi. Tarayıcı ayarlarından kamera iznini açın.'
+      : e.name === 'NotFoundError'
+      ? 'Kamera bulunamadı. Manuel seçim kullanın.'
+      : 'Kamera açılamadı (' + e.name + '). Manuel seçim kullanın.';
+    alert(mesaj);
     qrKapat();
   }
 }
