@@ -5507,10 +5507,10 @@ function guUrunSec() {
 
 function guKaydet() {
   const tarih = document.getElementById('gu-tarih')?.value;
-  const urunId = parseInt(document.getElementById('gu-urun')?.value);
+  const urunId = document.getElementById('gu-urun')?.value;
   const u = kmUrunler.find(x=>x.id===urunId);
   if (!tarih) { alert('Tarih seçin.'); return; }
-  if (!u) { alert('Ürün seçin.'); return; }
+  if (!urunId || !u) { alert('Ürün seçin.'); return; }
 
   const kaydeden = aktifOperator?.ad_soyad || 'Yönetici';
   let kaydSayisi = 0;
@@ -5561,7 +5561,7 @@ function guKaydet() {
 }
 
 function guTemizle() {
-  const urunId = parseInt(document.getElementById('gu-urun')?.value);
+  const urunId = document.getElementById('gu-urun')?.value;
   const u = kmUrunler.find(x=>x.id===urunId);
   if (!u) return;
   u.operasyonlar.forEach(op => {
