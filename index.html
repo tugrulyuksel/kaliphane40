@@ -1836,6 +1836,31 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 </div>
 
 <!-- Operatör Modal -->
+<!-- ══ SİLME PIN MODAL ══ -->
+<div class="modal-overlay" id="silme-pin-modal">
+  <div class="modal" style="max-width:340px">
+    <div style="text-align:center;margin-bottom:1.25rem">
+      <div style="width:52px;height:52px;background:var(--red-dim);border:1px solid var(--red);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:.75rem">🗑️</div>
+      <h3 style="color:var(--red);margin-bottom:6px">İş Emri Sil</h3>
+      <div style="font-size:13px;color:var(--muted)" id="silme-pin-ie-no">—</div>
+    </div>
+    <div style="background:var(--red-dim);border:1px solid var(--red);border-radius:8px;padding:.75rem;font-size:12px;color:var(--red);margin-bottom:1rem;text-align:center">
+      ⚠️ Bu işlem geri alınamaz. İş emri ve tüm bağlı kayıtlar silinir.
+    </div>
+    <div class="fg" style="margin-bottom:1rem">
+      <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">Silme PIN'i</label>
+      <input type="password" id="silme-pin-input" placeholder="••••••" maxlength="8"
+        style="width:100%;padding:12px 14px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:18px;font-family:'JetBrains Mono',monospace;text-align:center;letter-spacing:4px"
+        onkeydown="if(event.key==='Enter') silmePinOnayla()">
+      <div id="silme-pin-hata" style="display:none;color:var(--red);font-size:12px;text-align:center;margin-top:6px">❌ Yanlış PIN</div>
+    </div>
+    <div class="modal-btns">
+      <div class="btn-cancel" onclick="silmePinKapat()">İptal</div>
+      <div class="btn-confirm" style="background:var(--red)" onclick="silmePinOnayla()">Sil</div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="op-modal">
   <div class="modal">
     <h3>Ekip Üyesi Ekle</h3>
@@ -1889,6 +1914,21 @@ async function sbPatch(tablo, id, veri) {
     body: JSON.stringify(veri)
   });
   return await r.json();
+}
+
+async function sbDelete(tablo, filtre) {
+  const r = await fetch(`${SUPA_URL}/rest/v1/${tablo}?${filtre}`, {
+    method: 'DELETE',
+    headers: {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Prefer': 'return=minimal'
+    }
+  });
+  if (!r.ok) {
+    const err = await r.text();
+    throw new Error(err);
+  }
 }
 
 // ── UYGULAMA DEĞİŞKENLERİ ──
@@ -3409,15 +3449,66 @@ async function renderIsEmirleriTablosu() {
           <div style="padding:4px 10px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:11px;cursor:pointer"
             onclick="ieDetayAc('${ie.id}')">Detay</div>
           <div style="padding:4px 10px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;cursor:pointer"
-            onclick="Promise.resolve(isEmriSil('${ie.id}')).catch(e=>console.error(e))">Sil</div>
+            onclick="isEmriSil('${ie.id}','${ie.is_emri_no}')">Sil</div>
         </div>
       </td>
     </tr>`;
   }).join('');
 }
 
-async function isEmriSil(id) {
-  alert('İş emirleri yalnızca Supabase dashboard üzerinden silinebilir.\n\nSupabase → Table Editor → is_emirleri');
+// ── SİLME PIN SİSTEMİ ──
+const SILME_PIN_HASH = 'f7ac69722a0706c533afa393b1574a761a073df0a8280094d3500a4bbc9c2877';
+let _bekleyenSilmeId = null;
+
+async function hashle(metin) {
+  const enc = new TextEncoder().encode(metin);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function isEmriSil(id, ieNo) {
+  _bekleyenSilmeId = id;
+  document.getElementById('silme-pin-ie-no').textContent = 'İş Emri: ' + (ieNo || id.slice(0,8) + '...');
+  document.getElementById('silme-pin-input').value = '';
+  document.getElementById('silme-pin-hata').style.display = 'none';
+  document.getElementById('silme-pin-modal').classList.add('open');
+  setTimeout(() => document.getElementById('silme-pin-input').focus(), 100);
+}
+
+function silmePinKapat() {
+  _bekleyenSilmeId = null;
+  document.getElementById('silme-pin-modal').classList.remove('open');
+}
+
+async function silmePinOnayla() {
+  const girilen = document.getElementById('silme-pin-input').value.trim();
+  if (!girilen) return;
+
+  const hash = await hashle(girilen);
+  if (hash !== SILME_PIN_HASH) {
+    document.getElementById('silme-pin-hata').style.display = 'block';
+    document.getElementById('silme-pin-input').value = '';
+    document.getElementById('silme-pin-input').focus();
+    return;
+  }
+
+  // PIN doğru — sil
+  const id = _bekleyenSilmeId;
+  silmePinKapat();
+
+  try {
+    // Bağlı kayıtları sil
+    await sbDelete('is_emri_checklist', `is_emri_id=eq.${id}`);
+    await sbDelete('is_emri_malzemeleri', `is_emri_id=eq.${id}`);
+    await sbDelete('is_emri_operatorler', `is_emri_id=eq.${id}`);
+    await sbDelete('is_emirleri', `id=eq.${id}`);
+
+    // Listeyi yenile
+    await renderIsEmirleriTablosu();
+    alert('✓ İş emri silindi.');
+  } catch(e) {
+    alert('Hata: ' + e.message);
+  }
 }
 
 // ── YÖNETİCİ İŞ EMRİ DETAY ──
