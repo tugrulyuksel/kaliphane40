@@ -2632,12 +2632,21 @@ async function isEmriBaslat() {
 
 // ── İŞ EMRİ KAPAT ──
 async function kapatEkraniHazirla() {
-  // Süreleri güncelle
-  const h = Math.floor(saniye/3600).toString().padStart(2,'0');
-  const m = Math.floor((saniye%3600)/60).toString().padStart(2,'0');
-  const s = (saniye%60).toString().padStart(2,'0');
+  // Net süreyi timestamp'ten hesapla
   const netEl = document.getElementById('kapat-net-sure');
-  if (netEl) netEl.textContent = `${h}:${m}:${s}`;
+  if (netEl && aktifIsEmri?.baslangic_zaman) {
+    const toplamDuraklama = (aktifIsEmri._toplamDuraklama || 0) * 1000;
+    let durakladi_ek = 0;
+    if (durakladi && window._duraksladaBaslangic) {
+      durakladi_ek = Date.now() - window._duraksladaBaslangic;
+    }
+    const netMs = Math.max(0, Date.now() - new Date(aktifIsEmri.baslangic_zaman).getTime() - toplamDuraklama - durakladi_ek);
+    const netSn = Math.floor(netMs / 1000);
+    const h = Math.floor(netSn/3600).toString().padStart(2,'0');
+    const m = Math.floor((netSn%3600)/60).toString().padStart(2,'0');
+    const s = (netSn%60).toString().padStart(2,'0');
+    netEl.textContent = `${h}:${m}:${s}`;
+  }
 
   // Operatörü kapatma ekranına yaz
   const opListe = document.getElementById('kapat-operator-listesi');
