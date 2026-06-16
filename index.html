@@ -2735,12 +2735,13 @@ async function isEmriKaydet() {
       const bitisZamanInput = document.getElementById('kapat-bitis-zaman')?.value;
       const bitisZaman = bitisZamanInput ? new Date(bitisZamanInput).toISOString() : new Date().toISOString();
 
-      // Net süreyi hesapla
-      let netSureDak = Math.floor(saniye / 60);
-      if (bitisZamanInput && aktifIsEmri.baslangic_zaman) {
+      // Net süreyi hesapla — her zaman baslangic_zaman ile bitis_zaman farkından al
+      let netSureDak = 0;
+      if (aktifIsEmri.baslangic_zaman) {
         const fark = new Date(bitisZaman) - new Date(aktifIsEmri.baslangic_zaman);
         if (fark > 0) netSureDak = Math.round(fark / 60000);
       }
+      if (netSureDak === 0) netSureDak = Math.floor(saniye / 60); // fallback
 
       await sbPatch('is_emirleri', aktifIsEmri.id, {
         acik_kapali: 'Kapali',
