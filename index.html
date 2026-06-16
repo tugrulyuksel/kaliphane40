@@ -2052,7 +2052,7 @@ async function sbDelete(tablo, filtre) {
 }
 
 // ── UYGULAMA DEĞİŞKENLERİ ──
-let seciliRol='usta', durakladi=false, saniye=0;
+let seciliRol='usta', durakladi=false;
 let aktifChecklistKalipId = null;
 let aktifPlanliId = null;
 let sureInterval, planliMod=false;
@@ -2354,10 +2354,8 @@ function aktifIsEmriAc(isEmriId, kalipAdi, isEmriNo, tur) {
         }
       }
 
-      // Başlangıç zamanından süreyi hesapla
-      if (aktifIsEmri.baslangic_zaman) {
-        saniye = Math.floor((Date.now() - new Date(aktifIsEmri.baslangic_zaman).getTime()) / 1000);
-      }
+      // Duraklama süresini aktifIsEmri'ye ekle (timestamp bazlı hesap için)
+      aktifIsEmri._toplamDuraklama = aktifIsEmri.toplam_duraklama_sn || 0;
 
       // Başlangıç zamanını göster
       const basZaman = document.getElementById('aktif-bas-zaman');
@@ -2628,7 +2626,7 @@ async function isEmriBaslat() {
   document.getElementById('aktif-tur-badge').textContent = planliMod ? 'Planlı Bakım' : 'Arıza';
   document.getElementById('aktif-tur-badge').className = 'badge ' + (planliMod ? 'badge-blue' : 'badge-red');
   document.getElementById('aktif-kalip-adi').textContent = document.getElementById('form-kalip-adi').textContent;
-  saniye = 0;
+  window._duraksladaBaslangic = null;
   gosterEkran('screen-aktif');
 }
 
@@ -2735,13 +2733,18 @@ async function isEmriKaydet() {
       const bitisZamanInput = document.getElementById('kapat-bitis-zaman')?.value;
       const bitisZaman = bitisZamanInput ? new Date(bitisZamanInput).toISOString() : new Date().toISOString();
 
-      // Net süreyi hesapla — her zaman baslangic_zaman ile bitis_zaman farkından al
+      // Net süreyi hesapla — timestamp bazlı, duraklatma dahil
       let netSureDak = 0;
       if (aktifIsEmri.baslangic_zaman) {
-        const fark = new Date(bitisZaman) - new Date(aktifIsEmri.baslangic_zaman);
-        if (fark > 0) netSureDak = Math.round(fark / 60000);
+        const brutFark = new Date(bitisZaman) - new Date(aktifIsEmri.baslangic_zaman);
+        // Toplam duraklatma: Supabase'deki + şu an devam eden
+        let toplamDuraklama = aktifIsEmri._toplamDuraklama || 0;
+        if (durakladi && window._duraksladaBaslangic) {
+          toplamDuraklama += Math.floor((Date.now() - window._duraksladaBaslangic) / 1000);
+        }
+        const netMs = brutFark - (toplamDuraklama * 1000);
+        if (netMs > 0) netSureDak = Math.round(netMs / 60000);
       }
-      if (netSureDak === 0) netSureDak = Math.floor(saniye / 60); // fallback
 
       await sbPatch('is_emirleri', aktifIsEmri.id, {
         acik_kapali: 'Kapali',
@@ -2867,7 +2870,7 @@ async function isEmriKaydet() {
   aktifIsEmri = null;
   aktifPlanliId = null;
   planliMod = false;
-  saniye = 0;
+  window._duraksladaBaslangic = null;
   sureyiBaslat();
   gosterEkran('screen-usta');
   Promise.resolve(renderUstaEkrani()).catch(e => console.warn(e));
@@ -3131,7 +3134,7 @@ async function planliIsEmriBaslat(kod, adi, kalipId) {
   // Checklist bilgi olarak göster (işaretlenemez)
   await renderAktifChecklistBilgi(kalipId);
 
-  saniye = 0;
+  window._duraksladaBaslangic = null;
   gosterEkran('screen-aktif');
 }
 
@@ -3182,17 +3185,36 @@ function chipSec(el, grup) {
 function sureyiBaslat(){
   clearInterval(sureInterval);
   sureInterval=setInterval(()=>{
-    if(!durakladi) saniye++;
-    const h=Math.floor(saniye/3600).toString().padStart(2,'0');
-    const m=Math.floor((saniye%3600)/60).toString().padStart(2,'0');
-    const s=(saniye%60).toString().padStart(2,'0');
-    const str=`${h}:${m}:${s}`;
+    if (!aktifIsEmri?.baslangic_zaman || durakladi) return;
+    const bas = new Date(aktifIsEmri.baslangic_zaman).getTime();
+    const toplamDuraklama = (aktifIsEmri._toplamDuraklama || 0) * 1000;
+    const netMs = Date.now() - bas - toplamDuraklama;
+    const netSn = Math.max(0, Math.floor(netMs / 1000));
+    const h = Math.floor(netSn/3600).toString().padStart(2,'0');
+    const m = Math.floor((netSn%3600)/60).toString().padStart(2,'0');
+    const s = (netSn%60).toString().padStart(2,'0');
+    const str = `${h}:${m}:${s}`;
     ['sure-counter2','aktif-sure'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=str;});
   },1000);
 }
 
 function toggleDuraklat(){
   durakladi=!durakladi;
+  if (durakladi) {
+    // Duraklatma başladı - zamanı kaydet
+    window._duraksladaBaslangic = Date.now();
+  } else {
+    // Devam etti - geçen duraklatma süresini Supabase'e yaz
+    if (window._duraksladaBaslangic && aktifIsEmri) {
+      const gecenSn = Math.floor((Date.now() - window._duraksladaBaslangic) / 1000);
+      window._duraksladaBaslangic = null;
+      const yeniToplam = (aktifIsEmri._toplamDuraklama || 0) + gecenSn;
+      aktifIsEmri._toplamDuraklama = yeniToplam;
+      // Arka planda Supabase'e yaz
+      sbPatchFiltre('is_emirleri', `id=eq.${aktifIsEmri.id}`, { toplam_duraklama_sn: yeniToplam })
+        .catch(e => console.warn('Duraklatma kaydedilemedi:', e));
+    }
+  }
   document.getElementById('duraklat-btn').style.display=durakladi?'none':'flex';
   document.getElementById('devam-btn').style.display=durakladi?'flex':'none';
   document.getElementById('bos-btn').style.display=durakladi?'flex':'none';
@@ -6413,8 +6435,8 @@ async function ustaSaatKaydet() {
 
   // Lokal state güncelle
   aktifIsEmri.baslangic_zaman = yeniZaman;
-  saniye = Math.floor((Date.now() - new Date(yeniZaman).getTime()) / 1000);
-  if (saniye < 0) saniye = 0;
+  // baslangic_zaman güncellendi, aktifIsEmri'yi de güncelle
+  if (aktifIsEmri) aktifIsEmri.baslangic_zaman = new Date(yeniZaman).toISOString();
 
   // Ekranda göster
   const basZaman = document.getElementById('aktif-bas-zaman');
