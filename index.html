@@ -1783,6 +1783,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
       <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.75rem">Düzenle</div>
       <div style="display:flex;flex-direction:column;gap:.75rem">
         <div class="fg">
+          <label>İş Emri Türü</label>
+          <select id="ie-edit-tur" style="padding:8px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
+            <option value="C">Arıza</option>
+            <option value="B">Planlı Bakım</option>
+            <option value="D">Diğer</option>
+          </select>
+        </div>
+        <div class="fg">
           <label>Problem</label>
           <input type="text" id="ie-edit-problem" style="padding:8px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
         </div>
@@ -3835,6 +3843,7 @@ async function ieDetayDuzenleAc() {
     sbGet('is_emirleri', `id=eq.${seciiliIsEmriId}`).then(async sonuc => {
       if (sonuc && sonuc[0]) {
         const ie = sonuc[0];
+        document.getElementById('ie-edit-tur').value = ie.tur || 'C';
         document.getElementById('ie-edit-problem').value = ie.problem || '';
         document.getElementById('ie-edit-islem').value = ie.yapilan_islem || '';
         document.getElementById('ie-edit-aciklama').value = ie.aciklama || '';
@@ -3940,7 +3949,9 @@ async function yoneticiIsEmriGuncelle() {
     if (farkMs > 0) sure = Math.round(farkMs / 60000);
   }
 
+  const tur = document.getElementById('ie-edit-tur')?.value || 'C';
   const guncelleme = {
+    tur,
     problem: problem || null,
     yapilan_islem: islem || null,
     aciklama: aciklama || null,
