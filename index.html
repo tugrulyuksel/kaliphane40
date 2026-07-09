@@ -344,6 +344,20 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 /* ── RAPOR HIZLI BUTON ── */
 .r-hizli-btn{padding:6px 14px;background:var(--card);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer;transition:all .15s}
 .r-hizli-btn:hover,.r-hizli-btn.aktif{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+/* ── YAZDIRMA (PDF) ── */
+@media print {
+  body * { visibility: hidden; }
+  #panel-raporlar, #panel-raporlar * { visibility: visible; }
+  .no-print, .no-print * { display: none !important; }
+  .sidebar, .top-bar, .sidebar-overlay { display: none !important; }
+  #panel-raporlar {
+    position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0;
+  }
+  .main-content { padding: 0 !important; margin: 0 !important; }
+  .panel-card { break-inside: avoid; border: 1px solid #ccc !important; background: #fff !important; }
+  body, .panel-card, .data-table, .pc-header h3 { color: #000 !important; background: #fff !important; }
+  .data-table th, .data-table td { color: #000 !important; border-color: #ccc !important; }
+}
 </style>
 </head>
 <body>
@@ -1673,7 +1687,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
     <div class="panel" id="panel-raporlar">
 
       <!-- ── FİLTRE SATIRI ── -->
-      <div style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:1.25rem;display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end">
+      <div class="no-print" style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:1.25rem;display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end">
         <!-- Hızlı dönem butonları -->
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <div class="r-hizli-btn" onclick="raporHizliDonem('bu-ay')">Bu Ay</div>
@@ -1711,6 +1725,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         <div style="display:flex;gap:8px;margin-left:auto">
           <div style="padding:8px 16px;background:var(--card);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer" onclick="kpiHedefForm()">⚙️ Hedefler</div>
           <div style="padding:8px 22px;background:var(--accent);border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer" onclick="Promise.resolve(raporHesapla()).catch(e=>console.error(e))">📊 Hesapla</div>
+          <div style="padding:8px 16px;background:var(--card);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer" onclick="window.print()">🖨️ PDF Yazdır</div>
         </div>
       </div>
 
@@ -1722,14 +1737,36 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         <div class="stat-card"><div class="s-lbl">Arıza Oranı</div><div class="s-val" id="r-ariza-oran">—</div><div class="s-sub" id="r-ariza-sub">—</div></div>
       </div>
 
+      <!-- ── RAPOR 0: PLANLI / PLANSIZ DAĞILIM ── -->
+      <div class="panel-card" style="margin-bottom:1rem">
+        <div class="pc-header">
+          <h3>🥧 Planlı / Plansız Dağılımı</h3>
+          <span class="badge badge-blue" id="r-pp-sayac"></span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:1.5rem;padding:1rem">
+          <div style="flex:0 0 220px;max-width:220px;margin:0 auto">
+            <canvas id="r-pp-pasta" width="220" height="220"></canvas>
+          </div>
+          <div style="flex:1;min-width:180px;display:flex;flex-direction:column;gap:.75rem" id="r-pp-legend"></div>
+        </div>
+      </div>
+
       <!-- ── RAPOR 1: ARIZA TÜRLERİ DAĞILIMI ── -->
       <div class="panel-card" style="margin-bottom:1rem">
         <div class="pc-header">
           <h3>🔴 Arıza Türlerine Göre Dağılım</h3>
           <span class="badge badge-blue" id="r-tur-sayac"></span>
         </div>
-        <div id="r-tur-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;padding:1rem">
-          <div style="color:var(--muted);font-size:13px;text-align:center;grid-column:1/-1">Filtre uygulayın</div>
+        <div style="padding:1rem 1rem 0" id="r-tur-chart-wrap">
+          <canvas id="r-tur-bar" height="220"></canvas>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr><th>Arıza Türü</th><th>Adet</th><th>Toplam Süre</th><th>Ort. Süre</th></tr></thead>
+            <tbody id="r-tur-tbody">
+              <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1.5rem">Filtre uygulayın</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -1770,6 +1807,66 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         </div>
         <div id="r-kalip-liste" style="display:flex;flex-direction:column;gap:0">
           <div style="color:var(--muted);font-size:13px;text-align:center;padding:2rem">Filtre uygulayın</div>
+        </div>
+      </div>
+
+      <!-- ── RAPOR 4: KALIP BAZLI TOPLAM SÜRE TABLOSU ── -->
+      <div class="panel-card" style="margin-bottom:1rem">
+        <div class="pc-header">
+          <h3>⏳ Kalıp Bazlı Toplam Süre</h3>
+          <div class="no-print" style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;color:var(--muted)">Min. süre:</span>
+            <select id="r-kalip-sure-esik" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit" onchange="raporKalipSureTablo()">
+              <option value="0">Tümü</option>
+              <option value="100" selected>100 dk +</option>
+              <option value="300">300 dk +</option>
+              <option value="600">600 dk +</option>
+            </select>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr><th>#</th><th>Kalıp</th><th>Arıza Adedi</th><th>Toplam Süre</th><th>Ort. Süre</th></tr></thead>
+            <tbody id="r-kalip-sure-tbody">
+              <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">Filtre uygulayın</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── RAPOR 5: OPERATÖR İŞÇİLİK SÜRELERİ ── -->
+      <div class="panel-card" style="margin-bottom:1rem">
+        <div class="pc-header">
+          <h3>👷 Operatör İşçilik Süreleri</h3>
+          <span class="badge badge-blue" id="r-op-sayac"></span>
+        </div>
+        <div style="padding:1rem 1rem 0" id="r-op-chart-wrap">
+          <canvas id="r-op-bar" height="220"></canvas>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr><th>#</th><th>Operatör</th><th>İş Emri Adedi</th><th>Toplam Süre</th></tr></thead>
+            <tbody id="r-op-tbody">
+              <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1.5rem">Filtre uygulayın</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── RAPOR 6: KRONİK ARIZALAR / AKSİYON LİSTESİ (MANUEL) ── -->
+      <div class="panel-card" style="margin-bottom:1rem">
+        <div class="pc-header"><h3>📝 Kronik Arızalar / Aksiyon Listesi</h3></div>
+        <div class="pc-body" style="display:flex;flex-direction:column;gap:.75rem">
+          <div class="no-print fg">
+            <label>Yeni Not</label>
+            <textarea id="r-kronik-yeni" placeholder="Örn: ON2E1405 kalıbında tekrarlayan kordon çatlağı — kalıp revizyonu planlanmalı" style="width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;resize:vertical;min-height:70px"></textarea>
+          </div>
+          <div class="no-print" style="display:flex;justify-content:flex-end">
+            <div style="padding:9px 18px;background:var(--accent);border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer" onclick="kronikEkle()">+ Ekle</div>
+          </div>
+          <div id="r-kronik-liste" style="display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem">
+            <div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Kayıtlı not yok</div>
+          </div>
         </div>
       </div>
 
@@ -4106,6 +4203,7 @@ async function raporPanelAc() {
     document.getElementById('rapor-bas').value = bas;
     document.getElementById('rapor-bit').value = bit;
   }
+  kronikListeCiz();
   await raporHesapla();
 }
 
@@ -4182,9 +4280,12 @@ async function raporHesapla() {
       document.getElementById(id).textContent = '—';
     });
     document.getElementById('r-toplam-sub').textContent = 'Bu dönemde iş emri yok';
-    document.getElementById('r-tur-grid').innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;grid-column:1/-1">Veri yok</div>';
+    document.getElementById('r-tur-tbody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1.5rem">Veri yok</td></tr>';
     document.getElementById('r-sure-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">Veri yok</td></tr>';
     document.getElementById('r-kalip-liste').innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1.5rem">Veri yok</div>';
+    document.getElementById('r-pp-legend').innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center">Veri yok</div>';
+    document.getElementById('r-kalip-sure-tbody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1.5rem">Veri yok</td></tr>';
+    document.getElementById('r-op-tbody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1.5rem">Veri yok</td></tr>';
     return;
   }
 
@@ -4221,52 +4322,122 @@ async function raporHesapla() {
   aOran.style.color = arizaOran <= hedefAriza ? 'var(--green)' : 'var(--red)';
   document.getElementById('r-ariza-sub').textContent = `Hedef: %${hedefAriza} · ${arizaOran <= hedefAriza ? '✓' : '✗'}`;
 
-  // 3 raporu çiz
+  // Raporları çiz
+  raporPlanliPlansizPasta(emirler);
   raporTurDagilim(emirler);
   raporSureListe();
   raporKalipListe();
+  raporKalipSureTablo();
+  await raporOperatorSure(emirler);
 }
 
-// ── RAPOR 1: ARIZA TÜRLERİ DAĞILIMI ──
+// ── RAPOR 0: PLANLI / PLANSIZ PASTA ──
+function raporPlanliPlansizPasta(emirler) {
+  const planli = emirler.filter(e => e.tur === 'B').length;
+  const ariza = emirler.filter(e => e.tur === 'C').length;
+  const diger = emirler.filter(e => e.tur === 'D').length;
+  const toplam = planli + ariza + diger;
+  document.getElementById('r-pp-sayac').textContent = toplam + ' iş emri';
+
+  const veriler = [
+    { ad: 'Planlı Bakım', adet: planli, renk: '#3b82f6' },
+    { ad: 'Arıza (Plansız)', adet: ariza, renk: '#ef4444' },
+    { ad: 'Diğer', adet: diger, renk: '#8b92a8' }
+  ].filter(v => v.adet > 0);
+
+  if (grafikler['r-pp-pasta']) { try { grafikler['r-pp-pasta'].destroy(); } catch(e){} }
+  if (!veriler.length) {
+    document.getElementById('r-pp-legend').innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center">Veri yok</div>';
+    return;
+  }
+  grafikOlustur('r-pp-pasta', 'pie', {
+    labels: veriler.map(v => v.ad),
+    datasets: [{
+      data: veriler.map(v => v.adet),
+      backgroundColor: veriler.map(v => v.renk),
+      borderColor: '#1a1d27',
+      borderWidth: 2
+    }]
+  }, {
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} (%${Math.round(ctx.raw/toplam*100)})` } }
+    }
+  });
+
+  document.getElementById('r-pp-legend').innerHTML = veriler.map(v => `
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:12px;height:12px;border-radius:3px;background:${v.renk};flex-shrink:0"></div>
+      <div style="flex:1;font-size:14px">${v.ad}</div>
+      <div style="font-size:16px;font-weight:800">${v.adet}</div>
+      <div style="font-size:12px;color:var(--muted);width:42px;text-align:right">%${Math.round(v.adet/toplam*100)}</div>
+    </div>`).join('');
+}
+
+// ── RAPOR 1: ARIZA TÜRLERİ DAĞILIMI (yatay bar + tablo) ──
 function raporTurDagilim(emirler) {
+  const arizalar = emirler.filter(e => e.tur === 'C');
   const sayac = {};
   const sureToplam = {};
-  emirler.forEach(e => {
+  arizalar.forEach(e => {
     const tip = e.problem || e.yapilan_islem || 'Belirtilmemiş';
     sayac[tip] = (sayac[tip] || 0) + 1;
     sureToplam[tip] = (sureToplam[tip] || 0) + sureHesapla(e);
   });
 
   const siralı = Object.entries(sayac).sort((a,b) => b[1]-a[1]);
-  const maks = siralı[0]?.[1] || 1;
   document.getElementById('r-tur-sayac').textContent = siralı.length + ' tür';
 
-  // Problem dropdown'ı doldur
+  // Problem dropdown'ı doldur (RAPOR 3 filtresi için)
   const dd = document.getElementById('r-kalip-problem-filtre');
   if (dd) {
     dd.innerHTML = '<option value="">Tümü</option>' +
       siralı.map(([tip]) => `<option value="${tip}">${tip}</option>`).join('');
   }
 
-  document.getElementById('r-tur-grid').innerHTML = siralı.map(([tip, adet]) => {
-    const pct = Math.round(adet / (emisler_toplam||emirler.length) * 100);
+  if (grafikler['r-tur-bar']) { try { grafikler['r-tur-bar'].destroy(); } catch(e){} }
+
+  if (!siralı.length) {
+    document.getElementById('r-tur-tbody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1.5rem">Veri yok</td></tr>';
+    return;
+  }
+
+  const gosterilecek = siralı.slice(0, 12);
+  const yukseklik = Math.max(180, gosterilecek.length * 32);
+  document.getElementById('r-tur-bar').height = yukseklik;
+
+  grafikOlustur('r-tur-bar', 'bar', {
+    labels: gosterilecek.map(([tip]) => tip.length > 28 ? tip.slice(0,28)+'…' : tip),
+    datasets: [{
+      label: 'Adet',
+      data: gosterilecek.map(([,adet]) => adet),
+      backgroundColor: 'rgba(239,68,68,0.75)',
+      borderRadius: 4
+    }]
+  }, {
+    indexAxis: 'y',
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => {
+        const [tip] = gosterilecek[ctx.dataIndex];
+        const ort = sureToplam[tip] ? sureFmt(Math.round(sureToplam[tip]/sayac[tip])) : '—';
+        return ` ${ctx.raw} adet · Ort. süre: ${ort}`;
+      } } }
+    }
+  });
+
+  document.getElementById('r-tur-tbody').innerHTML = siralı.map(([tip, adet]) => {
     const ort = sureToplam[tip] ? sureFmt(Math.round(sureToplam[tip] / adet)) : '—';
-    return `<div style="background:var(--bg);border:1px solid var(--border2);border-radius:10px;padding:.875rem">
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text)">${tip}</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
-          <div style="height:100%;width:${Math.round(adet/maks*100)}%;background:var(--red);border-radius:3px"></div>
-        </div>
-        <span style="font-size:18px;font-weight:800;color:var(--red)">${adet}</span>
-      </div>
-      <div style="font-size:11px;color:var(--muted)">Ort. süre: ${ort}</div>
-    </div>`;
+    return `<tr>
+      <td style="font-size:13px">${tip}</td>
+      <td style="font-weight:700;color:var(--red)">${adet}</td>
+      <td style="font-size:13px">${sureFmt(sureToplam[tip])}</td>
+      <td style="font-size:13px">${ort}</td>
+    </tr>`;
   }).join('');
 
   window._raporSiralıTurlar = siralı.map(([tip])=>tip);
-  window._emisler_toplam = emirler.length;
 }
-let emisler_toplam = 0;
 
 // ── RAPOR 2: SÜREYE GÖRE ARIZALAR ──
 function raporSureListe() {
@@ -4341,6 +4512,171 @@ function raporKalipListe() {
       </div>
     </div>`;
   }).join('');
+}
+
+// ── RAPOR 4: KALIP BAZLI TOPLAM SÜRE TABLOSU ──
+function raporKalipSureTablo() {
+  const esik = parseInt(document.getElementById('r-kalip-sure-esik')?.value || '100');
+  const emirler = (_raporVerisi || []).filter(e => e.tur === 'C');
+
+  const kalipSayac = {}, kalipSure = {};
+  emirler.forEach(e => {
+    const kid = e.kalip_id;
+    if (!kid) return;
+    const sure = sureHesapla(e);
+    kalipSayac[kid] = (kalipSayac[kid] || 0) + 1;
+    kalipSure[kid] = (kalipSure[kid] || 0) + sure;
+  });
+
+  let sirali = Object.entries(kalipSure).sort((a,b) => b[1]-a[1]);
+  if (esik > 0) sirali = sirali.filter(([,sure]) => sure >= esik);
+
+  const el = document.getElementById('r-kalip-sure-tbody');
+  if (!sirali.length) {
+    el.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1.5rem">Bu eşiği aşan kalıp yok</td></tr>';
+    return;
+  }
+
+  el.innerHTML = sirali.map(([kid, sure], i) => {
+    const kalip = tumKaliplar.find(k => k.id === kid);
+    const adet = kalipSayac[kid];
+    const ort = sureFmt(Math.round(sure / adet));
+    const surRenk = sure > 600 ? 'var(--red)' : sure > 200 ? 'var(--amber)' : 'var(--text)';
+    return `<tr>
+      <td style="color:var(--muted);font-size:12px">${i+1}</td>
+      <td>
+        <div style="font-weight:600;font-size:13px">${kalip ? kalip.kalip_kodu : kid}</div>
+        <div style="font-size:11px;color:var(--muted)">${kalip ? kalip.kalip_adi.slice(0,30) : ''}</div>
+      </td>
+      <td style="font-size:13px">${adet}</td>
+      <td><span style="font-weight:700;color:${surRenk}">${sureFmt(sure)}</span></td>
+      <td style="font-size:13px">${ort}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── RAPOR 5: OPERATÖR İŞÇİLİK SÜRELERİ ──
+async function raporOperatorSure(emirler) {
+  const ids = emirler.map(e => e.id).filter(Boolean);
+  const opDurum = {}; // operator_id -> {adet, sure}
+
+  const ekle = (opId, sure) => {
+    if (!opId) return;
+    if (!opDurum[opId]) opDurum[opId] = { adet: 0, sure: 0 };
+    opDurum[opId].adet++;
+    opDurum[opId].sure += sure;
+  };
+
+  let atamalar = [];
+  if (ids.length) {
+    try {
+      // Çok sayıda id varsa parçalara bölerek çek (URL uzunluğu için)
+      const parcalar = [];
+      for (let i = 0; i < ids.length; i += 150) parcalar.push(ids.slice(i, i+150));
+      const sonuclar = await Promise.all(parcalar.map(p => sbGet('is_emri_operatorler', `is_emri_id=in.(${p.join(',')})`)));
+      atamalar = sonuclar.flat().filter(a => a && a.is_emri_id);
+    } catch(e) { console.error('Operatör atamaları çekilemedi:', e); }
+  }
+
+  const emirMap = {};
+  emirler.forEach(e => emirMap[e.id] = e);
+
+  if (atamalar.length) {
+    atamalar.forEach(a => {
+      const e = emirMap[a.is_emri_id];
+      if (e) ekle(a.operator_id, sureHesapla(e));
+    });
+  } else {
+    // Atama kaydı yoksa iş emrini açan operatöre yaz
+    emirler.forEach(e => ekle(e.acik_eden_operator_id, sureHesapla(e)));
+  }
+
+  const sirali = Object.entries(opDurum).sort((a,b) => b[1].sure - a[1].sure);
+  document.getElementById('r-op-sayac').textContent = sirali.length + ' operatör';
+
+  if (grafikler['r-op-bar']) { try { grafikler['r-op-bar'].destroy(); } catch(e){} }
+
+  if (!sirali.length) {
+    document.getElementById('r-op-tbody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1.5rem">Veri yok</td></tr>';
+    return;
+  }
+
+  const gosterilecek = sirali.slice(0, 12);
+  const yukseklik = Math.max(180, gosterilecek.length * 32);
+  document.getElementById('r-op-bar').height = yukseklik;
+
+  grafikOlustur('r-op-bar', 'bar', {
+    labels: gosterilecek.map(([oid]) => {
+      const op = tumOperatorler.find(o => o.id === oid);
+      return op ? op.ad_soyad : '—';
+    }),
+    datasets: [{
+      label: 'Saat',
+      data: gosterilecek.map(([,d]) => +(d.sure/60).toFixed(1)),
+      backgroundColor: 'rgba(34,197,94,0.75)',
+      borderRadius: 4
+    }]
+  }, {
+    indexAxis: 'y',
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.raw} saat` } }
+    }
+  });
+
+  document.getElementById('r-op-tbody').innerHTML = sirali.map(([oid, d], i) => {
+    const op = tumOperatorler.find(o => o.id === oid);
+    return `<tr>
+      <td style="color:var(--muted);font-size:12px">${i+1}</td>
+      <td style="font-size:13px;font-weight:600">${op ? op.ad_soyad : '—'}</td>
+      <td style="font-size:13px">${d.adet}</td>
+      <td style="font-weight:700;color:var(--green)">${sureFmt(d.sure)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── RAPOR 6: KRONİK ARIZALAR / AKSİYON LİSTESİ (manuel, localStorage) ──
+function kronikListeYukle() {
+  return JSON.parse(localStorage.getItem('kronik_arizalar_listesi') || '[]');
+}
+
+function kronikListeCiz() {
+  const liste = kronikListeYukle().sort((a,b) => new Date(b.tarih) - new Date(a.tarih));
+  const el = document.getElementById('r-kronik-liste');
+  if (!liste.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Kayıtlı not yok</div>';
+    return;
+  }
+  el.innerHTML = liste.map((k, i) => {
+    const orijinalIndex = kronikListeYukle().findIndex(x => x.tarih === k.tarih && x.metin === k.metin);
+    return `<div style="background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:.75rem 1rem;display:flex;gap:10px;align-items:flex-start">
+      <div style="flex:1">
+        <div style="font-size:13px;line-height:1.5;white-space:pre-wrap">${k.metin}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">${new Date(k.tarih).toLocaleDateString('tr-TR')}</div>
+      </div>
+      <div class="no-print" style="cursor:pointer;color:var(--muted);font-size:16px" onclick="kronikSil(${orijinalIndex})" title="Sil">✕</div>
+    </div>`;
+  }).join('');
+}
+
+function kronikEkle() {
+  const ta = document.getElementById('r-kronik-yeni');
+  const metin = ta.value.trim();
+  if (!metin) return;
+  const liste = kronikListeYukle();
+  liste.push({ tarih: new Date().toISOString(), metin });
+  localStorage.setItem('kronik_arizalar_listesi', JSON.stringify(liste));
+  ta.value = '';
+  kronikListeCiz();
+}
+
+function kronikSil(index) {
+  const liste = kronikListeYukle();
+  if (index < 0 || index >= liste.length) return;
+  if (!confirm('Bu notu silmek istiyor musunuz?')) return;
+  liste.splice(index, 1);
+  localStorage.setItem('kronik_arizalar_listesi', JSON.stringify(liste));
+  kronikListeCiz();
 }
 
 // ── GRAFİKLER ──
