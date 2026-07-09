@@ -340,7 +340,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 .qr-cerceve{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:200px;border:3px solid var(--accent);border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,0.6);}
 .qr-mesaj{color:#fff;font-size:15px;margin-top:1.5rem;text-align:center;padding:0 2rem;opacity:.8;}
 .qr-kapat{margin-top:1.5rem;padding:12px 32px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:10px;color:#fff;font-size:15px;cursor:pointer;}
-.qr-basarili{color:var(--green);font-size:18px;font-weight:700;margin-top:1rem;}</style>
+.qr-basarili{color:var(--green);font-size:18px;font-weight:700;margin-top:1rem;}
+/* ── RAPOR HIZLI BUTON ── */
+.r-hizli-btn{padding:6px 14px;background:var(--card);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer;transition:all .15s}
+.r-hizli-btn:hover,.r-hizli-btn.aktif{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+</style>
 </head>
 <body>
 
@@ -1668,92 +1672,120 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
     <!-- RAPORLAR -->
     <div class="panel" id="panel-raporlar">
 
-      <!-- Dönem Seçimi -->
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:8px">
-          <label style="font-size:13px;color:var(--muted)">Başlangıç:</label>
-          <input type="date" id="rapor-bas" style="padding:7px 10px;background:var(--card);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
+      <!-- ── FİLTRE SATIRI ── -->
+      <div style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:1.25rem;display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end">
+        <!-- Hızlı dönem butonları -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <div class="r-hizli-btn" onclick="raporHizliDonem('bu-ay')">Bu Ay</div>
+          <div class="r-hizli-btn" onclick="raporHizliDonem('son-3')">Son 3 Ay</div>
+          <div class="r-hizli-btn" onclick="raporHizliDonem('bu-yil')">Bu Yıl</div>
+          <div class="r-hizli-btn" onclick="raporHizliDonem('tum')">Tümü</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <label style="font-size:13px;color:var(--muted)">Bitiş:</label>
-          <input type="date" id="rapor-bit" style="padding:7px 10px;background:var(--card);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
+        <div style="width:1px;background:var(--border);align-self:stretch"></div>
+        <!-- Manuel tarih -->
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:12px;color:var(--muted)">Başlangıç</label>
+          <input type="date" id="rapor-bas" style="padding:7px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
         </div>
-        <div style="padding:8px 20px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer" onclick="Promise.resolve(raporHesapla()).catch(e=>console.error(e))">📊 Hesapla</div>
-        <div style="padding:8px 16px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer" onclick="kpiHedefForm()">⚙️ KPI Hedefleri</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:12px;color:var(--muted)">Bitiş</label>
+          <input type="date" id="rapor-bit" style="padding:7px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
+        </div>
+        <div style="width:1px;background:var(--border);align-self:stretch"></div>
+        <!-- Operatör filtresi -->
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:12px;color:var(--muted)">Operatör</label>
+          <select id="rapor-operator" style="padding:7px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
+            <option value="">Tümü</option>
+          </select>
+        </div>
+        <!-- Tür filtresi -->
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:12px;color:var(--muted)">Tür</label>
+          <select id="rapor-tur-filtre" style="padding:7px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
+            <option value="">Tümü</option>
+            <option value="C">Arıza</option>
+            <option value="B">Planlı Bakım</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;margin-left:auto">
+          <div style="padding:8px 16px;background:var(--card);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer" onclick="kpiHedefForm()">⚙️ Hedefler</div>
+          <div style="padding:8px 22px;background:var(--accent);border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer" onclick="Promise.resolve(raporHesapla()).catch(e=>console.error(e))">📊 Hesapla</div>
+        </div>
       </div>
 
-      <!-- KPI Kartları -->
-      <div class="stat-grid" id="rapor-kpi-kartlar">
-        <div class="stat-card"><div class="s-lbl">Toplam İş Emri</div><div class="s-val" style="color:var(--accent)" id="r-toplam">—</div><div class="s-sub" id="r-toplam-sub">Dönem seçin</div></div>
+      <!-- ── KPI KARTLARI ── -->
+      <div class="stat-grid" style="margin-bottom:1.25rem" id="rapor-kpi-kartlar">
+        <div class="stat-card"><div class="s-lbl">Toplam İş Emri</div><div class="s-val" style="color:var(--accent)" id="r-toplam">—</div><div class="s-sub" id="r-toplam-sub">Filtre uygulayın</div></div>
         <div class="stat-card"><div class="s-lbl">Planlı Tamamlanma</div><div class="s-val" id="r-planli-oran">—</div><div class="s-sub" id="r-planli-sub">—</div></div>
         <div class="stat-card"><div class="s-lbl">MTTR</div><div class="s-val" id="r-mttr">—</div><div class="s-sub" id="r-mttr-sub">—</div></div>
         <div class="stat-card"><div class="s-lbl">Arıza Oranı</div><div class="s-val" id="r-ariza-oran">—</div><div class="s-sub" id="r-ariza-sub">—</div></div>
       </div>
 
-      <!-- Grafikler -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem" id="grafik-grid">
-        <div class="panel-card">
-          <div class="pc-header"><h3>📊 Aylık İş Emri Trendi</h3></div>
-          <div class="pc-body"><canvas id="grafik-trend" height="250"></canvas></div>
+      <!-- ── RAPOR 1: ARIZA TÜRLERİ DAĞILIMI ── -->
+      <div class="panel-card" style="margin-bottom:1rem">
+        <div class="pc-header">
+          <h3>🔴 Arıza Türlerine Göre Dağılım</h3>
+          <span class="badge badge-blue" id="r-tur-sayac"></span>
         </div>
-        <div class="panel-card">
-          <div class="pc-header"><h3>🥧 Arıza / Planlı Dağılımı</h3></div>
-          <div class="pc-body" style="display:flex;align-items:center;justify-content:center">
-            <canvas id="grafik-dagilim" height="250" style="max-width:300px"></canvas>
-          </div>
-        </div>
-        <div class="panel-card">
-          <div class="pc-header"><h3>🔧 Kalıp Bazlı İş Emri</h3></div>
-          <div class="pc-body"><canvas id="grafik-kalip" height="250"></canvas></div>
-        </div>
-        <div class="panel-card">
-          <div class="pc-header"><h3>👷 Operatör İş Yükü</h3></div>
-          <div class="pc-body"><canvas id="grafik-operator" height="250"></canvas></div>
+        <div id="r-tur-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;padding:1rem">
+          <div style="color:var(--muted);font-size:13px;text-align:center;grid-column:1/-1">Filtre uygulayın</div>
         </div>
       </div>
 
-      <!-- İş Emri Dağılımı -->
-      <div class="grid3" style="margin-bottom:1rem">
-        <div class="panel-card">
-          <div class="pc-header"><h3>İş Emri Listesi</h3><span class="badge badge-blue" id="r-liste-sayac">0 kayıt</span></div>
-          <div style="overflow-x:auto">
-            <table class="data-table">
-              <thead><tr><th>İş Emri No</th><th>Kalıp</th><th>Tür</th><th>İşlem</th><th>Süre</th><th>Durum</th></tr></thead>
-              <tbody id="rapor-tablo-body">
-                <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Dönem seçip Hesapla'ya basın</td></tr>
-              </tbody>
-            </table>
+      <!-- ── RAPOR 2: EN UZUN SÜREN ARIZALAR ── -->
+      <div class="panel-card" style="margin-bottom:1rem">
+        <div class="pc-header">
+          <h3>⏱ Süreye Göre Arızalar</h3>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;color:var(--muted)">Göster:</span>
+            <select id="r-sure-limit" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit" onchange="raporSureListe()">
+              <option value="10">İlk 10</option>
+              <option value="20">İlk 20</option>
+              <option value="50">İlk 50</option>
+              <option value="0">Tümü</option>
+            </select>
           </div>
         </div>
-        <div class="panel-card">
-          <div class="pc-header"><h3>Özet</h3></div>
-          <div class="pc-body" id="rapor-ozet">
-            <div style="color:var(--muted);font-size:13px;text-align:center">Dönem seçip hesaplayın</div>
-          </div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr><th>#</th><th>Kalıp</th><th>Problem</th><th>Yapılan İşlem</th><th>Operatör</th><th>Süre</th><th>Tarih</th></tr></thead>
+            <tbody id="r-sure-tbody">
+              <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">Filtre uygulayın</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <!-- KPI Hedef Formu (gizli) -->
+      <!-- ── RAPOR 3: KALIP BAZLI ARIZA LİSTESİ ── -->
+      <div class="panel-card" style="margin-bottom:1rem">
+        <div class="pc-header">
+          <h3>🔧 Kalıp Bazlı Arıza Sıralaması</h3>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;color:var(--muted)">Problem tipi:</span>
+            <select id="r-kalip-problem-filtre" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit" onchange="raporKalipListe()">
+              <option value="">Tümü</option>
+            </select>
+          </div>
+        </div>
+        <div id="r-kalip-liste" style="display:flex;flex-direction:column;gap:0">
+          <div style="color:var(--muted);font-size:13px;text-align:center;padding:2rem">Filtre uygulayın</div>
+        </div>
+      </div>
+
+      <!-- ── KPI HEDEF FORMU ── -->
       <div id="kpi-hedef-form" style="display:none">
-        <div class="panel-card">
-          <div class="pc-header"><h3>KPI Hedefleri</h3></div>
+        <div class="panel-card" style="margin-bottom:1rem">
+          <div class="pc-header"><h3>⚙️ KPI Hedefleri</h3></div>
           <div class="pc-body" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
-            <div class="fg">
-              <label>Planlı Tamamlanma Hedefi (%)</label>
-              <input type="number" id="h-planli" placeholder="90" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-            </div>
-            <div class="fg">
-              <label>MTTR Hedefi (saat)</label>
-              <input type="number" id="h-mttr" placeholder="2" step="0.1" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-            </div>
-            <div class="fg">
-              <label>Arıza Oranı Hedefi (%)</label>
-              <input type="number" id="h-ariza" placeholder="40" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-            </div>
-            <div class="fg">
-              <label>Aylık Maliyet Hedefi (₺)</label>
-              <input type="number" id="h-maliyet" placeholder="100000" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit">
-            </div>
+            <div class="fg"><label>Planlı Tamamlanma (%)</label>
+              <input type="number" id="h-planli" placeholder="90" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit"></div>
+            <div class="fg"><label>MTTR Hedefi (saat)</label>
+              <input type="number" id="h-mttr" placeholder="2" step="0.1" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit"></div>
+            <div class="fg"><label>Arıza Oranı Hedefi (%)</label>
+              <input type="number" id="h-ariza" placeholder="40" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit"></div>
+            <div class="fg"><label>Aylık Maliyet Hedefi (₺)</label>
+              <input type="number" id="h-maliyet" placeholder="100000" style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit"></div>
             <div style="grid-column:span 2;display:flex;gap:8px">
               <div style="flex:1;padding:10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;text-align:center;font-size:13px" onclick="document.getElementById('kpi-hedef-form').style.display='none'">İptal</div>
               <div style="flex:2;padding:10px;background:var(--accent);border:none;border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:600" onclick="kpiHedefKaydet()">Kaydet</div>
@@ -3593,7 +3625,7 @@ function panelAc(id, btn){
   else if(id === 'kaliplar') renderKaliplar();
   else if(id === 'planli') { renderPlanliTablo(); clGecmisYukleVeRender(); }
   else if(id === 'malzemeler') renderMalzemePanel();
-  else if(id === 'raporlar') raporPanelAc();
+  else if(id === 'raporlar') Promise.resolve(raporPanelAc()).catch(e=>console.error(e));
   else if(id === 'is-emirleri') renderIsEmirleriTablosu();
   else if(id === 'kalip-matrisi') Promise.resolve(kmRenderPanel()).catch(e=>console.error(e));
   else if(id === 'gunluk-uretim') Promise.resolve(guRenderPanel()).catch(e=>console.error(e));
@@ -4035,6 +4067,62 @@ async function yoneticiIsEmriKapat() {
 }
 
 // ── KPI & RAPORLAR ──
+let _raporVerisi = []; // son çekilen veri
+
+function raporHizliDonem(tip) {
+  document.querySelectorAll('.r-hizli-btn').forEach(b => b.classList.remove('aktif'));
+  event.target.classList.add('aktif');
+  const bugun = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  let bas, bit = fmt(bugun);
+  if (tip === 'bu-ay') {
+    bas = fmt(new Date(bugun.getFullYear(), bugun.getMonth(), 1));
+  } else if (tip === 'son-3') {
+    bas = fmt(new Date(bugun.getFullYear(), bugun.getMonth()-2, 1));
+  } else if (tip === 'bu-yil') {
+    bas = `${bugun.getFullYear()}-01-01`;
+  } else {
+    bas = '2024-01-01';
+  }
+  document.getElementById('rapor-bas').value = bas;
+  document.getElementById('rapor-bit').value = bit;
+  Promise.resolve(raporHesapla()).catch(e => console.error(e));
+}
+
+async function raporPanelAc() {
+  // Operatör dropdown doldur
+  const sel = document.getElementById('rapor-operator');
+  if (sel && tumOperatorler.length) {
+    sel.innerHTML = '<option value="">Tümü</option>' +
+      tumOperatorler.map(o => `<option value="${o.id}">${o.ad_soyad}</option>`).join('');
+  }
+  // Bu ayı varsayılan yap
+  const bugun = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const bas = `${bugun.getFullYear()}-${pad(bugun.getMonth()+1)}-01`;
+  const bit = `${bugun.getFullYear()}-${pad(bugun.getMonth()+1)}-${pad(bugun.getDate())}`;
+  if (!document.getElementById('rapor-bas').value) {
+    document.getElementById('rapor-bas').value = bas;
+    document.getElementById('rapor-bit').value = bit;
+  }
+  await raporHesapla();
+}
+
+function sureFmt(dak) {
+  if (!dak || dak <= 0) return '—';
+  return Math.floor(dak/60) + 'sa ' + (dak%60) + 'dk';
+}
+
+function sureHesapla(e) {
+  if (e.toplam_sure_dak > 0) return e.toplam_sure_dak;
+  if (e.baslangic_zaman && e.bitis_zaman) {
+    const f = Math.round((new Date(e.bitis_zaman) - new Date(e.baslangic_zaman)) / 60000);
+    return f > 0 ? f : 0;
+  }
+  return 0;
+}
+
 function kpiHedefYukle() {
   const h = JSON.parse(localStorage.getItem('kpi_hedefler') || '{}');
   if (document.getElementById('h-planli')) document.getElementById('h-planli').value = h.planli || 90;
@@ -4067,99 +4155,192 @@ async function raporHesapla() {
   const bit = document.getElementById('rapor-bit').value;
   if (!bas || !bit) { alert('Lütfen başlangıç ve bitiş tarihi seçin.'); return; }
 
+  const opFiltre = document.getElementById('rapor-operator')?.value || '';
+  const turFiltre = document.getElementById('rapor-tur-filtre')?.value || '';
+
   const h = JSON.parse(localStorage.getItem('kpi_hedefler') || '{}');
   const hedefPlanli = h.planli || 90;
   const hedefMttr = h.mttr || 2;
   const hedefAriza = h.ariza || 40;
 
   // Supabase'den veri çek
-  const emirler = await sbGet('is_emirleri',
-    `created_at=gte.${bas}T00:00:00&created_at=lte.${bit}T23:59:59&order=created_at.desc`);
+  let filtre = `created_at=gte.${bas}T00:00:00&created_at=lte.${bit}T23:59:59&order=created_at.desc`;
+  if (turFiltre) filtre += `&tur=eq.${turFiltre}`;
+  let emirler = await sbGet('is_emirleri', filtre) || [];
 
-  if (!emirler || !emirler.length) {
-    document.getElementById('r-toplam').textContent = '0';
-    document.getElementById('r-toplam-sub').textContent = 'Bu dönemde iş emri yok';
-    ['r-planli-oran','r-mttr','r-ariza-oran'].forEach(id => {
+  // Operatör filtresi (client side)
+  if (opFiltre) {
+    const opEmirIds = await sbGet('is_emri_operatorler', `operator_id=eq.${opFiltre}`);
+    const izinliIds = new Set((opEmirIds||[]).map(x=>x.is_emri_id));
+    emirler = emirler.filter(e => e.acik_eden_operator_id === opFiltre || izinliIds.has(e.id));
+  }
+
+  _raporVerisi = emirler;
+
+  if (!emirler.length) {
+    ['r-toplam','r-planli-oran','r-mttr','r-ariza-oran'].forEach(id => {
       document.getElementById(id).textContent = '—';
     });
-    document.getElementById('rapor-tablo-body').innerHTML =
-      '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Bu dönemde iş emri yok</td></tr>';
+    document.getElementById('r-toplam-sub').textContent = 'Bu dönemde iş emri yok';
+    document.getElementById('r-tur-grid').innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;grid-column:1/-1">Veri yok</div>';
+    document.getElementById('r-sure-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">Veri yok</td></tr>';
+    document.getElementById('r-kalip-liste').innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1.5rem">Veri yok</div>';
     return;
   }
 
   const toplam = emirler.length;
-  const planlilar = emirler.filter(e => e.tur === 'P');
+  const planlilar = emirler.filter(e => e.tur === 'B');
   const arizalar = emirler.filter(e => e.tur === 'C');
   const kapalilar = emirler.filter(e => e.acik_kapali === 'Kapali');
   const planliKapali = planlilar.filter(e => e.acik_kapali === 'Kapali');
 
-  // MTTR hesapla
-  const arizaKapali = arizalar.filter(e => e.toplam_sure_dak > 0);
+  // MTTR
+  const arizaKapali = arizalar.filter(e => sureHesapla(e) > 0);
   const mttr = arizaKapali.length
-    ? (arizaKapali.reduce((s, e) => s + e.toplam_sure_dak, 0) / arizaKapali.length / 60)
-    : 0;
+    ? arizaKapali.reduce((s,e) => s + sureHesapla(e), 0) / arizaKapali.length / 60 : 0;
 
-  // Oranlar
-  const planliOran = planlilar.length
-    ? Math.round(planliKapali.length / planlilar.length * 100) : 0;
+  const planliOran = planlilar.length ? Math.round(planliKapali.length / planlilar.length * 100) : 0;
   const arizaOran = toplam ? Math.round(arizalar.length / toplam * 100) : 0;
 
-  // KPI kartlarını güncelle
+  // KPI kartları
   document.getElementById('r-toplam').textContent = toplam;
   document.getElementById('r-toplam-sub').textContent = `${planlilar.length} Planlı · ${arizalar.length} Arıza`;
 
-  const planliRenk = planliOran >= hedefPlanli ? 'var(--green)' : 'var(--red)';
-  document.getElementById('r-planli-oran').textContent = '%' + planliOran;
-  document.getElementById('r-planli-oran').style.color = planliRenk;
+  const pio = document.getElementById('r-planli-oran');
+  pio.textContent = '%' + planliOran;
+  pio.style.color = planliOran >= hedefPlanli ? 'var(--green)' : 'var(--red)';
   document.getElementById('r-planli-sub').textContent = `Hedef: %${hedefPlanli} · ${planliOran >= hedefPlanli ? '✓' : '✗'}`;
 
-  const mttrRenk = mttr <= hedefMttr ? 'var(--green)' : 'var(--amber)';
-  document.getElementById('r-mttr').textContent = mttr.toFixed(1) + ' sa';
-  document.getElementById('r-mttr').style.color = mttrRenk;
+  const mttrEl = document.getElementById('r-mttr');
+  mttrEl.textContent = mttr.toFixed(1) + ' sa';
+  mttrEl.style.color = mttr <= hedefMttr ? 'var(--green)' : 'var(--amber)';
   document.getElementById('r-mttr-sub').textContent = `Hedef: ${hedefMttr} sa · ${mttr <= hedefMttr ? '✓' : '✗'}`;
 
-  const arizaRenk = arizaOran <= hedefAriza ? 'var(--green)' : 'var(--red)';
-  document.getElementById('r-ariza-oran').textContent = '%' + arizaOran;
-  document.getElementById('r-ariza-oran').style.color = arizaRenk;
+  const aOran = document.getElementById('r-ariza-oran');
+  aOran.textContent = '%' + arizaOran;
+  aOran.style.color = arizaOran <= hedefAriza ? 'var(--green)' : 'var(--red)';
   document.getElementById('r-ariza-sub').textContent = `Hedef: %${hedefAriza} · ${arizaOran <= hedefAriza ? '✓' : '✗'}`;
 
-  document.getElementById('r-liste-sayac').textContent = toplam + ' kayıt';
+  // 3 raporu çiz
+  raporTurDagilim(emirler);
+  raporSureListe();
+  raporKalipListe();
+}
 
-  // Grafikleri çiz
-  grafiklerCiz(emirler);
+// ── RAPOR 1: ARIZA TÜRLERİ DAĞILIMI ──
+function raporTurDagilim(emirler) {
+  const sayac = {};
+  const sureToplam = {};
+  emirler.forEach(e => {
+    const tip = e.problem || e.yapilan_islem || 'Belirtilmemiş';
+    sayac[tip] = (sayac[tip] || 0) + 1;
+    sureToplam[tip] = (sureToplam[tip] || 0) + sureHesapla(e);
+  });
 
-  // Tablo
-  const tbody = document.getElementById('rapor-tablo-body');
-  tbody.innerHTML = emirler.map(e => {
-    const kalip = tumKaliplar.find(k => k.id === e.kalip_id);
-    const _sd2 = (e.toplam_sure_dak > 0) ? e.toplam_sure_dak
-      : (e.baslangic_zaman && e.bitis_zaman) ? Math.round((new Date(e.bitis_zaman)-new Date(e.baslangic_zaman))/60000) : 0;
-    const sure = _sd2 > 0
-      ? Math.floor(_sd2/60) + 'sa ' + (_sd2%60) + 'dk'
-      : e.acik_kapali === 'Acik' ? 'Devam ediyor' : '—';
-    const durum = e.acik_kapali === 'Acik'
-      ? '<span class="badge badge-green">● Aktif</span>'
-      : '<span class="badge badge-purple">✓ Kapandı</span>';
-    return `<tr>
-      <td class="mono">${e.is_emri_no}</td>
-      <td>${kalip ? kalip.kalip_kodu : '—'}</td>
-      <td><span class="badge ${e.tur==='C'?'badge-red':'badge-blue'}">${e.tur==='C'?'Arıza':'Planlı'}</span></td>
-      <td>${e.yapilan_islem || '—'}</td>
-      <td>${sure}</td>
-      <td>${durum}</td>
-    </tr>`;
+  const siralı = Object.entries(sayac).sort((a,b) => b[1]-a[1]);
+  const maks = siralı[0]?.[1] || 1;
+  document.getElementById('r-tur-sayac').textContent = siralı.length + ' tür';
+
+  // Problem dropdown'ı doldur
+  const dd = document.getElementById('r-kalip-problem-filtre');
+  if (dd) {
+    dd.innerHTML = '<option value="">Tümü</option>' +
+      siralı.map(([tip]) => `<option value="${tip}">${tip}</option>`).join('');
+  }
+
+  document.getElementById('r-tur-grid').innerHTML = siralı.map(([tip, adet]) => {
+    const pct = Math.round(adet / (emisler_toplam||emirler.length) * 100);
+    const ort = sureToplam[tip] ? sureFmt(Math.round(sureToplam[tip] / adet)) : '—';
+    return `<div style="background:var(--bg);border:1px solid var(--border2);border-radius:10px;padding:.875rem">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text)">${tip}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${Math.round(adet/maks*100)}%;background:var(--red);border-radius:3px"></div>
+        </div>
+        <span style="font-size:18px;font-weight:800;color:var(--red)">${adet}</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted)">Ort. süre: ${ort}</div>
+    </div>`;
   }).join('');
 
-  // Özet
-  document.getElementById('rapor-ozet').innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted);font-size:13px">Toplam İş Emri</span><span style="font-weight:700">${toplam}</span></div>
-      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted);font-size:13px">Planlı</span><span style="font-weight:700;color:var(--accent)">${planlilar.length}</span></div>
-      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted);font-size:13px">Arıza</span><span style="font-weight:700;color:var(--red)">${arizalar.length}</span></div>
-      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted);font-size:13px">Tamamlanan</span><span style="font-weight:700;color:var(--green)">${kapalilar.length}</span></div>
-      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted);font-size:13px">Devam Eden</span><span style="font-weight:700;color:var(--amber)">${toplam - kapalilar.length}</span></div>
-      <div style="border-top:1px solid var(--border);padding-top:8px;display:flex;justify-content:space-between"><span style="color:var(--muted);font-size:13px">MTTR</span><span style="font-weight:700">${mttr.toFixed(1)} sa</span></div>
+  window._raporSiralıTurlar = siralı.map(([tip])=>tip);
+  window._emisler_toplam = emirler.length;
+}
+let emisler_toplam = 0;
+
+// ── RAPOR 2: SÜREYE GÖRE ARIZALAR ──
+function raporSureListe() {
+  const limit = parseInt(document.getElementById('r-sure-limit')?.value || '10');
+  const emirler = (_raporVerisi || []).filter(e => e.tur === 'C' && e.acik_kapali === 'Kapali');
+  const sirali = [...emirler].sort((a,b) => sureHesapla(b) - sureHesapla(a));
+  const liste = limit > 0 ? sirali.slice(0, limit) : sirali;
+
+  document.getElementById('r-sure-tbody').innerHTML = liste.length ? liste.map((e,i) => {
+    const kalip = tumKaliplar.find(k => k.id === e.kalip_id);
+    const op = tumOperatorler.find(o => o.id === e.acik_eden_operator_id);
+    const sure = sureHesapla(e);
+    const tarih = e.created_at ? new Date(e.created_at).toLocaleDateString('tr-TR') : '—';
+    const surRenk = sure > 120 ? 'var(--red)' : sure > 60 ? 'var(--amber)' : 'var(--green)';
+    return `<tr>
+      <td style="color:var(--muted);font-size:12px">${i+1}</td>
+      <td>
+        <div style="font-weight:600;font-size:13px">${kalip ? kalip.kalip_kodu : '—'}</div>
+        <div style="font-size:11px;color:var(--muted)">${kalip ? kalip.kalip_adi.slice(0,30) : ''}</div>
+      </td>
+      <td style="font-size:13px">${e.problem || '—'}</td>
+      <td style="font-size:13px">${e.yapilan_islem || '—'}</td>
+      <td style="font-size:13px">${op ? op.ad_soyad : '—'}</td>
+      <td><span style="font-weight:700;color:${surRenk}">${sureFmt(sure)}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${tarih}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">Veri yok</td></tr>';
+}
+
+// ── RAPOR 3: KALIP BAZLI ARIZA LİSTESİ ──
+function raporKalipListe() {
+  const problemFiltre = document.getElementById('r-kalip-problem-filtre')?.value || '';
+  let emirler = (_raporVerisi || []).filter(e => e.tur === 'C');
+  if (problemFiltre) emirler = emirler.filter(e => (e.problem || e.yapilan_islem) === problemFiltre);
+
+  const kalipSayac = {};
+  const kalipSure = {};
+  emirler.forEach(e => {
+    const kid = e.kalip_id;
+    if (!kid) return;
+    kalipSayac[kid] = (kalipSayac[kid] || 0) + 1;
+    kalipSure[kid] = (kalipSure[kid] || 0) + sureHesapla(e);
+  });
+
+  const sirali = Object.entries(kalipSayac).sort((a,b) => b[1]-a[1]);
+  const maks = sirali[0]?.[1] || 1;
+
+  const el = document.getElementById('r-kalip-liste');
+  if (!sirali.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1.5rem">Veri yok</div>';
+    return;
+  }
+
+  el.innerHTML = sirali.map(([kid, adet], i) => {
+    const kalip = tumKaliplar.find(k => k.id === kid);
+    const pct = Math.round(adet / maks * 100);
+    const ortSure = kalipSure[kid] ? sureFmt(Math.round(kalipSure[kid]/adet)) : '—';
+    const renkler = ['var(--red)','var(--amber)','var(--accent)'];
+    const renk = i < 3 ? renkler[i] : 'var(--muted)';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:.75rem 1rem;border-bottom:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:700;color:${renk};width:24px;text-align:center">${i+1}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600">${kalip ? kalip.kalip_kodu : kid}</div>
+        <div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${kalip ? kalip.kalip_adi : ''}</div>
+        <div style="margin-top:5px;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${renk};border-radius:3px;transition:width .3s"></div>
+        </div>
+      </div>
+      <div style="text-align:right;white-space:nowrap">
+        <div style="font-size:18px;font-weight:800;color:${renk}">${adet}</div>
+        <div style="font-size:11px;color:var(--muted)">ort. ${ortSure}</div>
+      </div>
     </div>`;
+  }).join('');
 }
 
 // ── GRAFİKLER ──
@@ -4282,16 +4463,6 @@ function grafiklerCiz(emirler) {
   }, { plugins: { legend: { display: false } } });
 }
 
-function raporPanelAc() {
-  // Varsayılan dönem: bu ay
-  const simdi = new Date();
-  const ayBas = new Date(simdi.getFullYear(), simdi.getMonth(), 1);
-  const ayBit = new Date(simdi.getFullYear(), simdi.getMonth()+1, 0);
-  document.getElementById('rapor-bas').value = ayBas.toISOString().split('T')[0];
-  document.getElementById('rapor-bit').value = ayBit.toISOString().split('T')[0];
-  kpiHedefYukle();
-  Promise.resolve(raporHesapla()).catch(e => console.warn(e));
-}
 
 // ── KALIP YÖNETİMİ ──
 let duzenleKalipId = null;
