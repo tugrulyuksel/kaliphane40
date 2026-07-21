@@ -7366,10 +7366,17 @@ async function kalipKimlikAc(kalipId) {
     // Malzeme adlarına göre topla
     const malzemeOzet = {};
     buKalipMalzemeler.forEach(m => {
-      const malzeme = window._tumMalzeme ? window._tumMalzeme.find(x => x.id === m.malzeme_id) : null;
-      const ad = malzeme ? malzeme.malzeme_adi : m.malzeme_id;
-      if (!malzemeOzet[ad]) malzemeOzet[ad] = { adet: 0, birim: malzeme?.birim || 'adet' };
-      malzemeOzet[ad].adet += parseInt(m.adet) || 1;
+      let ad, birim;
+      if (m.malzeme_serbest) {
+        ad = m.malzeme_serbest;
+        birim = 'adet';
+      } else {
+        const malzeme = window._tumMalzeme ? window._tumMalzeme.find(x => x.id === m.malzeme_id) : null;
+        ad = malzeme ? malzeme.malzeme_adi : 'Bilinmeyen malzeme';
+        birim = malzeme?.birim || 'adet';
+      }
+      if (!malzemeOzet[ad]) malzemeOzet[ad] = { adet: 0, birim };
+      malzemeOzet[ad].adet += parseFloat(m.kullanilan_miktar) || 1;
     });
 
     const malzemeList = Object.entries(malzemeOzet).sort((a,b) => b[1].adet - a[1].adet);
