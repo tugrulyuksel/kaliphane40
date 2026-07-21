@@ -5256,6 +5256,9 @@ async function renderKaliplar() {
       });
     } catch(e) {}
 
+    // Eski cihaza özel (localStorage) sık malzeme kayıtlarını Supabase'e taşı — tek seferlik
+    await sikMalzemeEskiVeriTasi();
+
     if (!kaliplar || kaliplar.length === 0) {
       tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">Kayıt yok</td></tr>';
       return;
@@ -5331,7 +5334,7 @@ function kalipDuzenle(kalipId) {
   document.getElementById('kf-son-bakim').value = k.son_bakim_tarihi || '';
   document.getElementById('kf-notlar').value = k.notlar || '';
   // Sık malzemeleri yükle
-  kfMalzemeleriYukle(kalipId);
+  kfMalzemeleriYukle(k);
   document.getElementById('kalip-form-kart').style.display = 'block';
   document.getElementById('kalip-form-kart').scrollIntoView({behavior:'smooth'});
 }
@@ -5356,7 +5359,8 @@ async function kalipKaydet() {
   const veri = {
     kalip_kodu: kodu, kalip_adi: adi, kalip_tipi: tipi || null,
     bakim_periyodu_gun: periyot, toplam_omur_baski: omur,
-    son_bakim_tarihi: sonBakim, notlar: notlar, aktif: true
+    son_bakim_tarihi: sonBakim, notlar: notlar, aktif: true,
+    sik_malzemeler: kfSeciliMalzemeler
   };
 
   let kalipId = duzenleKalipId;
@@ -5367,9 +5371,6 @@ async function kalipKaydet() {
     if (!yeni || !yeni[0]) { alert('Eklenemedi. Kod zaten kullanılıyor olabilir.'); return; }
     kalipId = yeni[0].id;
   }
-
-  // Sık kullanılan malzemeleri kaydet
-  if (kalipId) kfMalzemeleriKaydet(kalipId);
 
   kalipFormIptal();
   await renderKaliplar();
@@ -6565,29 +6566,41 @@ function kfSeciliRender() {
   ).join('');
 }
 
-// Kalıp formuna sık malzemeleri yükle (düzenleme modunda)
-function kfMalzemeleriYukle(kalipId) {
-  kfSeciliMalzemeler = [];
+// Eski localStorage tabanlı sık-malzeme kayıtlarını Supabase'e taşı (tek seferlik, cihaz başına)
+async function sikMalzemeEskiVeriTasi() {
+  if (localStorage.getItem('sik_malzeme_tasindi') === '1') return;
   try {
-    const kayit = JSON.parse(localStorage.getItem('kalip_sik_malzeme_' + kalipId) || '[]');
-    kfSeciliMalzemeler = kayit;
-    kfSeciliRender();
-  } catch(e) {}
+    for (const kalip of tumKaliplar) {
+      const eskiVeri = localStorage.getItem('kalip_sik_malzeme_' + kalip.id);
+      if (!eskiVeri) continue;
+      const parsed = JSON.parse(eskiVeri);
+      if (!Array.isArray(parsed) || !parsed.length) continue;
+      // Supabase'de zaten kayıt varsa üzerine yazma, sadece boşsa taşı
+      if (Array.isArray(kalip.sik_malzemeler) && kalip.sik_malzemeler.length) continue;
+      await sbPatch('kaliplar', kalip.id, { sik_malzemeler: parsed });
+      kalip.sik_malzemeler = parsed;
+    }
+    localStorage.setItem('sik_malzeme_tasindi', '1');
+  } catch(e) { console.warn('Sık malzeme taşıma hatası:', e); }
 }
 
-// Kalıp kaydedilince sık malzemeleri kaydet
-function kfMalzemeleriKaydet(kalipId) {
-  localStorage.setItem('kalip_sik_malzeme_' + kalipId, JSON.stringify(kfSeciliMalzemeler));
+// Kalıp formuna sık malzemeleri yükle (düzenleme modunda) — Supabase'deki kaliplar.sik_malzemeler alanından
+function kfMalzemeleriYukle(kalip) {
+  kfSeciliMalzemeler = Array.isArray(kalip?.sik_malzemeler) ? kalip.sik_malzemeler : [];
+  kfSeciliRender();
 }
 
-// Kapatma ekranında hızlı malzeme bölümünü doldur
+// (kfMalzemeleriKaydet kaldırıldı — artık kalipKaydet() içinde sik_malzemeler alanıyla birlikte tek istekte kaydediliyor)
+
+// Kapatma ekranında hızlı malzeme bölümünü doldur — Supabase'deki kaliplar.sik_malzemeler alanından
 async function hizliMalzemeYukle(kalipId) {
   const bolum = document.getElementById('hizli-malzeme-bolum');
   const grid = document.getElementById('hizli-malzeme-grid');
   if (!bolum || !grid) return;
 
   try {
-    const kayit = JSON.parse(localStorage.getItem('kalip_sik_malzeme_' + kalipId) || '[]');
+    const kalip = tumKaliplar.find(k => k.id === kalipId);
+    const kayit = Array.isArray(kalip?.sik_malzemeler) ? kalip.sik_malzemeler : [];
     if (!kayit.length) { bolum.style.display = 'none'; return; }
 
     bolum.style.display = 'block';
