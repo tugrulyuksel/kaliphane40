@@ -2067,6 +2067,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         <div id="kkart-bakimlar" style="max-height:200px;overflow-y:auto"></div>
       </div>
 
+      <!-- Sık Kullanılan Malzemeler — Stok Durumu -->
+      <div style="background:var(--card2);border:1px solid var(--border2);border-radius:10px;overflow:hidden">
+        <div style="padding:.75rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+          <span style="font-size:14px;font-weight:700">⚡ Sık Kullanılan Malzemeler — Stok Durumu</span>
+        </div>
+        <div id="kkart-sik-malzeme-stok" style="max-height:200px;overflow-y:auto"></div>
+      </div>
+
       <!-- Kullanılan Malzemeler -->
       <div style="background:var(--card2);border:1px solid var(--border2);border-radius:10px;overflow:hidden">
         <div style="padding:.75rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
@@ -7275,7 +7283,7 @@ async function kalipKimlikAc(kalipId) {
   document.getElementById('kkart-toplam-baski').textContent = (kalip.toplam_baski || 0).toLocaleString('tr-TR');
 
   // Yükleniyor göster
-  ['kkart-arizalar','kkart-bakimlar','kkart-malzemeler'].forEach(id => {
+  ['kkart-arizalar','kkart-bakimlar','kkart-malzemeler','kkart-sik-malzeme-stok'].forEach(id => {
     document.getElementById(id).innerHTML = '<div style="padding:1rem;text-align:center;color:var(--muted);font-size:13px">Yükleniyor...</div>';
   });
   document.getElementById('kkart-aktif-ariza').style.display = 'none';
@@ -7353,15 +7361,32 @@ async function kalipKimlikAc(kalipId) {
       }).join('');
     }
 
+    // Malzeme listesini güncel çek (stok miktarları değişmiş olabilir)
+    try { window._tumMalzeme = await sbGet('malzemeler', 'aktif=eq.true&order=malzeme_adi') || []; }
+    catch(e) { window._tumMalzeme = window._tumMalzeme || []; }
+
+    // Sık Kullanılan Malzemeler — Stok Durumu (kalıba tanımlı favori malzemeler, güncel stok)
+    const sikEl = document.getElementById('kkart-sik-malzeme-stok');
+    const sikListe = Array.isArray(kalip.sik_malzemeler) ? kalip.sik_malzemeler : [];
+    if (!sikListe.length) {
+      sikEl.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--muted);font-size:13px">Bu kalıp için tanımlı sık kullanılan malzeme yok</div>';
+    } else {
+      sikEl.innerHTML = sikListe.map(m => {
+        const guncel = window._tumMalzeme.find(x => x.id === m.id);
+        const stok = guncel ? guncel.stok_miktari : m.stok;
+        const birim = guncel ? guncel.birim : m.birim;
+        const renk = stok <= 0 ? 'var(--red)' : stok <= 5 ? 'var(--amber)' : 'var(--green)';
+        return `<div style="padding:.625rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div style="font-size:13px">${m.adi}${!guncel ? ' <span style="color:var(--muted);font-size:11px">(pasif/silinmiş)</span>' : ''}</div>
+          <div style="font-size:14px;font-weight:700;color:${renk};white-space:nowrap">${stok ?? '—'} ${birim || ''}</div>
+        </div>`;
+      }).join('');
+    }
+
     // Kullanılan Malzemeler - bu kalıbın iş emirlerine bağlı malzemeleri bul
     const malzemeEl = document.getElementById('kkart-malzemeler');
     const buKalipIsEmirleri = (isEmirleri || []).map(e => e.id);
     const buKalipMalzemeler = (malzemeler || []).filter(m => buKalipIsEmirleri.includes(m.is_emri_id));
-
-    // Malzeme listesini yükle (yoksa çek)
-    if (!window._tumMalzeme || !window._tumMalzeme.length) {
-      try { window._tumMalzeme = await sbGet('malzemeler', 'aktif=eq.true&order=malzeme_adi') || []; } catch(e) {}
-    }
 
     // Malzeme adlarına göre topla
     const malzemeOzet = {};
