@@ -955,7 +955,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         </div>
         <div style="overflow-x:auto">
           <table class="data-table">
-            <thead><tr><th>Tarih</th><th>İş Emri No</th><th>Kalıp</th><th>Tür</th><th>İşlem</th><th>Operatör</th><th>Süre</th><th>Durum</th><th></th></tr></thead>
+            <thead><tr><th>Tarih</th><th>İş Emri No</th><th>Kalıp</th><th>Tür</th><th>İşlem</th><th>Operatör</th><th>Başlangıç</th><th>Bitiş</th><th>Süre</th><th>Durum</th><th></th></tr></thead>
             <tbody id="panel-is-emirleri-body">
               <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Yükleniyor...</td></tr>
             </tbody>
@@ -3760,7 +3760,7 @@ async function renderIsEmirleriTablosu() {
   if (!tbody) return;
 
   if (!tumEmir || !tumEmir.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Kayıt yok</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">Kayıt yok</td></tr>';
     return;
   }
 
@@ -3775,7 +3775,7 @@ async function renderIsEmirleriTablosu() {
   });
 
   if (!filtreliEmir.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Sonuç bulunamadı</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:2rem">Sonuç bulunamadı</td></tr>';
     return;
   }
 
@@ -3795,6 +3795,12 @@ async function renderIsEmirleriTablosu() {
     const tarih = ie.created_at
       ? new Date(ie.created_at).toLocaleDateString('tr-TR', {day:'2-digit', month:'2-digit', year:'2-digit'}).replace(/\./g,'/')
       : '—';
+    const basFmt = ie.baslangic_zaman
+      ? new Date(ie.baslangic_zaman).toLocaleString('tr-TR', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',','')
+      : '—';
+    const bitFmt = ie.bitis_zaman
+      ? new Date(ie.bitis_zaman).toLocaleString('tr-TR', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',','')
+      : ie.acik_kapali === 'Acik' ? '<span style="color:var(--green);font-size:11px">● Devam ediyor</span>' : '—';
     return `<tr>
       <td style="white-space:nowrap;font-size:12px">${tarih}</td>
       <td class="mono" style="font-size:11px">${ie.is_emri_no}</td>
@@ -3802,6 +3808,8 @@ async function renderIsEmirleriTablosu() {
       <td><span class="badge ${ie.tur === 'C' ? 'badge-red' : 'badge-blue'}">${ie.tur === 'C' ? 'Arıza' : 'Planlı'}</span></td>
       <td>${ie.yapilan_islem || '—'}</td>
       <td>${op ? op.ad_soyad : '—'}</td>
+      <td style="white-space:nowrap;font-size:11px;color:var(--muted)">${basFmt}</td>
+      <td style="white-space:nowrap;font-size:11px;color:var(--muted)">${bitFmt}</td>
       <td>${sure}</td>
       <td>${durumBadge}</td>
       <td>
