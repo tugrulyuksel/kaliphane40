@@ -1719,7 +1719,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
           <select id="rapor-tur-filtre" style="padding:7px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
             <option value="">Tümü</option>
             <option value="C">Arıza</option>
-            <option value="B">Planlı Bakım</option>
+            <option value="P">Planlı Bakım</option>
           </select>
         </div>
         <div style="display:flex;gap:8px;margin-left:auto">
@@ -1915,7 +1915,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
           <label>İş Emri Türü</label>
           <select id="ie-edit-tur" style="padding:8px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
             <option value="C">Arıza</option>
-            <option value="B">Planlı Bakım</option>
+            <option value="P">Planlı Bakım</option>
             <option value="D">Diğer</option>
           </select>
         </div>
@@ -2196,6 +2196,22 @@ async function sbDelete(tablo, filtre) {
   }
 }
 
+// Planlı bakım iş emri: 'P' (eski kayıtlarda 'B' kalmış olabilir)
+function planliMi(e) { return e && (e.tur === 'P' || e.tur === 'B'); }
+function turFiltreSorgu(t) { return (t === 'P' || t === 'B') ? 'tur=in.(P,B)' : `tur=eq.${t}`; }
+
+// Supabase 1000 satırla sınırlıdır: tüm sayfaları çek
+async function sbGetHepsi(tablo, filtre) {
+  const sayfa = 1000, hepsi = [];
+  for (let offset = 0; ; offset += sayfa) {
+    const satirlar = await sbGet(tablo, `${filtre}&limit=${sayfa}&offset=${offset}`);
+    if (!Array.isArray(satirlar)) throw new Error(JSON.stringify(satirlar));
+    hepsi.push(...satirlar);
+    if (satirlar.length < sayfa) break;
+  }
+  return hepsi;
+}
+
 // ── UYGULAMA DEĞİŞKENLERİ ──
 let seciliRol='usta', durakladi=false;
 let aktifChecklistKalipId = null;
@@ -2216,6 +2232,14 @@ async function verileriYukle() {
   }
   // Günlük üretim girişlerinden biriken toplam baskı sayılarını yükle
   await baskiRestore();
+  // Bu cihazda kalmış eski checklist kayıtları varsa (usta telefonu dahil) Supabase'e taşı
+  clYerelTasi();
+}
+
+function clYerelTasi() {
+  try {
+    if (JSON.parse(localStorage.getItem('cl_kayitlar') || '[]').length) clKayitlariYukle();
+  } catch(e) {}
 }
 
 // ── GÜNLÜK ÜRETİM → TOPLAM BASKI (Supabase: gunluk_uretim) ──
@@ -3907,7 +3931,7 @@ async function renderIsEmirleriTablosu() {
 
   let filtre = 'order=created_at.desc';
   if (durum) filtre += `&acik_kapali=eq.${durum}`;
-  if (tur) filtre += `&tur=eq.${tur}`;
+  if (tur) filtre += `&${turFiltreSorgu(tur)}`;
   if (tarihBas) filtre += `&created_at=gte.${tarihBas}T00:00:00`;
   if (tarihBit) filtre += `&created_at=lte.${tarihBit}T23:59:59`;
 
@@ -4136,7 +4160,7 @@ async function ieDetayDuzenleAc() {
     sbGet('is_emirleri', `id=eq.${seciiliIsEmriId}`).then(async sonuc => {
       if (sonuc && sonuc[0]) {
         const ie = sonuc[0];
-        document.getElementById('ie-edit-tur').value = ie.tur || 'C';
+        document.getElementById('ie-edit-tur').value = (ie.tur === 'B' ? 'P' : ie.tur) || 'C';
         document.getElementById('ie-edit-problem').value = ie.problem || '';
         document.getElementById('ie-edit-islem').value = ie.yapilan_islem || '';
         document.getElementById('ie-edit-aciklama').value = ie.aciklama || '';
@@ -4433,9 +4457,11 @@ async function raporHesapla() {
   const hedefAriza = h.ariza || 40;
 
   // Supabase'den veri çek
-  let filtre = `created_at=gte.${bas}T00:00:00&created_at=lte.${bit}T23:59:59&order=created_at.desc`;
-  if (turFiltre) filtre += `&tur=eq.${turFiltre}`;
-  let emirler = await sbGet('is_emirleri', filtre) || [];
+  let filtre = `created_at=gte.${bas}T00:00:00&created_at=lte.${bit}T23:59:59&order=created_at.desc,id.asc`;
+  if (turFiltre) filtre += `&${turFiltreSorgu(turFiltre)}`;
+  let emirler = [];
+  try { emirler = await sbGetHepsi('is_emirleri', filtre); }
+  catch(e) { console.error('İş emirleri çekilemedi:', e); alert('⚠ İş emirleri Supabase\'den okunamadı.'); return; }
 
   // Operatör filtresi (client side)
   if (opFiltre) {
@@ -4461,7 +4487,7 @@ async function raporHesapla() {
   }
 
   const toplam = emirler.length;
-  const planlilar = emirler.filter(e => e.tur === 'B');
+  const planlilar = emirler.filter(planliMi);
   const arizalar = emirler.filter(e => e.tur === 'C');
   const kapalilar = emirler.filter(e => e.acik_kapali === 'Kapali');
   const planliKapali = planlilar.filter(e => e.acik_kapali === 'Kapali');
@@ -4504,10 +4530,10 @@ async function raporHesapla() {
 
 // ── RAPOR 0: PLANLI / PLANSIZ PASTA ──
 function raporPlanliPlansizPasta(emirler) {
-  const planli = emirler.filter(e => e.tur === 'B').length;
+  const planli = emirler.filter(planliMi).length;
   const ariza = emirler.filter(e => e.tur === 'C').length;
-  const diger = emirler.filter(e => e.tur === 'D').length;
-  const toplam = planli + ariza + diger;
+  const diger = emirler.length - planli - ariza;
+  const toplam = emirler.length;
   document.getElementById('r-pp-sayac').textContent = toplam + ' iş emri';
 
   const veriler = [
