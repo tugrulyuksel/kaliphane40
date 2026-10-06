@@ -2298,6 +2298,96 @@ async function baskiRestore() {
   }
 }
 
+// ── CİHAZDAN BAĞIMSIZ KAYITLAR (Supabase) ──
+const _ucusta = {};
+function tekSeferde(ad, fn) { // aynı anda iki kez çalışıp taşımayı çiftlemesin
+  if (_ucusta[ad]) return _ucusta[ad];
+  _ucusta[ad] = Promise.resolve().then(fn).finally(() => { delete _ucusta[ad]; });
+  return _ucusta[ad];
+}
+function htmlKac(t) {
+  return String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+async function sbUpsertAyar(anahtar, deger) {
+  const r = await fetch(`${SUPA_URL}/rest/v1/ayarlar?on_conflict=anahtar`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates,return=minimal'
+    },
+    body: JSON.stringify({ anahtar, deger, updated_at: new Date().toISOString() })
+  });
+  if (!r.ok) throw new Error(await r.text());
+}
+
+// ── KPI HEDEFLERİ (tablo: ayarlar, anahtar = kpi_hedefler) ──
+let _kpiHedefCache = null;
+function kpiHedefleriGetir() {
+  if (_kpiHedefCache) return Promise.resolve(_kpiHedefCache);
+  return tekSeferde('kpi', async () => {
+    try {
+      const satirlar = await sbGet('ayarlar', 'anahtar=eq.kpi_hedefler');
+      if (!Array.isArray(satirlar)) throw new Error(JSON.stringify(satirlar));
+      let h = {};
+      if (satirlar.length) {
+        h = satirlar[0].deger || {};
+      } else {
+        // Supabase'de yok: bu cihazdaki eski hedefleri taşı
+        let yerel = null;
+        try { yerel = JSON.parse(localStorage.getItem('kpi_hedefler') || 'null'); } catch(e) {}
+        if (yerel && Object.keys(yerel).length) {
+          await sbUpsertAyar('kpi_hedefler', yerel);
+          localStorage.removeItem('kpi_hedefler');
+          h = yerel;
+        }
+      }
+      _kpiHedefCache = h;
+      return h;
+    } catch(e) {
+      console.warn('KPI hedefleri Supabase\'den alınamadı, yerel kayda dönülüyor:', e);
+      try { return JSON.parse(localStorage.getItem('kpi_hedefler') || '{}'); } catch(e2) { return {}; }
+    }
+  });
+}
+
+// ── CHECKLİST GEÇMİŞİ (tablo: checklist_gecmisi) ──
+let _clCache = null, _clCacheTam = false;
+function clSatirdanKayda(s) {
+  return { id: s.is_emri_id, is_emri_no: s.is_emri_no, kalip_id: s.kalip_id, tarih: s.tarih,
+    operator: s.operator || '—', sonuclar: s.sonuclar || [],
+    toplam: s.toplam || 0, tamamlanan: s.tamamlanan || 0, notlu: s.notlu || 0 };
+}
+function clKayittanSatira(k) {
+  return { is_emri_id: k.id != null ? String(k.id) : null, is_emri_no: k.is_emri_no || null,
+    kalip_id: k.kalip_id ? String(k.kalip_id) : null, tarih: k.tarih,
+    operator: k.operator || null, sonuclar: k.sonuclar || [],
+    toplam: k.toplam || 0, tamamlanan: k.tamamlanan || 0, notlu: k.notlu || 0 };
+}
+function clKayitlariYukle() {
+  if (_clCache && _clCacheTam) return Promise.resolve(_clCache);
+  return tekSeferde('cl', async () => {
+    let yerel = [];
+    try { yerel = JSON.parse(localStorage.getItem('cl_kayitlar') || '[]'); } catch(e) {}
+    try {
+      if (yerel.length) { // bu cihazdaki eski/yedek kayıtları Supabase'e taşı
+        const sonuc = await sbPost('checklist_gecmisi', yerel.map(clKayittanSatira));
+        if (!Array.isArray(sonuc)) throw new Error(JSON.stringify(sonuc));
+        localStorage.removeItem('cl_kayitlar');
+      }
+      const satirlar = await sbGet('checklist_gecmisi', 'order=tarih.desc&limit=200');
+      if (!Array.isArray(satirlar)) throw new Error(JSON.stringify(satirlar));
+      _clCache = satirlar.map(clSatirdanKayda);
+      _clCacheTam = true;
+    } catch(e) {
+      console.warn('Checklist geçmişi Supabase\'den alınamadı, yerel kayda dönülüyor:', e);
+      _clCache = yerel;
+      _clCacheTam = false;
+    }
+    return _clCache;
+  });
+}
+
 // ── GİRİŞ ──
 function baslatWrapper() {
   console.log('Baslat tiklandi, aktifKalip:', aktifKalip?.kalip_kodu);
@@ -3045,7 +3135,6 @@ async function isEmriKaydet() {
             const not = item.querySelector('.cl-not-input')?.value.trim() || '';
             clSonuclar.push({ sablon_id: sablonId, madde, tamamlandi, not });
           });
-          // localStorage'a kaydet (Supabase'e de gönderilebilir)
           const clKayit = {
             id: aktifIsEmri.id,
             is_emri_no: aktifIsEmri.is_emri_no,
@@ -3057,27 +3146,20 @@ async function isEmriKaydet() {
             tamamlanan: clSonuclar.filter(s=>s.tamamlandi).length,
             notlu: clSonuclar.filter(s=>s.not).length
           };
-          // Mevcut kayıtlara ekle
-          let clGecmis = [];
-          try { clGecmis = JSON.parse(localStorage.getItem('cl_kayitlar') || '[]'); } catch(e){}
-          clGecmis.unshift(clKayit);
-          if (clGecmis.length > 200) clGecmis = clGecmis.slice(0, 200);
-          localStorage.setItem('cl_kayitlar', JSON.stringify(clGecmis));
-
-          // Supabase'e de gönder (tablo varsa)
+          // Supabase'e kaydet; olmazsa bu cihazda yedekle (sonraki açılışta otomatik taşınır)
+          let clKaydedildi = false;
           try {
-            for (const s of clSonuclar) {
-              await sbPost('checklist_kayitlar', {
-                is_emri_id: aktifIsEmri.id,
-                sablon_id: s.sablon_id || null,
-                madde: s.madde,
-                tamamlandi: s.tamamlandi,
-                not: s.not || null,
-                operator_id: aktifOperator?.id || null,
-                tarih: new Date().toISOString()
-              });
-            }
-          } catch(e) { /* Tablo yoksa sessizce geç */ }
+            const clSonuc = await sbPost('checklist_gecmisi', clKayittanSatira(clKayit));
+            clKaydedildi = Array.isArray(clSonuc) && clSonuc.length > 0;
+          } catch(e) { console.warn('Checklist Supabase\'e yazılamadı:', e); }
+          if (clKaydedildi) {
+            _clCache = null; _clCacheTam = false;
+          } else {
+            let clGecmis = [];
+            try { clGecmis = JSON.parse(localStorage.getItem('cl_kayitlar') || '[]'); } catch(e){}
+            clGecmis.unshift(clKayit);
+            localStorage.setItem('cl_kayitlar', JSON.stringify(clGecmis));
+          }
         }
       }
 
@@ -4303,8 +4385,8 @@ function sureHesapla(e) {
   return 0;
 }
 
-function kpiHedefYukle() {
-  const h = JSON.parse(localStorage.getItem('kpi_hedefler') || '{}');
+async function kpiHedefYukle() {
+  const h = await kpiHedefleriGetir();
   if (document.getElementById('h-planli')) document.getElementById('h-planli').value = h.planli || 90;
   if (document.getElementById('h-mttr')) document.getElementById('h-mttr').value = h.mttr || 2;
   if (document.getElementById('h-ariza')) document.getElementById('h-ariza').value = h.ariza || 40;
@@ -4318,16 +4400,23 @@ function kpiHedefForm() {
   form.style.display = form.style.display === 'none' ? 'block' : 'none';
 }
 
-function kpiHedefKaydet() {
+async function kpiHedefKaydet() {
   const h = {
     planli: parseFloat(document.getElementById('h-planli').value) || 90,
     mttr: parseFloat(document.getElementById('h-mttr').value) || 2,
     ariza: parseFloat(document.getElementById('h-ariza').value) || 40,
     maliyet: parseFloat(document.getElementById('h-maliyet').value) || 100000
   };
-  localStorage.setItem('kpi_hedefler', JSON.stringify(h));
-  document.getElementById('kpi-hedef-form').style.display = 'none';
-  alert('KPI hedefleri kaydedildi!');
+  try {
+    await sbUpsertAyar('kpi_hedefler', h);
+    _kpiHedefCache = h;
+    localStorage.removeItem('kpi_hedefler');
+    document.getElementById('kpi-hedef-form').style.display = 'none';
+    alert('KPI hedefleri kaydedildi!');
+  } catch(e) {
+    console.error('KPI hedefleri kaydedilemedi:', e);
+    alert('⚠ Hedefler Supabase\'e kaydedilemedi, tekrar deneyin.');
+  }
 }
 
 async function raporHesapla() {
@@ -4338,7 +4427,7 @@ async function raporHesapla() {
   const opFiltre = document.getElementById('rapor-operator')?.value || '';
   const turFiltre = document.getElementById('rapor-tur-filtre')?.value || '';
 
-  const h = JSON.parse(localStorage.getItem('kpi_hedefler') || '{}');
+  const h = await kpiHedefleriGetir();
   const hedefPlanli = h.planli || 90;
   const hedefMttr = h.mttr || 2;
   const hedefAriza = h.ariza || 40;
@@ -4717,48 +4806,70 @@ async function raporOperatorSure(emirler) {
   }).join('');
 }
 
-// ── RAPOR 6: KRONİK ARIZALAR / AKSİYON LİSTESİ (manuel, localStorage) ──
+// ── RAPOR 6: KRONİK ARIZALAR / AKSİYON LİSTESİ (manuel, Supabase: kronik_ariza_notlari) ──
 function kronikListeYukle() {
-  return JSON.parse(localStorage.getItem('kronik_arizalar_listesi') || '[]');
+  return tekSeferde('kronik', async () => {
+    let yerel = [];
+    try { yerel = JSON.parse(localStorage.getItem('kronik_arizalar_listesi') || '[]'); } catch(e) {}
+    if (yerel.length) { // bu cihazdaki eski notları Supabase'e taşı
+      const sonuc = await sbPost('kronik_ariza_notlari', yerel.map(k => ({ created_at: k.tarih, metin: k.metin })));
+      if (!Array.isArray(sonuc)) throw new Error(JSON.stringify(sonuc));
+      localStorage.removeItem('kronik_arizalar_listesi');
+    }
+    const satirlar = await sbGet('kronik_ariza_notlari', 'order=created_at.desc&limit=500');
+    if (!Array.isArray(satirlar)) throw new Error(JSON.stringify(satirlar));
+    return satirlar;
+  });
 }
 
-function kronikListeCiz() {
-  const liste = kronikListeYukle().sort((a,b) => new Date(b.tarih) - new Date(a.tarih));
+async function kronikListeCiz() {
   const el = document.getElementById('r-kronik-liste');
+  if (!el) return;
+  let liste;
+  try {
+    liste = await kronikListeYukle();
+  } catch(e) {
+    console.error('Kronik notlar yüklenemedi:', e);
+    el.innerHTML = '<div style="color:var(--red);font-size:13px;text-align:center;padding:1rem">Notlar Supabase\'den okunamadı (kronik_ariza_notlari tablosu oluşturuldu mu?)</div>';
+    return;
+  }
   if (!liste.length) {
     el.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Kayıtlı not yok</div>';
     return;
   }
-  el.innerHTML = liste.map((k, i) => {
-    const orijinalIndex = kronikListeYukle().findIndex(x => x.tarih === k.tarih && x.metin === k.metin);
-    return `<div style="background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:.75rem 1rem;display:flex;gap:10px;align-items:flex-start">
+  el.innerHTML = liste.map(k => `<div style="background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:.75rem 1rem;display:flex;gap:10px;align-items:flex-start">
       <div style="flex:1">
-        <div style="font-size:13px;line-height:1.5;white-space:pre-wrap">${k.metin}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:4px">${new Date(k.tarih).toLocaleDateString('tr-TR')}</div>
+        <div style="font-size:13px;line-height:1.5;white-space:pre-wrap">${htmlKac(k.metin)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">${new Date(k.created_at).toLocaleDateString('tr-TR')}</div>
       </div>
-      <div class="no-print" style="cursor:pointer;color:var(--muted);font-size:16px" onclick="kronikSil(${orijinalIndex})" title="Sil">✕</div>
-    </div>`;
-  }).join('');
+      <div class="no-print" style="cursor:pointer;color:var(--muted);font-size:16px" onclick="Promise.resolve(kronikSil('${k.id}')).catch(e=>console.error(e))" title="Sil">✕</div>
+    </div>`).join('');
 }
 
-function kronikEkle() {
+async function kronikEkle() {
   const ta = document.getElementById('r-kronik-yeni');
   const metin = ta.value.trim();
   if (!metin) return;
-  const liste = kronikListeYukle();
-  liste.push({ tarih: new Date().toISOString(), metin });
-  localStorage.setItem('kronik_arizalar_listesi', JSON.stringify(liste));
-  ta.value = '';
-  kronikListeCiz();
+  try {
+    const sonuc = await sbPost('kronik_ariza_notlari', { metin });
+    if (!Array.isArray(sonuc)) throw new Error(JSON.stringify(sonuc));
+    ta.value = '';
+    await kronikListeCiz();
+  } catch(e) {
+    console.error('Not eklenemedi:', e);
+    alert('⚠ Not Supabase\'e kaydedilemedi, tekrar deneyin.');
+  }
 }
 
-function kronikSil(index) {
-  const liste = kronikListeYukle();
-  if (index < 0 || index >= liste.length) return;
+async function kronikSil(id) {
   if (!confirm('Bu notu silmek istiyor musunuz?')) return;
-  liste.splice(index, 1);
-  localStorage.setItem('kronik_arizalar_listesi', JSON.stringify(liste));
-  kronikListeCiz();
+  try {
+    await sbDelete('kronik_ariza_notlari', `id=eq.${id}`);
+    await kronikListeCiz();
+  } catch(e) {
+    console.error('Not silinemedi:', e);
+    alert('⚠ Not silinemedi, tekrar deneyin.');
+  }
 }
 
 // ── GRAFİKLER ──
@@ -5098,6 +5209,7 @@ async function renderPlanliTablo() {
   const tbody = document.getElementById('planli-tablo-body');
   if (!tbody) return;
   try {
+    await clKayitlariYukle();
     planliTumKayitlar = await sbGet('planli_bakimlar', 'order=planlanan_tarih.desc') || [];
     planliTabloFiltrele();
   } catch(e) { console.warn(e); }
@@ -5153,7 +5265,7 @@ function planliTabloFiltrele() {
     // Checklist kayıt var mı?
     let clBadge = '—';
     try {
-      const clKayitlar = JSON.parse(localStorage.getItem('cl_kayitlar') || '[]');
+      const clKayitlar = _clCache || [];
       const clKayit = clKayitlar.find(c => c.is_emri_no && b.is_emri_id && c.id === b.is_emri_id);
       if (clKayit) {
         const notlu = clKayit.notlu > 0;
@@ -5194,7 +5306,7 @@ function planliDetayModal(bakimId) {
   // Checklist kayıtları
   let clHTML = '<div style="color:var(--muted);font-size:13px">Checklist kaydı yok</div>';
   try {
-    const clKayitlar = JSON.parse(localStorage.getItem('cl_kayitlar') || '[]');
+    const clKayitlar = _clCache || [];
     const clKayit = clKayitlar.find(c => b.is_emri_id && c.id === b.is_emri_id);
     if (clKayit) {
       clHTML = clKayit.sonuclar.map(s => {
@@ -6348,9 +6460,9 @@ function guGecmisRender() {
 // CHECKLİST GEÇMİŞİ - YÖNETİCİ PANELİ
 // ══════════════════════════════════════════════════
 
-function clGecmisYukleVeRender(filtre) {
+async function clGecmisYukleVeRender(filtre) {
   let kayitlar = [];
-  try { kayitlar = JSON.parse(localStorage.getItem('cl_kayitlar') || '[]'); } catch(e){}
+  try { kayitlar = await clKayitlariYukle(); } catch(e) { console.error(e); }
 
   const liste = document.getElementById('cl-gecmis-liste');
   const notluBadge = document.getElementById('cl-gecmis-notlu-badge');
