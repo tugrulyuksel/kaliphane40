@@ -2638,6 +2638,7 @@ async function renderAktifIsEmirleri() {
           <div class="pi-bottom">
             <span class="k-code">${ie.is_emri_no}</span>
             <span class="pi-tarih">${gecenStr}</span>
+            ${ie.duraklama_baslangic ? '<span class="badge badge-amber">⏸ Duraklatıldı</span>' : ''}
             ${ie.uretim_durdu ? '<span class="badge badge-red">⚠ Üretim Durdu</span>' : ''}
           </div>
         </div>`;
@@ -2689,6 +2690,7 @@ function aktifIsEmriAc(isEmriId, kalipAdi, isEmriNo, tur) {
 
       // Duraklama süresini aktifIsEmri'ye ekle (timestamp bazlı hesap için)
       aktifIsEmri._toplamDuraklama = aktifIsEmri.toplam_duraklama_sn || 0;
+      duraklamaGeriYukle(aktifIsEmri); // duraklatılmış olarak bırakıldıysa durumu geri getir
 
       // Başlangıç zamanını göster
       const basZaman = document.getElementById('aktif-bas-zaman');
@@ -2959,7 +2961,7 @@ async function isEmriBaslat() {
   document.getElementById('aktif-tur-badge').textContent = planliMod ? 'Planlı Bakım' : 'Arıza';
   document.getElementById('aktif-tur-badge').className = 'badge ' + (planliMod ? 'badge-blue' : 'badge-red');
   document.getElementById('aktif-kalip-adi').textContent = document.getElementById('form-kalip-adi').textContent;
-  window._duraksladaBaslangic = null;
+  duraklamaSifirla();
   gosterEkran('screen-aktif');
 }
 
@@ -3077,14 +3079,15 @@ async function isEmriKaydet() {
 
       // Net süreyi hesapla — timestamp bazlı, duraklatma dahil
       let netSureDak = 0;
+      let kapatToplamDuraklama = aktifIsEmri._toplamDuraklama || 0;
+      if (durakladi && window._duraksladaBaslangic) {
+        // Devam eden duraklatma, bitiş zamanını geçemez
+        const sonMs = Math.min(Date.now(), new Date(bitisZaman).getTime());
+        kapatToplamDuraklama += Math.max(0, Math.floor((sonMs - window._duraksladaBaslangic) / 1000));
+      }
       if (aktifIsEmri.baslangic_zaman) {
         const brutFark = new Date(bitisZaman) - new Date(aktifIsEmri.baslangic_zaman);
-        // Toplam duraklatma: Supabase'deki + şu an devam eden
-        let toplamDuraklama = aktifIsEmri._toplamDuraklama || 0;
-        if (durakladi && window._duraksladaBaslangic) {
-          toplamDuraklama += Math.floor((Date.now() - window._duraksladaBaslangic) / 1000);
-        }
-        const netMs = brutFark - (toplamDuraklama * 1000);
+        const netMs = brutFark - (kapatToplamDuraklama * 1000);
         if (netMs > 0) netSureDak = Math.round(netMs / 60000);
       }
 
@@ -3095,6 +3098,8 @@ async function isEmriKaydet() {
         yapilan_islem: islem,
         aciklama: aciklama
       });
+      // Duraklatma toplamını kaydet, açık duraklatma işaretini temizle (ayrı istek: ana kapanışı bozmasın)
+      await duraklamaYaz(aktifIsEmri.id, { toplam_duraklama_sn: kapatToplamDuraklama, duraklama_baslangic: null });
 
       // _seciliMalzemeler'deki tüm seçimleri kaydet
       if (!window._seciliMalzemeler) window._seciliMalzemeler = {};
@@ -3204,7 +3209,7 @@ async function isEmriKaydet() {
   aktifIsEmri = null;
   aktifPlanliId = null;
   planliMod = false;
-  window._duraksladaBaslangic = null;
+  duraklamaSifirla();
   sureyiBaslat();
   gosterEkran('screen-usta');
   Promise.resolve(renderUstaEkrani()).catch(e => console.warn(e));
@@ -3468,7 +3473,7 @@ async function planliIsEmriBaslat(kod, adi, kalipId) {
   // Checklist bilgi olarak göster (işaretlenemez)
   await renderAktifChecklistBilgi(kalipId);
 
-  window._duraksladaBaslangic = null;
+  duraklamaSifirla();
   gosterEkran('screen-aktif');
 }
 
@@ -3532,28 +3537,72 @@ function sureyiBaslat(){
   },1000);
 }
 
+// Duraklatma alanlarını yaz. duraklama_baslangic sütunu yoksa sadece toplam süreyi yazmayı dene.
+async function duraklamaYaz(isEmriId, alanlar) {
+  try {
+    await sbPatchFiltre('is_emirleri', `id=eq.${isEmriId}`, alanlar);
+  } catch(e) {
+    console.warn('Duraklatma kaydı yazılamadı:', e);
+    if ('duraklama_baslangic' in alanlar && Object.keys(alanlar).length > 1) {
+      const { duraklama_baslangic, ...geri } = alanlar;
+      try { await sbPatchFiltre('is_emirleri', `id=eq.${isEmriId}`, geri); }
+      catch(e2) { console.warn('Duraklatma toplamı da yazılamadı:', e2); }
+    }
+  }
+}
+
+function duraklamaUiGuncelle() {
+  const d = document.getElementById('duraklat-btn'), v = document.getElementById('devam-btn'), b = document.getElementById('bos-btn');
+  if (d) d.style.display = durakladi ? 'none' : 'flex';
+  if (v) v.style.display = durakladi ? 'flex' : 'none';
+  if (b) b.style.display = durakladi ? 'flex' : 'none';
+  const sd = document.getElementById('aktif-sure');
+  if (sd) sd.classList.toggle('paused', durakladi);
+}
+
+// Yeni iş emri başlarken / kapanınca duraklatma durumunu temizle
+function duraklamaSifirla() {
+  durakladi = false;
+  window._duraksladaBaslangic = null;
+  duraklamaUiGuncelle();
+}
+
+// Açık bir iş emri tekrar açılırken: Supabase'de duraklatılmış kayıt varsa durumu geri getir
+function duraklamaGeriYukle(ie) {
+  const bas = ie && ie.duraklama_baslangic ? new Date(ie.duraklama_baslangic).getTime() : NaN;
+  if (isNaN(bas)) { duraklamaSifirla(); return; }
+  durakladi = true;
+  window._duraksladaBaslangic = bas;
+  duraklamaUiGuncelle();
+  // Sayaç duraklatma anındaki net süreyi göstersin
+  if (ie.baslangic_zaman) {
+    const netSn = Math.max(0, Math.floor((bas - new Date(ie.baslangic_zaman).getTime() - (ie.toplam_duraklama_sn || 0) * 1000) / 1000));
+    const str = [Math.floor(netSn/3600), Math.floor((netSn%3600)/60), netSn%60].map(n => String(n).padStart(2,'0')).join(':');
+    ['sure-counter2','aktif-sure'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = str; });
+  }
+}
+
 function toggleDuraklat(){
   durakladi=!durakladi;
   if (durakladi) {
-    // Duraklatma başladı - zamanı kaydet
+    // Duraklatma başladı - başlangıcı Supabase'e de yaz (sayfa kapansa da kaybolmasın)
     window._duraksladaBaslangic = Date.now();
+    if (aktifIsEmri) {
+      aktifIsEmri.duraklama_baslangic = new Date(window._duraksladaBaslangic).toISOString();
+      duraklamaYaz(aktifIsEmri.id, { duraklama_baslangic: aktifIsEmri.duraklama_baslangic });
+    }
   } else {
-    // Devam etti - geçen duraklatma süresini Supabase'e yaz
+    // Devam etti - geçen duraklatma süresini Supabase'e yaz, başlangıcı temizle
     if (window._duraksladaBaslangic && aktifIsEmri) {
       const gecenSn = Math.floor((Date.now() - window._duraksladaBaslangic) / 1000);
       window._duraksladaBaslangic = null;
       const yeniToplam = (aktifIsEmri._toplamDuraklama || 0) + gecenSn;
       aktifIsEmri._toplamDuraklama = yeniToplam;
-      // Arka planda Supabase'e yaz
-      sbPatchFiltre('is_emirleri', `id=eq.${aktifIsEmri.id}`, { toplam_duraklama_sn: yeniToplam })
-        .catch(e => console.warn('Duraklatma kaydedilemedi:', e));
+      aktifIsEmri.duraklama_baslangic = null;
+      duraklamaYaz(aktifIsEmri.id, { toplam_duraklama_sn: yeniToplam, duraklama_baslangic: null });
     }
   }
-  document.getElementById('duraklat-btn').style.display=durakladi?'none':'flex';
-  document.getElementById('devam-btn').style.display=durakladi?'flex':'none';
-  document.getElementById('bos-btn').style.display=durakladi?'flex':'none';
-  const sd=document.getElementById('aktif-sure');
-  if(sd) sd.classList.toggle('paused',durakladi);
+  duraklamaUiGuncelle();
 }
 
 function toggleUretimAktif(){
