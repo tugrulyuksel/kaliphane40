@@ -609,6 +609,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
       <div class="sure-display" id="aktif-sure">00:00:00</div>
       <div class="sure-lbl">Net Çalışma Süresi</div>
       <div class="sure-net">Toplam: <span id="toplam-sure-lbl">—</span> · Duraklatma: <span id="duraklama-sure-lbl">—</span></div>
+      <div class="sure-net" id="vardiya-uyari" style="display:none;color:var(--amber);margin-top:6px">🌙 Vardiya dışı — sayaç durdu, vardiyanız başlayınca devam eder</div>
     </div>
 
     <div class="kontrol-butonlar">
@@ -1250,6 +1251,26 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
           </div>
         </div>
 
+        <!-- VARDİYA TAKVİMİ -->
+        <div class="panel-card" style="grid-column:1/-1">
+          <div class="pc-header"><h3>🕒 Vardiya Takvimi ve Resmi Tatiller</h3></div>
+          <div class="pc-body">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px">İş emri süresi sadece emrin açıldığı vardiyanın saatlerinde sayılır. Boş bırakılan vardiya o gün yok demektir. Gece vardiyası bitiş saati başlangıçtan küçükse ertesi güne sarkar.</div>
+            <div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:13px" id="vardiya-tablo"></table></div>
+            <div style="display:flex;gap:8px;margin:10px 0 18px;flex-wrap:wrap">
+              <button style="padding:8px 14px;border-radius:8px;border:none;background:var(--amber);color:#000;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit" onclick="vardiyaTakvimKaydet()">💾 Takvimi Kaydet</button>
+              <button style="padding:8px 14px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);color:var(--text);font-size:13px;cursor:pointer;font-family:inherit" onclick="vardiyaTakvimSifirla()">↺ Varsayılana Dön</button>
+            </div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:6px">Resmi Tatiller (bu aralıklarda süre sayılmaz)</div>
+            <div id="tatil-liste" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button style="padding:8px 14px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);color:var(--text);font-size:13px;cursor:pointer;font-family:inherit" onclick="tatilSatirEkle()">＋ Tatil Ekle</button>
+              <button style="padding:8px 14px;border-radius:8px;border:none;background:var(--amber);color:#000;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit" onclick="tatillerKaydet()">💾 Tatilleri Kaydet</button>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:10px">⚠ Takvimi değiştirmek eski kayıtları kendiliğinden değiştirmez. Eski süreleri güncellemek için Veri Yönetimi → "Süreleri Yeniden Hesapla" kullanılır.</div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -1632,6 +1653,21 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
     <!-- VERİ YÖNETİMİ -->
     <div class="panel" id="panel-veri-yonetimi">
 
+      <!-- Süre Yeniden Hesapla -->
+      <div class="panel-card" style="margin-bottom:1rem">
+        <div class="pc-header"><h3>🕒 Süreleri Vardiya Takvimine Göre Yeniden Hesapla</h3></div>
+        <div class="pc-body">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:10px">Kapalı iş emirlerinin süresini güncel vardiya takvimine göre yeniden hesaplar. Önce <b>Önizle</b>, sonra <b>Uygula</b>. Elle düzeltilmiş görünen süreler (farkı 2 dk'dan fazla olanlar) varsayılan olarak atlanır. Eski değerler yedeklenir, <b>Geri Al</b> ile dönülebilir.</div>
+          <label style="font-size:12px;display:block;margin-bottom:10px"><input type="checkbox" id="rh-elle-dahil"> Elle düzeltilmiş görünenleri de dahil et</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+            <button style="padding:8px 14px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);color:var(--text);font-size:13px;cursor:pointer;font-family:inherit" onclick="sureYenidenOnizle()">🔍 Önizle</button>
+            <button style="padding:8px 14px;border-radius:8px;border:none;background:var(--amber);color:#000;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit" id="rh-uygula-btn" onclick="sureYenidenUygula()" disabled>✔ Uygula</button>
+            <button style="padding:8px 14px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);color:var(--text);font-size:13px;cursor:pointer;font-family:inherit" onclick="sureYenidenGeriAl()">↩ Geri Al</button>
+          </div>
+          <div id="rh-sonuc" style="font-size:13px"></div>
+        </div>
+      </div>
+
       <!-- Dışa Aktar -->
       <div class="panel-card" style="margin-bottom:1rem">
         <div class="pc-header"><h3>📤 Dışa Aktar (Yedek Al)</h3></div>
@@ -1934,6 +1970,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         <div class="fg" id="ie-edit-sure-bolum">
           <label>Net Süre (dakika)</label>
           <input type="number" id="ie-edit-sure" style="padding:8px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Başlangıç/bitiş değişirse vardiya takvimine göre otomatik hesaplanır. Süreyi kendiniz yazarsanız o değer kullanılır.</div>
         </div>
         <div class="fg">
           <label>Başlangıç Zamanı</label>
@@ -2212,6 +2249,301 @@ async function sbGetHepsi(tablo, filtre) {
   return hepsi;
 }
 
+// ══════════════════════════════════════════════════
+// VARDİYA TAKVİMİ — iş emri süresi sadece açıldığı vardiyanın saatlerinde sayılır
+// ══════════════════════════════════════════════════
+// Gün anahtarı: 0=Pazar 1=Pazartesi ... 6=Cumartesi. Gece vardiyası başladığı günün anahtarındadır ve ertesi sabaha sarkar.
+const VARDIYA_VARSAYILAN = {
+  gunduz: { 1:['08:00','20:00'], 2:['08:00','20:00'], 3:['08:00','20:00'], 4:['08:00','20:00'], 5:['08:00','20:00'], 6:['08:00','16:00'] },
+  gece:   { 1:['20:00','08:00'], 2:['20:00','08:00'], 3:['20:00','08:00'], 4:['20:00','08:00'], 5:['20:00','08:00'] }
+};
+// Resmi tatiller (yerel saat). Arife günlerinde tatil 13:00'te başlar. Kaynak: resmi tatil takvimi 2026-2027.
+const TATIL_VARSAYILAN = [
+  { bas:'2026-01-01T00:00', bit:'2026-01-02T00:00', ad:'Yılbaşı' },
+  { bas:'2026-03-19T13:00', bit:'2026-03-23T00:00', ad:'Ramazan Bayramı' },
+  { bas:'2026-04-23T00:00', bit:'2026-04-24T00:00', ad:'23 Nisan' },
+  { bas:'2026-05-01T00:00', bit:'2026-05-02T00:00', ad:'1 Mayıs' },
+  { bas:'2026-05-19T00:00', bit:'2026-05-20T00:00', ad:'19 Mayıs' },
+  { bas:'2026-05-26T13:00', bit:'2026-05-31T00:00', ad:'Kurban Bayramı' },
+  { bas:'2026-07-15T00:00', bit:'2026-07-16T00:00', ad:'15 Temmuz' },
+  { bas:'2026-08-30T00:00', bit:'2026-08-31T00:00', ad:'30 Ağustos' },
+  { bas:'2026-10-28T13:00', bit:'2026-10-30T00:00', ad:'Cumhuriyet Bayramı' },
+  { bas:'2027-01-01T00:00', bit:'2027-01-02T00:00', ad:'Yılbaşı' },
+  { bas:'2027-03-08T13:00', bit:'2027-03-12T00:00', ad:'Ramazan Bayramı' },
+  { bas:'2027-04-23T00:00', bit:'2027-04-24T00:00', ad:'23 Nisan' },
+  { bas:'2027-05-01T00:00', bit:'2027-05-02T00:00', ad:'1 Mayıs' },
+  { bas:'2027-05-15T13:00', bit:'2027-05-20T00:00', ad:'Kurban Bayramı + 19 Mayıs' },
+  { bas:'2027-07-15T00:00', bit:'2027-07-16T00:00', ad:'15 Temmuz' },
+  { bas:'2027-08-30T00:00', bit:'2027-08-31T00:00', ad:'30 Ağustos' },
+  { bas:'2027-10-28T13:00', bit:'2027-10-30T00:00', ad:'Cumhuriyet Bayramı' }
+];
+
+let _vardiya = { takvim: VARDIYA_VARSAYILAN, tatiller: TATIL_VARSAYILAN, tatilMs: [] };
+
+function _tatilMsHazirla() {
+  _vardiya.tatilMs = (_vardiya.tatiller || [])
+    .map(t => [new Date(t.bas).getTime(), new Date(t.bit).getTime()])
+    .filter(t => !isNaN(t[0]) && !isNaN(t[1]) && t[1] > t[0]);
+}
+_tatilMsHazirla();
+
+function _hm(s) { const p = String(s).split(':'); return (parseInt(p[0]) || 0) * 60 + (parseInt(p[1]) || 0); }
+function _gunBas(ms) { const d = new Date(ms); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+
+// Aralıktan tatil sürelerini çıkar → kalan parçalar
+function _tatilCikar(aralik) {
+  let parcalar = [aralik];
+  for (const t of _vardiya.tatilMs) {
+    const yeni = [];
+    for (const [b, e] of parcalar) {
+      if (t[1] <= b || t[0] >= e) { yeni.push([b, e]); continue; }
+      if (t[0] > b) yeni.push([b, t[0]]);
+      if (t[1] < e) yeni.push([t[1], e]);
+    }
+    parcalar = yeni;
+  }
+  return parcalar;
+}
+
+// Verilen aralığa değen, bu türün (gunduz|gece) somut pencereleri (tatiller çıkarılmış)
+function vardiyaPencereleri(tur, loMs, hiMs) {
+  const cfg = (_vardiya.takvim && _vardiya.takvim[tur]) || {};
+  const out = [];
+  const d = _gunBas(loMs); d.setDate(d.getDate() - 1);
+  const son = _gunBas(hiMs).getTime();
+  for (; d.getTime() <= son; d.setDate(d.getDate() + 1)) {
+    const w = cfg[d.getDay()];
+    if (!w || !w[0] || !w[1]) continue;
+    const y = d.getFullYear(), mo = d.getMonth(), da = d.getDate();
+    const b = _hm(w[0]), e = _hm(w[1]);
+    const bas = new Date(y, mo, da, 0, b).getTime();
+    const bit = e > b ? new Date(y, mo, da, 0, e).getTime() : new Date(y, mo, da + 1, 0, e).getTime();
+    out.push(..._tatilCikar([bas, bit]));
+  }
+  return out;
+}
+
+// İş emri açılışı hangi vardiyanın içine düşüyor? Takvim dışıysa null
+function emirVardiyaTuru(basMs) {
+  for (const tur of ['gunduz', 'gece']) {
+    for (const [b, e] of vardiyaPencereleri(tur, basMs, basMs)) if (b <= basMs && basMs < e) return tur;
+  }
+  return null;
+}
+
+// Takvim dışı (Pazar, tatil, vardiya boşluğu) açılan iş emri: açıldığı 8 saatlik blokta sayılır (00-08, 08-16, 16-24)
+function _disBlok(basMs) {
+  const g = _gunBas(basMs);
+  const blok = Math.floor((basMs - g.getTime()) / (8 * 3600000));
+  return [new Date(g.getFullYear(), g.getMonth(), g.getDate(), blok * 8).getTime(),
+          new Date(g.getFullYear(), g.getMonth(), g.getDate(), (blok + 1) * 8).getTime()];
+}
+
+function _emirPencereleri(emirBasMs, loMs, hiMs) {
+  const tur = emirVardiyaTuru(emirBasMs);
+  return tur ? vardiyaPencereleri(tur, loMs, hiMs) : [_disBlok(emirBasMs)];
+}
+
+// emirBasMs'te açılan iş emrinin [aBas, aBit] aralığındaki çalışma süresi (saniye)
+function calismaSn(emirBasMs, aBasMs, aBitMs) {
+  if (!(aBitMs > aBasMs)) return 0;
+  let toplam = 0;
+  for (const [b, e] of _emirPencereleri(emirBasMs, aBasMs, aBitMs)) {
+    const s = Math.max(b, aBasMs), f = Math.min(e, aBitMs);
+    if (f > s) toplam += f - s;
+  }
+  return Math.round(toplam / 1000);
+}
+
+// Şu an iş emrinin sayaç saatleri içinde miyiz?
+function vardiyaIcindeMi(emirBasMs, ms) {
+  return _emirPencereleri(emirBasMs, ms, ms).some(([b, e]) => b <= ms && ms < e);
+}
+
+// Kapanmış (veya kapanan) iş emrinin net süresi, dakika. duraklamaSn: takvime göre hesaplanmış toplam duraklatma
+function netSureDakHesapla(basMs, bitMs, duraklamaSn) {
+  const net = calismaSn(basMs, basMs, bitMs) - (duraklamaSn || 0);
+  return net > 0 ? Math.round(net / 60) : 0;
+}
+
+// Ayarlar tablosundan vardiya takvimi ve tatilleri yükle (yoksa/okunamazsa varsayılan takvim kullanılır)
+async function vardiyaAyarlariYukle() {
+  try {
+    const satirlar = await sbGet('ayarlar', 'anahtar=in.(vardiya_takvimi,tatiller)');
+    if (!Array.isArray(satirlar)) throw new Error(JSON.stringify(satirlar));
+    const tk = satirlar.find(x => x.anahtar === 'vardiya_takvimi');
+    const tt = satirlar.find(x => x.anahtar === 'tatiller');
+    _vardiya.takvim = (tk && tk.deger && tk.deger.gunduz) ? tk.deger : VARDIYA_VARSAYILAN;
+    _vardiya.tatiller = (tt && Array.isArray(tt.deger)) ? tt.deger : TATIL_VARSAYILAN;
+    _tatilMsHazirla();
+  } catch(e) { console.warn('Vardiya ayarları alınamadı, varsayılan takvim kullanılıyor:', e); }
+}
+
+// Süresi kaydedilmemiş kapalı iş emri için net süre (dakika)
+function emirNetSureDak(e) {
+  if (e && e.baslangic_zaman && e.bitis_zaman) {
+    return netSureDakHesapla(new Date(e.baslangic_zaman).getTime(), new Date(e.bitis_zaman).getTime(), e.toplam_duraklama_sn || 0);
+  }
+  return 0;
+}
+
+function _hmFmt(sn) {
+  sn = Math.max(0, Math.floor(sn));
+  return String(Math.floor(sn / 3600)).padStart(2, '0') + ':' + String(Math.floor((sn % 3600) / 60)).padStart(2, '0');
+}
+
+async function paralelCalistir(liste, n, fn) {
+  let i = 0;
+  await Promise.all(Array.from({ length: n }, async () => {
+    while (i < liste.length) { const k = i++; await fn(liste[k], k); }
+  }));
+}
+
+
+// ═══ VARDİYA TAKVİMİ AYARLARI ═══
+const _GUNADLARI = [[1,'Pazartesi'],[2,'Salı'],[3,'Çarşamba'],[4,'Perşembe'],[5,'Cuma'],[6,'Cumartesi'],[0,'Pazar']];
+const _INP = 'padding:5px 6px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;font-family:inherit';
+
+function vardiyaTablosuCiz() {
+  const t = document.getElementById('vardiya-tablo'); if (!t) return;
+  const tk = _vardiya.takvim;
+  const c = (tur, g, i) => ((tk[tur] || {})[g] || ['', ''])[i] || '';
+  let h = '<tr style="color:var(--muted);font-size:12px"><th style="text-align:left;padding:4px 8px">Gün</th><th colspan="2">Gündüz (1. vardiya)</th><th colspan="2">Gece (2. vardiya)</th></tr>';
+  _GUNADLARI.forEach(([g, ad]) => {
+    h += `<tr><td style="padding:4px 8px">${ad}</td>` +
+      ['gunduz', 'gece'].map(tur => [0, 1].map(i =>
+        `<td style="padding:3px"><input type="time" data-tur="${tur}" data-gun="${g}" data-i="${i}" value="${c(tur, g, i)}" style="${_INP}"></td>`).join('')).join('') + '</tr>';
+  });
+  t.innerHTML = h;
+}
+
+async function vardiyaTakvimKaydet() {
+  const yeni = { gunduz: {}, gece: {} };
+  const girdiler = document.querySelectorAll('#vardiya-tablo input[type=time]');
+  const gecici = {};
+  girdiler.forEach(el => { const k = el.dataset.tur + '|' + el.dataset.gun; (gecici[k] = gecici[k] || [])[+el.dataset.i] = el.value; });
+  for (const k in gecici) {
+    const [tur, gun] = k.split('|'); const [b, e] = gecici[k];
+    if (!b && !e) continue;
+    if (!b || !e) { alert('⚠ ' + tur + ' vardiyası: başlangıç ve bitiş birlikte girilmeli (ya da ikisi de boş).'); return; }
+    if (b === e) { alert('⚠ Başlangıç ve bitiş aynı olamaz.'); return; }
+    yeni[tur][gun] = [b, e];
+  }
+  try {
+    await sbUpsertAyar('vardiya_takvimi', yeni);
+    _vardiya.takvim = yeni; _tatilMsHazirla();
+    alert('✅ Vardiya takvimi kaydedildi.\nEski kayıtlar değişmedi; gerekirse Veri Yönetimi\'nden yeniden hesaplatın.');
+  } catch (e) { alert('Kaydedilemedi: ' + e.message); }
+}
+
+async function vardiyaTakvimSifirla() {
+  if (!confirm('Takvim varsayılan değerlere (Pzt-Cuma 08-20 / 20-08, Cmt 08-16) dönsün mü?')) return;
+  try {
+    await sbUpsertAyar('vardiya_takvimi', VARDIYA_VARSAYILAN);
+    _vardiya.takvim = VARDIYA_VARSAYILAN; _tatilMsHazirla(); vardiyaTablosuCiz();
+  } catch (e) { alert('Hata: ' + e.message); }
+}
+
+function tatilListeCiz() {
+  const el = document.getElementById('tatil-liste'); if (!el) return;
+  const l = _vardiya.tatiller.slice().sort((a, b) => a.bas.localeCompare(b.bas));
+  _vardiya.tatiller = l;
+  el.innerHTML = l.map((t, i) =>
+    `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <input type="text" value="${htmlKac(t.ad || '')}" placeholder="Ad" onchange="_vardiya.tatiller[${i}].ad=this.value" style="${_INP};width:170px">
+      <input type="datetime-local" value="${t.bas}" onchange="_vardiya.tatiller[${i}].bas=this.value" style="${_INP}">
+      <span style="color:var(--muted)">→</span>
+      <input type="datetime-local" value="${t.bit}" onchange="_vardiya.tatiller[${i}].bit=this.value" style="${_INP}">
+      <span style="cursor:pointer;color:var(--red,#e55);padding:0 6px" onclick="tatilSil(${i})">✕</span>
+    </div>`).join('') || '<div style="color:var(--muted);font-size:12px">Tatil tanımlı değil.</div>';
+}
+function tatilSatirEkle() {
+  const d = new Date(); const g = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  _vardiya.tatiller.push({ bas: g + 'T00:00', bit: g + 'T23:59', ad: 'Yeni tatil' });
+  tatilListeCiz();
+}
+function tatilSil(i) { _vardiya.tatiller.splice(i, 1); tatilListeCiz(); }
+async function tatillerKaydet() {
+  for (const t of _vardiya.tatiller) {
+    if (!t.bas || !t.bit || t.bit <= t.bas) { alert('⚠ Geçersiz tatil aralığı: ' + (t.ad || '')); return; }
+  }
+  try {
+    await sbUpsertAyar('tatiller', _vardiya.tatiller);
+    _tatilMsHazirla();
+    alert('✅ Tatiller kaydedildi.');
+  } catch (e) { alert('Kaydedilemedi: ' + e.message); }
+}
+
+// ═══ ESKİ KAYITLARI YENİDEN HESAPLA ═══
+let _rhPlan = [];
+const _rhEl = () => document.getElementById('rh-sonuc');
+
+async function sureYenidenOnizle() {
+  const out = _rhEl(); out.innerHTML = 'Kayıtlar okunuyor...';
+  document.getElementById('rh-uygula-btn').disabled = true;
+  try {
+    const liste = await sbGetHepsi('is_emirleri', 'acik_kapali=eq.Kapali&baslangic_zaman=not.is.null&bitis_zaman=not.is.null&order=created_at.desc,id.asc');
+    const yedekVar = liste.length ? ('toplam_sure_dak_eski' in liste[0]) : true;
+    const dahil = document.getElementById('rh-elle-dahil').checked;
+    let atlanan = 0, ayniKalan = 0, duraklamali = 0;
+    _rhPlan = [];
+    liste.forEach(e => {
+      const bas = new Date(e.baslangic_zaman).getTime(), bit = new Date(e.bitis_zaman).getTime();
+      if (!(bit > bas)) return;
+      const eski = e.toplam_sure_dak || 0;
+      const ham = Math.round((bit - bas) / 60000 - (e.toplam_duraklama_sn || 0) / 60);
+      if (!dahil && Math.abs(eski - ham) > 2) { atlanan++; return; }
+      const yeni = netSureDakHesapla(bas, bit, e.toplam_duraklama_sn || 0);
+      if (yeni === eski) { ayniKalan++; return; }
+      if (e.toplam_duraklama_sn) duraklamali++;
+      _rhPlan.push({ id: e.id, no: e.is_emri_no || e.id, eski, yeni, eskiYedek: e.toplam_sure_dak_eski, ham: e.toplam_sure_dak });
+    });
+    const topEski = _rhPlan.reduce((a, x) => a + x.eski, 0), topYeni = _rhPlan.reduce((a, x) => a + x.yeni, 0);
+    const sirali = _rhPlan.slice().sort((a, b) => Math.abs(b.yeni - b.eski) - Math.abs(a.yeni - a.eski)).slice(0, 200);
+    let h = `<div style="margin-bottom:8px">Toplam kapalı emir: <b>${liste.length}</b> · Değişecek: <b>${_rhPlan.length}</b> · Aynı kalan: ${ayniKalan} · Elle düzeltilmiş görünüp atlanan: ${atlanan} · Duraklatmalı olan: ${duraklamali}</div>`;
+    h += `<div style="margin-bottom:8px">Değişecek kayıtların toplamı: <b>${(topEski / 60).toFixed(1)} sa → ${(topYeni / 60).toFixed(1)} sa</b></div>`;
+    if (!yedekVar) h += `<div style="color:var(--amber);margin-bottom:8px">⚠ Yedek sütunu yok. Supabase SQL Editor'de çalıştır:<br><code>alter table is_emirleri add column if not exists toplam_sure_dak_eski integer;</code><br>Sonra tekrar Önizle.</div>`;
+    else if (_rhPlan.length) document.getElementById('rh-uygula-btn').disabled = false;
+    if (sirali.length) {
+      h += '<div style="max-height:320px;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><tr style="color:var(--muted)"><th align="left">İş Emri</th><th align="right">Eski (sa)</th><th align="right">Yeni (sa)</th></tr>' +
+        sirali.map(x => `<tr style="border-top:1px solid var(--border)"><td>${htmlKac(String(x.no))}</td><td align="right">${(x.eski / 60).toFixed(1)}</td><td align="right">${(x.yeni / 60).toFixed(1)}</td></tr>`).join('') + '</table></div>';
+      if (_rhPlan.length > 200) h += `<div style="color:var(--muted);font-size:11px">En büyük 200 değişiklik gösterildi.</div>`;
+    }
+    out.innerHTML = h;
+  } catch (e) { out.innerHTML = '<span style="color:var(--red,#e55)">Hata: ' + htmlKac(e.message) + '</span>'; }
+}
+
+async function sureYenidenUygula() {
+  if (!_rhPlan.length) return;
+  if (!confirm(_rhPlan.length + ' iş emrinin süresi değişecek. Devam edilsin mi? (Geri Al ile dönülebilir)')) return;
+  const btn = document.getElementById('rh-uygula-btn'); btn.disabled = true;
+  const out = _rhEl(); let bitti = 0, hata = 0;
+  await paralelCalistir(_rhPlan, 8, async x => {
+    try {
+      const yedek = (x.eskiYedek === null || x.eskiYedek === undefined) ? (x.ham === null || x.ham === undefined ? -1 : x.eski) : x.eskiYedek;
+      await sbPatch('is_emirleri', x.id, { toplam_sure_dak: x.yeni, toplam_sure_dak_eski: yedek });
+    } catch (e) { hata++; }
+    bitti++;
+    if (bitti % 10 === 0 || bitti === _rhPlan.length) out.innerHTML = `Uygulanıyor... ${bitti}/${_rhPlan.length}`;
+  });
+  out.innerHTML = `✅ Bitti. Güncellenen: <b>${bitti - hata}</b>${hata ? ` · Hatalı: <b>${hata}</b>` : ''}`;
+  _rhPlan = [];
+}
+
+async function sureYenidenGeriAl() {
+  if (!confirm('Yeniden hesaplanan tüm süreler eski değerlerine dönsün mü?')) return;
+  const out = _rhEl(); out.innerHTML = 'Yedekler okunuyor...';
+  try {
+    const liste = await sbGetHepsi('is_emirleri', 'toplam_sure_dak_eski=not.is.null&order=id.asc');
+    if (!liste.length) { out.innerHTML = 'Geri alınacak kayıt yok.'; return; }
+    let hata = 0;
+    await paralelCalistir(liste, 8, async e => {
+      try { await sbPatch('is_emirleri', e.id, { toplam_sure_dak: e.toplam_sure_dak_eski === -1 ? null : e.toplam_sure_dak_eski, toplam_sure_dak_eski: null }); } catch (x) { hata++; }
+    });
+    out.innerHTML = `↩ Geri alındı: <b>${liste.length - hata}</b>${hata ? ` · Hatalı: ${hata}` : ''}`;
+  } catch (e) { out.innerHTML = 'Hata: ' + htmlKac(e.message); }
+}
+
 // ── UYGULAMA DEĞİŞKENLERİ ──
 let seciliRol='usta', durakladi=false;
 let aktifChecklistKalipId = null;
@@ -2232,6 +2564,7 @@ async function verileriYukle() {
   }
   // Günlük üretim girişlerinden biriken toplam baskı sayılarını yükle
   await baskiRestore();
+  await vardiyaAyarlariYukle();
   // Bu cihazda kalmış eski checklist kayıtları varsa (usta telefonu dahil) Supabase'e taşı
   clYerelTasi();
 }
@@ -2803,7 +3136,7 @@ async function renderYoneticiVeriler() {
           const op = tumOperatorler.find(o => o.id === ie.acik_eden_operator_id);
           let _sureDak = ie.toplam_sure_dak;
           if ((!_sureDak || _sureDak <= 0) && ie.baslangic_zaman && ie.bitis_zaman) {
-            _sureDak = Math.round((new Date(ie.bitis_zaman) - new Date(ie.baslangic_zaman)) / 60000);
+            _sureDak = emirNetSureDak(ie);
           }
           const sure = (_sureDak != null && _sureDak > 0)
             ? Math.floor(_sureDak/60) + 'sa ' + (_sureDak%60) + 'dk'
@@ -2970,13 +3303,11 @@ async function kapatEkraniHazirla() {
   // Net süreyi timestamp'ten hesapla
   const netEl = document.getElementById('kapat-net-sure');
   if (netEl && aktifIsEmri?.baslangic_zaman) {
-    const toplamDuraklama = (aktifIsEmri._toplamDuraklama || 0) * 1000;
-    let durakladi_ek = 0;
-    if (durakladi && window._duraksladaBaslangic) {
-      durakladi_ek = Date.now() - window._duraksladaBaslangic;
-    }
-    const netMs = Math.max(0, Date.now() - new Date(aktifIsEmri.baslangic_zaman).getTime() - toplamDuraklama - durakladi_ek);
-    const netSn = Math.floor(netMs / 1000);
+    const basMs = new Date(aktifIsEmri.baslangic_zaman).getTime();
+    const simdiMs = Date.now();
+    let duraklamaSn = aktifIsEmri._toplamDuraklama || 0;
+    if (durakladi && window._duraksladaBaslangic) duraklamaSn += calismaSn(basMs, window._duraksladaBaslangic, simdiMs);
+    const netSn = Math.max(0, calismaSn(basMs, basMs, simdiMs) - duraklamaSn);
     const h = Math.floor(netSn/3600).toString().padStart(2,'0');
     const m = Math.floor((netSn%3600)/60).toString().padStart(2,'0');
     const s = (netSn%60).toString().padStart(2,'0');
@@ -3078,17 +3409,17 @@ async function isEmriKaydet() {
       const bitisZaman = bitisZamanInput ? new Date(bitisZamanInput).toISOString() : new Date().toISOString();
 
       // Net süreyi hesapla — timestamp bazlı, duraklatma dahil
+      // Süre sadece iş emrinin açıldığı vardiyanın saatlerinde sayılır (vardiya takvimi)
       let netSureDak = 0;
       let kapatToplamDuraklama = aktifIsEmri._toplamDuraklama || 0;
-      if (durakladi && window._duraksladaBaslangic) {
-        // Devam eden duraklatma, bitiş zamanını geçemez
-        const sonMs = Math.min(Date.now(), new Date(bitisZaman).getTime());
-        kapatToplamDuraklama += Math.max(0, Math.floor((sonMs - window._duraksladaBaslangic) / 1000));
-      }
-      if (aktifIsEmri.baslangic_zaman) {
-        const brutFark = new Date(bitisZaman) - new Date(aktifIsEmri.baslangic_zaman);
-        const netMs = brutFark - (kapatToplamDuraklama * 1000);
-        if (netMs > 0) netSureDak = Math.round(netMs / 60000);
+      const kapatBasMs = aktifIsEmri.baslangic_zaman ? new Date(aktifIsEmri.baslangic_zaman).getTime() : NaN;
+      const kapatBitMs = new Date(bitisZaman).getTime();
+      if (!isNaN(kapatBasMs)) {
+        if (durakladi && window._duraksladaBaslangic) {
+          // Devam eden duraklatma, bitiş zamanını geçemez
+          kapatToplamDuraklama += calismaSn(kapatBasMs, window._duraksladaBaslangic, Math.min(Date.now(), kapatBitMs));
+        }
+        netSureDak = netSureDakHesapla(kapatBasMs, kapatBitMs, kapatToplamDuraklama);
       }
 
       await sbPatch('is_emirleri', aktifIsEmri.id, {
@@ -3526,14 +3857,18 @@ function sureyiBaslat(){
   sureInterval=setInterval(()=>{
     if (!aktifIsEmri?.baslangic_zaman || durakladi) return;
     const bas = new Date(aktifIsEmri.baslangic_zaman).getTime();
-    const toplamDuraklama = (aktifIsEmri._toplamDuraklama || 0) * 1000;
-    const netMs = Date.now() - bas - toplamDuraklama;
-    const netSn = Math.max(0, Math.floor(netMs / 1000));
+    const simdi = Date.now();
+    const brutSn = calismaSn(bas, bas, simdi);
+    const duraklamaSn = aktifIsEmri._toplamDuraklama || 0;
+    const netSn = Math.max(0, brutSn - duraklamaSn);
     const h = Math.floor(netSn/3600).toString().padStart(2,'0');
     const m = Math.floor((netSn%3600)/60).toString().padStart(2,'0');
     const s = (netSn%60).toString().padStart(2,'0');
     const str = `${h}:${m}:${s}`;
     ['sure-counter2','aktif-sure'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=str;});
+    const tl = document.getElementById('toplam-sure-lbl'); if (tl) tl.textContent = _hmFmt(brutSn);
+    const dl = document.getElementById('duraklama-sure-lbl'); if (dl) dl.textContent = _hmFmt(duraklamaSn);
+    const vu = document.getElementById('vardiya-uyari'); if (vu) vu.style.display = vardiyaIcindeMi(bas, simdi) ? 'none' : 'block';
   },1000);
 }
 
@@ -3576,7 +3911,8 @@ function duraklamaGeriYukle(ie) {
   duraklamaUiGuncelle();
   // Sayaç duraklatma anındaki net süreyi göstersin
   if (ie.baslangic_zaman) {
-    const netSn = Math.max(0, Math.floor((bas - new Date(ie.baslangic_zaman).getTime() - (ie.toplam_duraklama_sn || 0) * 1000) / 1000));
+    const ieBas = new Date(ie.baslangic_zaman).getTime();
+    const netSn = Math.max(0, calismaSn(ieBas, ieBas, bas) - (ie.toplam_duraklama_sn || 0));
     const str = [Math.floor(netSn/3600), Math.floor((netSn%3600)/60), netSn%60].map(n => String(n).padStart(2,'0')).join(':');
     ['sure-counter2','aktif-sure'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = str; });
   }
@@ -3594,7 +3930,10 @@ function toggleDuraklat(){
   } else {
     // Devam etti - geçen duraklatma süresini Supabase'e yaz, başlangıcı temizle
     if (window._duraksladaBaslangic && aktifIsEmri) {
-      const gecenSn = Math.floor((Date.now() - window._duraksladaBaslangic) / 1000);
+      const _basMs = aktifIsEmri.baslangic_zaman ? new Date(aktifIsEmri.baslangic_zaman).getTime() : NaN;
+      // Duraklatma da vardiya takvimine göre hesaplanır (vardiya dışı kısım zaten sayılmadığı için iki kez düşülmez)
+      const gecenSn = isNaN(_basMs) ? Math.floor((Date.now() - window._duraksladaBaslangic) / 1000)
+                                     : calismaSn(_basMs, window._duraksladaBaslangic, Date.now());
       window._duraksladaBaslangic = null;
       const yeniToplam = (aktifIsEmri._toplamDuraklama || 0) + gecenSn;
       aktifIsEmri._toplamDuraklama = yeniToplam;
@@ -4013,7 +4352,7 @@ async function renderIsEmirleriTablosu() {
     const op = tumOperatorler.find(o => o.id === ie.acik_eden_operator_id);
     let _sureDak = ie.toplam_sure_dak;
     if ((!_sureDak || _sureDak <= 0) && ie.baslangic_zaman && ie.bitis_zaman) {
-      _sureDak = Math.round((new Date(ie.bitis_zaman) - new Date(ie.baslangic_zaman)) / 60000);
+      _sureDak = emirNetSureDak(ie);
     }
     const sure = (_sureDak != null && _sureDak > 0)
       ? Math.floor(_sureDak/60) + 'sa ' + (_sureDak%60) + 'dk'
@@ -4118,7 +4457,7 @@ async function ieDetayAc(isEmriId) {
     const bas = ie.baslangic_zaman ? new Date(ie.baslangic_zaman).toLocaleString('tr-TR') : '—';
     const bit = ie.bitis_zaman ? new Date(ie.bitis_zaman).toLocaleString('tr-TR') : '—';
     const _sd = (ie.toplam_sure_dak > 0) ? ie.toplam_sure_dak
-      : (ie.baslangic_zaman && ie.bitis_zaman) ? Math.round((new Date(ie.bitis_zaman)-new Date(ie.baslangic_zaman))/60000) : 0;
+      : (ie.baslangic_zaman && ie.bitis_zaman) ? emirNetSureDak(ie) : 0;
     const sure = _sd > 0
       ? Math.floor(_sd/60) + ' sa ' + (_sd%60) + ' dk'
       : ie.acik_kapali === 'Acik' ? 'Devam ediyor' : '—';
@@ -4209,6 +4548,8 @@ async function ieDetayDuzenleAc() {
     sbGet('is_emirleri', `id=eq.${seciiliIsEmriId}`).then(async sonuc => {
       if (sonuc && sonuc[0]) {
         const ie = sonuc[0];
+        window._ieEditYuklu = ie;
+        window._ieEditYukluSure = ie.toplam_sure_dak || null;
         document.getElementById('ie-edit-tur').value = (ie.tur === 'B' ? 'P' : ie.tur) || 'C';
         document.getElementById('ie-edit-problem').value = ie.problem || '';
         document.getElementById('ie-edit-islem').value = ie.yapilan_islem || '';
@@ -4240,6 +4581,8 @@ async function ieDetayDuzenleAc() {
           // Açık iş emrinde bitiş alanını gizle
           document.getElementById('ie-edit-bitis-bolum').style.display = ie.acik_kapali === 'Kapali' ? 'block' : 'none';
         }
+        window._ieEditYukluBas = document.getElementById('ie-edit-bas-zaman').value;
+        window._ieEditYukluBit = document.getElementById('ie-edit-bitis-zaman').value;
       }
     });
 
@@ -4309,10 +4652,16 @@ async function yoneticiIsEmriGuncelle() {
   const basZaman = basZamanVal ? new Date(basZamanVal).toISOString() : null;
   const bitisZaman = bitisZamanVal ? new Date(bitisZamanVal).toISOString() : null;
 
-  // Başlangıç ve bitiş varsa net süreyi otomatik hesapla
-  if (basZaman && bitisZaman) {
-    const farkMs = new Date(bitisZaman) - new Date(basZaman);
-    if (farkMs > 0) sure = Math.round(farkMs / 60000);
+  // Süre elle değiştirilmediyse ve başlangıç/bitiş değiştiyse, vardiya takvimine göre yeniden hesapla.
+  // (Elle yazılan süre korunur; hiçbir şey değişmediyse kayıtlı süreye dokunulmaz.)
+  const yukluSure = window._ieEditYukluSure ?? null;
+  const elleDegisti = sure !== null && sure !== yukluSure;
+  const zamanDegisti = basZamanVal !== (window._ieEditYukluBas || '') || bitisZamanVal !== (window._ieEditYukluBit || '');
+  if (!elleDegisti && basZaman && bitisZaman && (zamanDegisti || sure === null)) {
+    if (new Date(bitisZaman) > new Date(basZaman)) {
+      sure = netSureDakHesapla(new Date(basZaman).getTime(), new Date(bitisZaman).getTime(),
+        (window._ieEditYuklu && window._ieEditYuklu.toplam_duraklama_sn) || 0);
+    }
   }
 
   const tur = document.getElementById('ie-edit-tur')?.value || 'C';
@@ -4451,11 +4800,7 @@ function sureFmt(dak) {
 
 function sureHesapla(e) {
   if (e.toplam_sure_dak > 0) return e.toplam_sure_dak;
-  if (e.baslangic_zaman && e.bitis_zaman) {
-    const f = Math.round((new Date(e.bitis_zaman) - new Date(e.baslangic_zaman)) / 60000);
-    return f > 0 ? f : 0;
-  }
-  return 0;
+  return emirNetSureDak(e);
 }
 
 async function kpiHedefYukle() {
@@ -5798,6 +6143,7 @@ async function yeniOperatorKaydet() {
   }
 }
 async function renderTanimlar() {
+  await vardiyaAyarlariYukle(); vardiyaTablosuCiz(); tatilListeCiz();
   const problemler = await sbGet('problem_tipleri', 'aktif=eq.true&order=ad');
   renderTanimListe('problem-liste', problemler, 'problem_tipleri');
   const islemler = await sbGet('is_tipleri', 'aktif=eq.true&order=ad');
@@ -7376,10 +7722,11 @@ async function ustaIeGuncelle() {
   if (basZaman) guncelleme.baslangic_zaman = basZaman;
   if (bitisZaman) guncelleme.bitis_zaman = bitisZaman;
 
-  // Net süre otomatik hesapla
-  if (basZaman && bitisZaman) {
-    const fark = new Date(bitisZaman) - new Date(basZaman);
-    if (fark > 0) guncelleme.toplam_sure_dak = Math.round(fark / 60000);
+  // Net süre otomatik hesapla — vardiya takvimine göre, duraklatma düşülerek
+  if (basZaman && bitisZaman && new Date(bitisZaman) > new Date(basZaman)) {
+    let duraklamaSn = 0;
+    try { const m = await sbGet('is_emirleri', `id=eq.${ustaDuzenleId}`); duraklamaSn = (m && m[0] && m[0].toplam_duraklama_sn) || 0; } catch(e) {}
+    guncelleme.toplam_sure_dak = netSureDakHesapla(new Date(basZaman).getTime(), new Date(bitisZaman).getTime(), duraklamaSn);
   }
 
   await sbPatch('is_emirleri', ustaDuzenleId, guncelleme);
@@ -7613,7 +7960,7 @@ async function kalipKimlikAc(kalipId) {
       arizaEl.innerHTML = kapaliArizalar.slice(0, 20).map(e => {
         const tarih = e.created_at ? new Date(e.created_at).toLocaleDateString('tr-TR') : '—';
         const sure = e.toplam_sure_dak > 0 ? Math.floor(e.toplam_sure_dak/60) + 'sa ' + (e.toplam_sure_dak%60) + 'dk'
-          : (e.baslangic_zaman && e.bitis_zaman) ? Math.round((new Date(e.bitis_zaman)-new Date(e.baslangic_zaman))/60000/60) + 'sa' : '—';
+          : (e.baslangic_zaman && e.bitis_zaman) ? Math.round(emirNetSureDak(e)/60) + 'sa' : '—';
         const op = tumOperatorler.find(o => o.id === e.acik_eden_operator_id);
         return `<div style="padding:.625rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
           <div style="flex:1">
