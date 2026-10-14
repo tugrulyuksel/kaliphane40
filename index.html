@@ -1870,6 +1870,31 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         </div>
       </div>
 
+      <!-- ── RAPOR 4B: BASKI / ARIZA KARŞILAŞTIRMASI ── -->
+      <div class="panel-card" style="margin-bottom:1rem">
+        <div class="pc-header">
+          <h3>⚖️ Baskı Adedi – Arıza Karşılaştırması</h3>
+          <div class="no-print" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:12px;color:var(--muted)">Sırala:</span>
+            <select id="r-baski-sirala" style="padding:4px 8px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit" onchange="raporBaskiArizaCiz()">
+              <option value="oran" selected>1000 baskıda arıza</option>
+              <option value="ariza">Arıza adedi</option>
+              <option value="baski">Baskı adedi</option>
+            </select>
+            <label style="font-size:12px;color:var(--muted)"><input type="checkbox" id="r-baski-arizali" onchange="raporBaskiArizaCiz()"> Arızasızları gizle</label>
+          </div>
+        </div>
+        <div id="r-baski-not" style="padding:.5rem 1rem 0;font-size:12px;color:var(--muted)"></div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr><th>#</th><th>Kalıp</th><th>Baskı Adedi</th><th>Arıza Adedi</th><th>1000 Baskıda Arıza</th><th>Arıza Süresi</th></tr></thead>
+            <tbody id="r-baski-tbody">
+              <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Filtre uygulayın</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- ── RAPOR 5: OPERATÖR İŞÇİLİK SÜRELERİ ── -->
       <div class="panel-card" style="margin-bottom:1rem">
         <div class="pc-header">
@@ -4917,6 +4942,7 @@ async function raporHesapla() {
   }
 
   _raporVerisi = emirler;
+  await raporBaskiYukle();
 
   if (!emirler.length) {
     ['r-toplam','r-planli-oran','r-mttr','r-ariza-oran'].forEach(id => {
@@ -5194,6 +5220,59 @@ function raporKalipSureTablo() {
       <td style="font-size:13px">${adet}</td>
       <td><span style="font-weight:700;color:${surRenk}">${sureFmt(sure)}</span></td>
       <td style="font-size:13px">${ort}</td>
+    </tr>`;
+  }).join('');
+}
+
+
+// ── RAPOR 4B: BASKI ADEDİ – ARIZA KARŞILAŞTIRMASI ──
+let _raporBaski = {};
+let _raporBaskiHata = false;
+async function raporBaskiYukle() {
+  const bas = document.getElementById('rapor-bas').value, bit = document.getElementById('rapor-bit').value;
+  _raporBaski = {}; _raporBaskiHata = false;
+  try {
+    // "Devir (eski kayıt)" satırları eski toplamı tek güne yığdığı için dönem karşılaştırmasına katılmaz
+    const satirlar = await sbGetHepsi('gunluk_uretim',
+      `tarih=gte.${bas}&tarih=lte.${bit}&select=kalip_id,adet,urun_adi&order=id`);
+    satirlar.forEach(x => { if (x.kalip_id && x.urun_adi !== 'Devir (eski kayıt)') _raporBaski[String(x.kalip_id)] = (_raporBaski[String(x.kalip_id)] || 0) + (parseInt(x.adet) || 0); });
+  } catch (e) { console.error('Baskı kayıtları okunamadı:', e); _raporBaskiHata = true; }
+  raporBaskiArizaCiz();
+}
+
+function raporBaskiArizaCiz() {
+  const tb = document.getElementById('r-baski-tbody'), not = document.getElementById('r-baski-not');
+  if (!tb) return;
+  if (_raporBaskiHata) { tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--red);padding:1.5rem">Baskı kayıtları okunamadı</td></tr>'; return; }
+  const ariza = {}, sure = {};
+  (_raporVerisi || []).filter(e => e.tur === 'C' && e.kalip_id).forEach(e => {
+    const k = String(e.kalip_id);
+    ariza[k] = (ariza[k] || 0) + 1; sure[k] = (sure[k] || 0) + sureHesapla(e);
+  });
+  // Sadece dönemde baskı yapmış kalıplar
+  let satirlar = Object.entries(_raporBaski).filter(([, b]) => b > 0).map(([k, b]) => ({
+    kid: k, baski: b, ariza: ariza[k] || 0, sure: sure[k] || 0, oran: (ariza[k] || 0) / b * 1000
+  }));
+  const baskisizAriza = Object.keys(ariza).filter(k => !(_raporBaski[k] > 0)).length;
+  if (document.getElementById('r-baski-arizali')?.checked) satirlar = satirlar.filter(x => x.ariza > 0);
+  const sirala = document.getElementById('r-baski-sirala')?.value || 'oran';
+  satirlar.sort((a, b) => b[sirala] - a[sirala] || b.baski - a.baski);
+  not.textContent = baskisizAriza ? `Not: ${baskisizAriza} kalıpta arıza var ama bu dönemde baskı kaydı yok; karşılaştırmaya dahil edilmedi.` : '';
+  if (!satirlar.length) { tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Bu dönemde baskı yapan kalıp yok</td></tr>'; return; }
+  const maks = Math.max(...satirlar.map(x => x.oran)) || 1;
+  tb.innerHTML = satirlar.map((x, i) => {
+    const kalip = tumKaliplar.find(k => String(k.id) === x.kid);
+    const pct = Math.round(x.oran / maks * 100);
+    const renk = x.ariza === 0 ? 'var(--green)' : (x.oran / maks > .66 ? 'var(--red)' : x.oran / maks > .33 ? 'var(--amber)' : 'var(--accent)');
+    return `<tr>
+      <td style="color:var(--muted);font-size:12px">${i + 1}</td>
+      <td><div style="font-weight:600;font-size:13px">${kalip ? htmlKac(kalip.kalip_kodu) : x.kid}</div>
+        <div style="font-size:11px;color:var(--muted)">${kalip ? htmlKac((kalip.kalip_adi || '').slice(0, 30)) : ''}</div></td>
+      <td style="font-size:13px">${x.baski.toLocaleString('tr-TR')}</td>
+      <td style="font-size:13px">${x.ariza}</td>
+      <td style="min-width:130px"><span style="font-weight:700;color:${renk}">${x.oran.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}</span>
+        <div style="margin-top:4px;height:5px;background:var(--border);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${renk}"></div></div></td>
+      <td style="font-size:13px">${sureFmt(x.sure)}</td>
     </tr>`;
   }).join('');
 }
