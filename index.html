@@ -2544,6 +2544,58 @@ async function sureYenidenGeriAl() {
   } catch (e) { out.innerHTML = 'Hata: ' + htmlKac(e.message); }
 }
 
+
+// ═══ TELEFONDAN BAĞIMSIZ TARİH-SAAT SEÇİCİ ═══
+// Bazı Android telefon/tarayıcılarda datetime-local penceresi açılmıyor. Bu yüzden gün/ay/yıl/saat/dakika
+// açılır listeleri kullanılır. Orijinal alanın .value değeri (YYYY-MM-DDTHH:MM) aynen çalışmaya devam eder.
+function dtSeciciKur(inp) {
+  if (!inp || inp._dt) return;
+  inp._dt = true;
+  let v = inp.getAttribute('value') || inp.value || '';
+  inp.type = 'hidden';
+  const kutu = document.createElement('div');
+  kutu.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;align-items:center';
+  const stil = 'padding:12px 8px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:16px;font-family:inherit';
+  const yil = new Date().getFullYear();
+  const aralik = (a, b) => { const r = []; for (let i = a; i <= b; i++) r.push(i); return r; };
+  const alanlar = [
+    ['g', 'Gün', aralik(1, 31), 2], ['a', 'Ay', aralik(1, 12), 2], ['y', 'Yıl', aralik(yil - 2, yil + 1), 4],
+    ['s', 'Saat', aralik(0, 23), 2], ['d', 'Dk', aralik(0, 59), 2]
+  ];
+  const sel = {};
+  alanlar.forEach(([k, ad, degerler, hane], i) => {
+    if (i === 3) { const ayr = document.createElement('span'); ayr.textContent = '·'; ayr.style.color = 'var(--muted)'; kutu.appendChild(ayr); }
+    const el = document.createElement('select'); el.style.cssText = stil;
+    el.innerHTML = `<option value="">${ad}</option>` + degerler.map(x => `<option value="${x}">${String(x).padStart(hane, '0')}</option>`).join('');
+    el.addEventListener('change', birlestir);
+    sel[k] = el; kutu.appendChild(el);
+  });
+  inp.parentNode.insertBefore(kutu, inp.nextSibling);
+  function ciz() {
+    const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(v || '');
+    if (m) {
+      if (!Array.from(sel.y.options).some(o => o.value === String(+m[1]))) sel.y.add(new Option(m[1], +m[1]));
+      sel.y.value = +m[1]; sel.a.value = +m[2]; sel.g.value = +m[3]; sel.s.value = +m[4]; sel.d.value = +m[5];
+    } else Object.values(sel).forEach(e => e.value = '');
+  }
+  function birlestir() {
+    const g = +sel.g.value, a = +sel.a.value, y = +sel.y.value;
+    if (!g || !a || !y || sel.s.value === '' || sel.d.value === '') v = '';
+    else {
+      const gun = Math.min(g, new Date(y, a, 0).getDate());
+      v = y + '-' + String(a).padStart(2, '0') + '-' + String(gun).padStart(2, '0') + 'T' + String(+sel.s.value).padStart(2, '0') + ':' + String(+sel.d.value).padStart(2, '0');
+      if (gun !== g) sel.g.value = gun;
+    }
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  Object.defineProperty(inp, 'value', { get() { return v; }, set(x) { v = x || ''; ciz(); }, configurable: true });
+  ciz();
+}
+function dtSecicileriKur() {
+  ['usta-duzenle-bas', 'usta-duzenle-bitis', 'kapat-bitis-zaman'].forEach(id => dtSeciciKur(document.getElementById(id)));
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', dtSecicileriKur); else dtSeciciKur && dtSecicileriKur();
+
 // ── UYGULAMA DEĞİŞKENLERİ ──
 let seciliRol='usta', durakladi=false;
 let aktifChecklistKalipId = null;
@@ -7601,7 +7653,7 @@ function ustaSaatDuzenle() {
 
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
   document.body.appendChild(modal);
-  setTimeout(() => document.getElementById('usta-saat-input')?.focus(), 100);
+  dtSeciciKur(document.getElementById('usta-saat-input'));
 }
 
 async function ustaSaatKaydet() {
