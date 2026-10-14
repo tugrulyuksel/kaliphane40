@@ -1885,6 +1885,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
           </div>
         </div>
         <div id="r-baski-not" style="padding:.5rem 1rem 0;font-size:12px;color:var(--muted)"></div>
+        <div id="r-baski-eksik" style="display:none;padding:.5rem 1rem;overflow-x:auto"></div>
         <div style="overflow-x:auto">
           <table class="data-table">
             <thead><tr><th>#</th><th>Kalıp</th><th>Baskı Adedi</th><th>Arıza Adedi</th><th>1000 Baskıda Arıza</th><th>Arıza Süresi</th></tr></thead>
@@ -5257,7 +5258,8 @@ function raporBaskiArizaCiz() {
   if (document.getElementById('r-baski-arizali')?.checked) satirlar = satirlar.filter(x => x.ariza > 0);
   const sirala = document.getElementById('r-baski-sirala')?.value || 'oran';
   satirlar.sort((a, b) => b[sirala] - a[sirala] || b.baski - a.baski);
-  not.textContent = baskisizAriza ? `Not: ${baskisizAriza} kalıpta arıza var ama bu dönemde baskı kaydı yok; karşılaştırmaya dahil edilmedi.` : '';
+  not.innerHTML = baskisizAriza ? `Not: ${baskisizAriza} kalıpta arıza var ama bu dönemde baskı kaydı yok; karşılaştırmaya dahil edilmedi. <a href="#" onclick="raporBaskiEksikToggle();return false" style="color:var(--accent);font-weight:600">Listeyi göster / gizle</a>` : '';
+  raporBaskiEksikCiz(Object.keys(ariza).filter(k => !(_raporBaski[k] > 0)), ariza, sure);
   if (!satirlar.length) { tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Bu dönemde baskı yapan kalıp yok</td></tr>'; return; }
   const maks = Math.max(...satirlar.map(x => x.oran)) || 1;
   tb.innerHTML = satirlar.map((x, i) => {
@@ -5275,6 +5277,39 @@ function raporBaskiArizaCiz() {
       <td style="font-size:13px">${sureFmt(x.sure)}</td>
     </tr>`;
   }).join('');
+}
+
+
+// Arızası olup dönemde baskı kaydı olmayan kalıplar (eksik giriş kontrolü)
+function raporBaskiEksikToggle() {
+  const el = document.getElementById('r-baski-eksik');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function raporBaskiEksikCiz(kidler, ariza, sure) {
+  const el = document.getElementById('r-baski-eksik'); if (!el) return;
+  if (!kidler.length) { el.innerHTML = ''; return; }
+  const tarihler = {};
+  (_raporVerisi || []).filter(e => e.tur === 'C' && e.kalip_id).forEach(e => {
+    const k = String(e.kalip_id), t = (e.baslangic_zaman || e.created_at || '').slice(0, 10);
+    if (!t) return;
+    (tarihler[k] = tarihler[k] || []).push(t);
+  });
+  const satirlar = kidler.map(k => {
+    const kalip = tumKaliplar.find(x => String(x.id) === k);
+    const t = (tarihler[k] || []).sort();
+    return { k, kalip, ariza: ariza[k], sure: sure[k], ilk: t[0], son: t[t.length - 1], toplam: kalip ? (kalip.toplam_baski || 0) : 0 };
+  }).sort((a, b) => b.ariza - a.ariza);
+  const fmtT = t => t ? t.split('-').reverse().join('.') : '—';
+  el.innerHTML = '<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Bu kalıplarda dönem içinde arıza kaydı var ama günlük üretimde baskı girişi yok. "Tüm zamanlar" sütunu 0 ise hiç baskı girilmemiş; 0\'dan büyükse baskı başka tarihlerde girilmiş (ya da eski toplam olarak devredilmiş).</div>' +
+    '<table class="data-table"><thead><tr><th>#</th><th>Kalıp</th><th>Arıza</th><th>Arıza Süresi</th><th>İlk – Son Arıza</th><th>Baskı (tüm zamanlar)</th></tr></thead><tbody>' +
+    satirlar.map((x, i) => `<tr>
+      <td style="color:var(--muted);font-size:12px">${i + 1}</td>
+      <td><div style="font-weight:600;font-size:13px">${x.kalip ? htmlKac(x.kalip.kalip_kodu) : x.k}</div><div style="font-size:11px;color:var(--muted)">${x.kalip ? htmlKac((x.kalip.kalip_adi || '').slice(0, 30)) : 'Kalıp bulunamadı (silinmiş olabilir)'}</div></td>
+      <td style="font-size:13px">${x.ariza}</td>
+      <td style="font-size:13px">${sureFmt(x.sure)}</td>
+      <td style="font-size:12px">${fmtT(x.ilk)}${x.ilk !== x.son ? ' – ' + fmtT(x.son) : ''}</td>
+      <td style="font-size:13px;font-weight:700;color:${x.toplam ? 'var(--amber)' : 'var(--red)'}">${x.toplam ? x.toplam.toLocaleString('tr-TR') : '0 (hiç girilmemiş)'}</td>
+    </tr>`).join('') + '</tbody></table>';
 }
 
 // ── RAPOR 5: OPERATÖR İŞÇİLİK SÜRELERİ ──
