@@ -1414,9 +1414,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         </div>
         <div style="overflow-x:auto">
           <table class="data-table">
-            <thead><tr><th>Tarih</th><th>Ürün</th><th>Operasyon</th><th>Kalıp</th><th>Adet</th><th>Kaydeden</th></tr></thead>
+            <thead><tr><th>Tarih</th><th>Ürün</th><th>Operasyon</th><th>Kalıp</th><th>Adet</th><th>Kaydeden</th><th style="width:90px"></th></tr></thead>
             <tbody id="gu-gecmis-body">
-              <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Henüz giriş yok</td></tr>
+              <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">Henüz giriş yok</td></tr>
             </tbody>
           </table>
         </div>
@@ -6573,6 +6573,7 @@ function kalipAra(q){
 // State
 let kmUrunler = [];
 let kmDuzlenenUrunId = null;
+let kmUrunDuzenleId = null; // ürün adı/açıklama düzenleme formu için
 
 // ── Supabase yardımcıları ──
 async function kmYukle() {
@@ -6637,6 +6638,7 @@ function kmRenderUrunler() {
         <div style="font-size:12px;color:var(--muted);margin-top:4px">${u.operasyonlar.length} operasyon tanımlı</div>
       </div>
       <div style="display:flex;gap:6px">
+        <div onclick="kmUrunDuzenleAc('${u.id}')" style="padding:6px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;cursor:pointer">✏️ Düzenle</div>
         <div onclick="kmOpAlanAc('${u.id}')" style="padding:6px 12px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:12px;cursor:pointer;font-weight:600">⚙️ Operasyonlar</div>
         <div onclick="kmUrunSil('${u.id}')" style="padding:6px 10px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:12px;cursor:pointer">Sil</div>
       </div>
@@ -6645,8 +6647,18 @@ function kmRenderUrunler() {
 }
 
 // ── Ürün CRUD ──
+function kmUrunDuzenleAc(id) {
+  const u = kmUrunler.find(x => x.id === id);
+  if (!u) return;
+  kmUrunDuzenleId = id;
+  const f = document.getElementById('km-urun-form');
+  document.getElementById('km-urun-form-baslik').textContent = 'Ürünü Düzenle';
+  document.getElementById('km-urun-adi').value = u.adi;
+  document.getElementById('km-urun-aciklama').value = u.aciklama || '';
+  if (f) { f.style.display = 'block'; f.scrollIntoView({ behavior: 'smooth' }); }
+}
 function kmYeniUrunForm() {
-  kmDuzlenenUrunId = null;
+  kmUrunDuzenleId = null;
   const f = document.getElementById('km-urun-form');
   document.getElementById('km-urun-form-baslik').textContent = 'Yeni Ürün Ekle';
   document.getElementById('km-urun-adi').value = '';
@@ -6654,6 +6666,7 @@ function kmYeniUrunForm() {
   if (f) { f.style.display='block'; f.scrollIntoView({behavior:'smooth'}); }
 }
 function kmUrunFormIptal() {
+  kmUrunDuzenleId = null;
   document.getElementById('km-urun-form').style.display = 'none';
 }
 async function kmUrunKaydet() {
@@ -6661,8 +6674,11 @@ async function kmUrunKaydet() {
   if (!adi) { alert('Ürün adı zorunludur.'); return; }
   const aciklama = document.getElementById('km-urun-aciklama')?.value.trim() || '';
   try {
-    if (kmDuzlenenUrunId !== null) {
-      await sbPatchFiltre('urunler', `id=eq.${kmDuzlenenUrunId}`, { adi, aciklama });
+    if (kmUrunDuzenleId !== null) {
+      await sbPatchFiltre('urunler', `id=eq.${kmUrunDuzenleId}`, { adi, aciklama });
+      // Günlük üretim geçmişindeki ürün adları da güncel kalsın
+      try { await sbPatchFiltre('gunluk_uretim', `urun_id=eq.${kmUrunDuzenleId}`, { urun_adi: adi }); } catch (e) { console.warn('Geçmiş ürün adı güncellenemedi:', e); }
+      if (kmDuzlenenUrunId === kmUrunDuzenleId) document.getElementById('km-op-baslik').textContent = adi + ' — Operasyonları';
     } else {
       await sbPost('urunler', { adi, aciklama });
     }
@@ -6727,7 +6743,11 @@ function kmRenderOpListe(u) {
     return `<div style="background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:.875rem 1rem">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:.75rem">
         <div style="width:24px;height:24px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">${i+1}</div>
-        <input type="text" value="${op.adi}" onchange="kmOpAdiDegistir('${u.id}','${op.id}',this.value)"
+        <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
+          <div onclick="kmOpTasi('${u.id}','${op.id}',-1)" title="Yukarı taşı" style="width:26px;height:20px;display:flex;align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--border2);border-radius:5px;font-size:11px;cursor:pointer;${i===0?'opacity:.3;pointer-events:none':''}">▲</div>
+          <div onclick="kmOpTasi('${u.id}','${op.id}',1)" title="Aşağı taşı" style="width:26px;height:20px;display:flex;align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--border2);border-radius:5px;font-size:11px;cursor:pointer;${i===u.operasyonlar.length-1?'opacity:.3;pointer-events:none':''}">▼</div>
+        </div>
+        <input type="text" value="${htmlKac(op.adi || '')}" onchange="kmOpAdiDegistir('${u.id}','${op.id}',this.value)"
           style="flex:1;padding:7px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:14px;font-weight:600;font-family:inherit">
         <div onclick="kmOpSil('${u.id}','${op.id}')" style="padding:5px 10px;background:var(--red-dim);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;cursor:pointer">Sil</div>
       </div>
@@ -6748,13 +6768,31 @@ function kmRenderOpListe(u) {
 async function kmOpEkle() {
   const u = kmUrunler.find(x=>x.id===kmDuzlenenUrunId);
   if (!u) return;
-  const sira = u.operasyonlar.length + 1;
+  const sira = u.operasyonlar.reduce((m, o) => Math.max(m, o.sira || 0), 0) + 1;
   try {
     await sbPost('urun_operasyonlar', { urun_id: u.id, sira, adi: `Operasyon ${sira}`, ana_kalip_id: null, alternatif1_kalip_id: null, alternatif2_kalip_id: null });
     await kmYukle();
     const ug = kmUrunler.find(x=>x.id===kmDuzlenenUrunId);
     if (ug) kmRenderOpListe(ug);
   } catch(e) { alert('Hata: ' + e.message); }
+}
+async function kmOpTasi(urunId, opId, yon) {
+  const u = kmUrunler.find(x => x.id === urunId);
+  if (!u) return;
+  const i = u.operasyonlar.findIndex(o => o.id === opId), j = i + yon;
+  if (i < 0 || j < 0 || j >= u.operasyonlar.length) return;
+  [u.operasyonlar[i], u.operasyonlar[j]] = [u.operasyonlar[j], u.operasyonlar[i]];
+  // Sıra numaralarını 1..n olarak yeniden ver (boşluk/çift numara varsa da düzelir)
+  u.operasyonlar.forEach((o, k) => { o.sira = k + 1; });
+  kmRenderOpListe(u);
+  try {
+    await Promise.all(u.operasyonlar.map(o => sbPatchFiltre('urun_operasyonlar', `id=eq.${o.id}`, { sira: o.sira })));
+  } catch (e) {
+    alert('⚠ Sıra kaydedilemedi: ' + e.message);
+    await kmYukle();
+    const ug = kmUrunler.find(x => x.id === urunId);
+    if (ug) kmRenderOpListe(ug);
+  }
 }
 async function kmOpSil(urunId, opId) {
   const u = kmUrunler.find(x=>x.id===urunId);
@@ -7022,6 +7060,74 @@ function guTemizle() {
   });
 }
 
+// ── Günlük üretim kaydını düzenle / sil ──
+function guKayitDuzenle(id) {
+  const g = guGecmis.find(x => String(x.id) === String(id));
+  if (!g) return;
+  document.getElementById('gu-duzenle-modal')?.remove();
+  const urun = kmUrunler.find(u => String(u.id) === String(g.urun_id));
+  const op = urun && urun.operasyonlar.find(o => String(o.id) === String(g.op_id));
+  const onerilen = op ? [op.ana_kalip_id, ...(op.alternatifler || [])].filter(Boolean).map(String) : [];
+  const opt = k => `<option value="${k.id}" ${String(k.id) === String(g.kalip_id) ? 'selected' : ''}>${htmlKac(k.kalip_adi)} (${htmlKac(k.kalip_kodu)})</option>`;
+  const onerilenOpts = tumKaliplar.filter(k => onerilen.includes(String(k.id))).map(opt).join('');
+  const digerOpts = tumKaliplar.filter(k => !onerilen.includes(String(k.id))).map(opt).join('');
+  const inp = 'width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;margin-top:4px;box-sizing:border-box';
+  const lbl = 'font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase';
+  const m = document.createElement('div');
+  m.id = 'gu-duzenle-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem';
+  m.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;width:100%;max-width:420px;display:flex;flex-direction:column;gap:.9rem;max-height:90vh;overflow:auto">
+    <h3 style="font-size:16px;font-weight:700">✏️ Üretim Kaydını Düzenle</h3>
+    <div style="font-size:13px;color:var(--muted)">${htmlKac(g.urun_adi)} · ${htmlKac(g.op_adi)}</div>
+    <div><label style="${lbl}">Tarih</label><input type="date" id="gud-tarih" value="${g.tarih}" style="${inp}"></div>
+    <div><label style="${lbl}">Kalıp</label><select id="gud-kalip" style="${inp}">
+      ${onerilenOpts ? '<optgroup label="Bu operasyonun kalıpları">' + onerilenOpts + '</optgroup>' : ''}
+      <optgroup label="Diğer kalıplar">${digerOpts}</optgroup></select></div>
+    <div><label style="${lbl}">Adet</label><input type="number" id="gud-adet" min="1" value="${g.adet}" style="${inp}"></div>
+    <div><label style="${lbl}">Not</label><input type="text" id="gud-not" value="${htmlKac(g.not || '')}" style="${inp}"></div>
+    <div style="display:flex;gap:8px">
+      <div onclick="document.getElementById('gu-duzenle-modal').remove()" style="flex:1;padding:12px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;text-align:center;font-size:14px">İptal</div>
+      <div onclick="guKayitKaydet('${g.id}')" style="flex:2;padding:12px;background:var(--accent);border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:14px;font-weight:700">💾 Kaydet</div>
+    </div></div>`;
+  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+  document.body.appendChild(m);
+}
+
+async function guKayitKaydet(id) {
+  const g = guGecmis.find(x => String(x.id) === String(id));
+  if (!g) return;
+  const tarih = document.getElementById('gud-tarih').value;
+  const adet = parseInt(document.getElementById('gud-adet').value);
+  const kalipId = document.getElementById('gud-kalip').value;
+  const notMetni = document.getElementById('gud-not').value.trim();
+  if (!tarih) { alert('Tarih seçin.'); return; }
+  if (!(adet > 0)) { alert('Adet 0\'dan büyük olmalı.'); return; }
+  const kalip = tumKaliplar.find(k => String(k.id) === String(kalipId));
+  const veri = { tarih, adet, kalip_id: kalipId || null, kalip_adi: kalip ? kalip.kalip_adi : g.kalip_adi, kalip_kodu: kalip ? kalip.kalip_kodu : g.kalip_kodu, not_metni: notMetni || null };
+  try {
+    await sbPatchFiltre('gunluk_uretim', `id=eq.${id}`, veri);
+  } catch (e) { alert('⚠ Kaydedilemedi: ' + e.message); return; }
+  // Kalıp toplam baskı sayılarını düzelt
+  const eskiK = tumKaliplar.find(k => String(k.id) === String(g.kalip_id));
+  if (eskiK) eskiK.toplam_baski = Math.max(0, (eskiK.toplam_baski || 0) - g.adet);
+  if (kalip) kalip.toplam_baski = (kalip.toplam_baski || 0) + adet;
+  Object.assign(g, { tarih, adet, kalip_id: veri.kalip_id, kalip_adi: veri.kalip_adi, kalip_kodu: veri.kalip_kodu, not: notMetni });
+  document.getElementById('gu-duzenle-modal')?.remove();
+  guGecmisRender();
+}
+
+async function guKayitSil(id) {
+  const g = guGecmis.find(x => String(x.id) === String(id));
+  if (!g) return;
+  if (!confirm(`Bu kayıt silinsin mi?\n\n${g.tarih} · ${g.urun_adi} · ${g.op_adi}\n${g.kalip_kodu} — ${g.adet} adet`)) return;
+  try { await sbDelete('gunluk_uretim', `id=eq.${id}`); }
+  catch (e) { alert('⚠ Silinemedi: ' + e.message); return; }
+  const k = tumKaliplar.find(x => String(x.id) === String(g.kalip_id));
+  if (k) k.toplam_baski = Math.max(0, (k.toplam_baski || 0) - g.adet);
+  guGecmis = guGecmis.filter(x => String(x.id) !== String(id));
+  guGecmisRender();
+}
+
 function guGecmisRender() {
   const body = document.getElementById('gu-gecmis-body');
   if (!body) return;
@@ -7029,7 +7135,7 @@ function guGecmisRender() {
   const filtreTarih = filtreEl?.value || '';
   const liste = filtreTarih ? guGecmis.filter(g=>g.tarih===filtreTarih) : guGecmis.slice(0,50);
   if (!liste.length) {
-    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Henüz giriş yok</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">Henüz giriş yok</td></tr>';
     return;
   }
   body.innerHTML = liste.map(g=>`
@@ -7040,6 +7146,10 @@ function guGecmisRender() {
       <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent)">${g.kalip_kodu}</span></td>
       <td style="font-family:'JetBrains Mono',monospace;font-weight:700;text-align:right">${g.adet.toLocaleString('tr-TR')}</td>
       <td style="font-size:12px;color:var(--muted)">${g.kaydeden}</td>
+      <td style="white-space:nowrap">
+        <span onclick="guKayitDuzenle('${g.id}')" title="Düzenle" style="cursor:pointer;padding:3px 7px;border:1px solid var(--border2);border-radius:5px;font-size:12px">✏️</span>
+        <span onclick="guKayitSil('${g.id}')" title="Sil" style="cursor:pointer;padding:3px 7px;border:1px solid var(--red);border-radius:5px;font-size:12px;color:var(--red)">🗑</span>
+      </td>
     </tr>`).join('');
 }
 
