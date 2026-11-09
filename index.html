@@ -2677,6 +2677,7 @@ async function verileriYukle() {
   }
   // Günlük üretim girişlerinden biriken toplam baskı sayılarını yükle
   await baskiRestore();
+  omurKontrolVeBakimAc().catch(e => console.error(e));
   await vardiyaAyarlariYukle();
   // Bu cihazda kalmış eski checklist kayıtları varsa (usta telefonu dahil) Supabase'e taşı
   clYerelTasi();
@@ -3014,7 +3015,7 @@ async function renderPlanliGoster() {
 
       return `<div class="planli-item" onclick="Promise.resolve(planliDetayGoster('${kalip.kalip_kodu}','${kalip.kalip_adi.replace(/'/g,"\\'")}','${tarihStr}','${durum}','${b.id}')).catch(e=>console.error(e))">
         <div class="pi-top">
-          <span class="pi-kalip">${kalip.kalip_adi}</span>
+          <span class="pi-kalip">${kalip.kalip_adi}${b.neden === 'omur' ? ' <span class="badge badge-amber" style="font-size:10px">Baskı ömrü</span>' : ''}</span>
           ${badge}
         </div>
         <div class="pi-bottom">
@@ -3309,15 +3310,72 @@ async function renderYoneticiVeriler() {
   renderKritikKaliplar();
 }
 
+// ═══════════════════════════════════════════════════
+// KALIP ÖMRÜ: baskı ömrü dolunca otomatik planlı bakım, bakım bitince ömür sıfırlanır
+// Toplam baskı sayımı devam eder; "ömür kullanımı" = toplam baskı − son sıfırlama noktası (kaliplar.omur_baslangic_baski)
+// ═══════════════════════════════════════════════════
+function omurKullanim(k) { return Math.max(0, (k.toplam_baski || 0) - (k.omur_baslangic_baski || 0)); }
+function omurSutunuVar() { return tumKaliplar.length > 0 && ('omur_baslangic_baski' in tumKaliplar[0]); }
+function _bugunYerel() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+
+let _omurKontrolSuruyor = false;
+// Ömrü dolan kalıplar için açık planlı bakım yoksa otomatik açar. kalipIdler verilirse sadece onlara bakar.
+// Dönüş: yeni açılan kalıpların listesi
+async function omurKontrolVeBakimAc(kalipIdler) {
+  if (_omurKontrolSuruyor) return [];
+  _omurKontrolSuruyor = true;
+  const acilan = [];
+  try {
+    if (!omurSutunuVar()) { console.warn('kaliplar.omur_baslangic_baski sütunu yok; otomatik bakım kapalı.'); return []; }
+    const idSet = kalipIdler ? new Set(kalipIdler.map(String)) : null;
+    const adaylar = tumKaliplar.filter(k => (!idSet || idSet.has(String(k.id))) && k.toplam_omur_baski > 0 && omurKullanim(k) >= k.toplam_omur_baski);
+    if (!adaylar.length) return [];
+    const acik = await sbGet('planli_bakimlar', 'tamamlandi=eq.false');
+    if (!Array.isArray(acik)) return [];
+    const acikSet = new Set(acik.map(b => String(b.kalip_id)));
+    for (const k of adaylar) {
+      if (acikSet.has(String(k.id))) continue; // zaten bekleyen bir planlı bakım var
+      let r = await sbPost('planli_bakimlar', { kalip_id: k.id, planlanan_tarih: _bugunYerel(), tamamlandi: false, neden: 'omur' });
+      if (!(Array.isArray(r) && r[0])) r = await sbPost('planli_bakimlar', { kalip_id: k.id, planlanan_tarih: _bugunYerel(), tamamlandi: false }); // neden sütunu yoksa
+      if (Array.isArray(r) && r[0]) acilan.push(k); else console.error('Otomatik planlı bakım açılamadı:', k.kalip_kodu, r);
+    }
+  } catch (e) { console.error('Ömür kontrolü hatası:', e); }
+  finally { _omurKontrolSuruyor = false; }
+  return acilan;
+}
+
+// Planlı bakım tamamlanınca ömür dolmuşsa sayaç sıfırlanır (toplam baskı aynen kalır)
+async function omurSifirlaGerekirse(kalipId) {
+  try {
+    await baskiRestore(); // güncel toplam baskı
+    const k = tumKaliplar.find(x => String(x.id) === String(kalipId));
+    if (!k || !(k.toplam_omur_baski > 0)) return false;
+    if (!('omur_baslangic_baski' in k)) { console.warn('kaliplar.omur_baslangic_baski sütunu yok; ömür sıfırlanamadı.'); return false; }
+    if (omurKullanim(k) < k.toplam_omur_baski) return false;
+    await sbPatchFiltre('kaliplar', `id=eq.${k.id}`, { omur_baslangic_baski: k.toplam_baski || 0 });
+    k.omur_baslangic_baski = k.toplam_baski || 0;
+    return true;
+  } catch (e) { console.error('Ömür sıfırlama hatası:', e); return false; }
+}
+
+// Günlük üretim ekranından sonra: ömrü yeni dolan kalıp için bildirim
+async function omurKontrolBildir(kalipIdler) {
+  const acilan = await omurKontrolVeBakimAc(kalipIdler);
+  if (acilan.length) alert('🔧 Baskı ömrü dolduğu için otomatik planlı bakım açıldı:\n\n' + acilan.map(k => `• ${k.kalip_kodu} — ${k.kalip_adi}`).join('\n'));
+}
+
 function renderKritikKaliplar() {
   const liste = document.getElementById('kritik-kalip-liste');
   const sayac = document.getElementById('kritik-sayac');
   if (!liste) return;
 
   const kritikler = tumKaliplar.filter(k => {
-    if (!k.toplam_omur_baski || !k.toplam_baski) return false;
-    return (k.toplam_baski / k.toplam_omur_baski) >= 0.70; // %70 ve üzeri
-  }).sort((a,b) => (b.toplam_baski/b.toplam_omur_baski) - (a.toplam_baski/a.toplam_omur_baski));
+    if (!k.toplam_omur_baski || !omurKullanim(k)) return false;
+    return (omurKullanim(k) / k.toplam_omur_baski) >= 0.70; // %70 ve üzeri
+  }).sort((a,b) => (omurKullanim(b)/b.toplam_omur_baski) - (omurKullanim(a)/a.toplam_omur_baski));
 
   if (!kritikler.length) {
     liste.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">✓ Kritik kalıp yok</div>';
@@ -3327,7 +3385,7 @@ function renderKritikKaliplar() {
 
   if (sayac) { sayac.textContent = kritikler.length; sayac.style.display='inline-flex'; }
   liste.innerHTML = kritikler.map(k => {
-    const oran = Math.min(100, Math.round(k.toplam_baski / k.toplam_omur_baski * 100));
+    const oran = Math.min(100, Math.round(omurKullanim(k) / k.toplam_omur_baski * 100));
     const renk = oran >= 90 ? 'var(--red)' : 'var(--amber)';
     return `<div style="display:flex;align-items:center;gap:12px;padding:.75rem 0;border-bottom:1px solid var(--border)">
       <div style="flex:1;min-width:0">
@@ -3336,7 +3394,7 @@ function renderKritikKaliplar() {
       </div>
       <div style="min-width:140px">
         <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-          <span style="font-size:11px;color:var(--muted)">${k.toplam_baski.toLocaleString('tr-TR')} baskı</span>
+          <span style="font-size:11px;color:var(--muted)">${omurKullanim(k).toLocaleString('tr-TR')} baskı</span>
           <span style="font-size:12px;font-weight:700;color:${renk}">${oran}%</span>
         </div>
         <div style="background:var(--border);border-radius:4px;height:6px">
@@ -3643,12 +3701,14 @@ async function isEmriKaydet() {
           tamamlanma_tarihi: new Date().toISOString().split('T')[0],
           is_emri_id: aktifIsEmri.id
         });
+        window._omurSifirlandi = await omurSifirlaGerekirse(aktifIsEmri.kalip_id);
       }
     } catch(e) { console.warn(e); }
   }
 
   clearInterval(sureInterval);
-  alert('✅ İş emri kapatıldı!');
+  alert('✅ İş emri kapatıldı!' + (window._omurSifirlandi ? '\n🔄 Kalıp baskı ömrü sıfırlandı.' : ''));
+  window._omurSifirlandi = false;
   window._seciliMalzemeler = {};
   aktifIsEmri = null;
   aktifPlanliId = null;
@@ -5877,7 +5937,7 @@ function planliTabloFiltrele() {
   const bugun = new Date(); bugun.setHours(0,0,0,0);
   tbody.innerHTML = liste.map(b => {
     const kalip = tumKaliplar.find(k => k.id === b.kalip_id);
-    const kalipAdi = kalip ? kalip.kalip_kodu + ' — ' + kalip.kalip_adi.slice(0,30) : '—';
+    const kalipAdi = (kalip ? kalip.kalip_kodu + ' — ' + kalip.kalip_adi.slice(0,30) : '—') + (b.neden === 'omur' ? ' <span class="badge badge-amber" style="font-size:10px">Baskı ömrü doldu</span>' : '');
     const planlanan = new Date(b.planlanan_tarih);
     const tarihStr = planlanan.toLocaleDateString('tr-TR', {day:'2-digit', month:'2-digit', year:'numeric'}).replace(/\./g, '/');
     const fark = Math.round((planlanan - bugun) / 86400000);
@@ -6055,6 +6115,8 @@ async function planliTamamla(id) {
     tamamlandi: true,
     tamamlanma_tarihi: new Date().toISOString().split('T')[0]
   });
+  const kayit = planliTumKayitlar.find(x => String(x.id) === String(id));
+  if (kayit && await omurSifirlaGerekirse(kayit.kalip_id)) alert('🔄 Kalıp baskı ömrü sıfırlandı (toplam baskı sayımı devam ediyor).');
   await renderPlanliTablo();
 }
 
@@ -6092,13 +6154,14 @@ async function renderKaliplar() {
       // Ömür hesabı
       const toplam = k.toplam_baski || 0;
       const omur = k.toplam_omur_baski || 0;
+      const kullanim = omurKullanim(k);
       let omurHTML = '—';
       if (omur > 0) {
-        const oran = Math.min(100, Math.round(toplam / omur * 100));
+        const oran = Math.min(100, Math.round(kullanim / omur * 100));
         const renk = oran >= 90 ? 'var(--red)' : oran >= 70 ? 'var(--amber)' : 'var(--green)';
         omurHTML = `<div style="min-width:120px">
           <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-            <span style="font-size:11px;color:var(--muted)">${toplam.toLocaleString('tr-TR')} / ${omur.toLocaleString('tr-TR')}</span>
+            <span style="font-size:11px;color:var(--muted)">${kullanim.toLocaleString('tr-TR')} / ${omur.toLocaleString('tr-TR')}</span>
             <span style="font-size:11px;font-weight:700;color:${renk}">${oran}%</span>
           </div>
           <div style="background:var(--border);border-radius:4px;height:5px">
@@ -7408,6 +7471,7 @@ async function guKaydet() {
 
   guTemizle();
   guGecmisRender();
+  omurKontrolBildir(sonuc.map(x => x.kalip_id).filter(Boolean)).catch(e => console.error(e));
 
   // Başarı bildirimi
   if (btn) {
@@ -7483,6 +7547,7 @@ async function guKayitKaydet(id) {
   Object.assign(g, { tarih, adet, kalip_id: veri.kalip_id, kalip_adi: veri.kalip_adi, kalip_kodu: veri.kalip_kodu, not: notMetni });
   document.getElementById('gu-duzenle-modal')?.remove();
   guGecmisRender();
+  if (kalipId) omurKontrolBildir([kalipId]).catch(e => console.error(e));
 }
 
 async function guKayitSil(id) {
