@@ -344,6 +344,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 /* ── RAPOR HIZLI BUTON ── */
 .r-hizli-btn{padding:6px 14px;background:var(--card);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer;transition:all .15s}
 .r-hizli-btn:hover,.r-hizli-btn.aktif{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+/* ── POLİVALANS RAPORU (yazdırma) ── */
+#pol-rapor-baski { display: none; }
+@page pol { size: A4 landscape; margin: 10mm; }
+@media print {
+  body.pol-baski * { visibility: hidden !important; }
+  body.pol-baski #pol-rapor-baski, body.pol-baski #pol-rapor-baski * { visibility: visible !important; }
+  body.pol-baski #pol-rapor-baski { display: block !important; position: absolute; left: 0; top: 0; width: 100%; background: #fff; color: #000; page: pol; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
 /* ── YAZDIRMA (PDF) ── */
 @media print {
   body * { visibility: hidden; }
@@ -1153,12 +1161,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
               <option value="0">Tüm zamanlar</option>
             </select>
             <div onclick="polYenile()" style="padding:5px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;font-size:12px;cursor:pointer">↻ Yenile</div>
+            <div onclick="Promise.resolve(polRaporYazdir()).catch(e=>console.error(e))" style="padding:5px 12px;background:var(--accent);border-radius:6px;color:#fff;font-size:12px;font-weight:600;cursor:pointer">🖨️ Rapor Al (PDF)</div>
           </div>
         </div>
         <div style="padding:.75rem 1.25rem 0;font-size:12px;color:var(--muted)">
           Kutudaki sayı elle verdiğin puan: <b>0</b> bilmiyor · <b>1</b> gözetimle yapar · <b>2</b> tek başına yapar · <b>3</b> iyi yapar · <b>4</b> başkasına öğretir.
-          Altındaki küçük yazı otomatik: işi kaç iş emrinde yaptığı ve toplam süresi. Puanı değiştirmek için soldan ustayı seç. Satırlar "yetkin (3+) kişi sayısına" göre, en riskli iş en üstte sıralanır.
+          Altındaki küçük yazı otomatik: işi kaç iş emrinde yaptığı ve toplam süresi. Puanı değiştirmek için soldan ustayı seç. Nasıl puanlandığı aşağıdaki "Puanlama yöntemi" bölümünde yazıyor. Satırlar "yetkin (3+) kişi sayısına" göre, en riskli iş en üstte sıralanır.
         </div>
+        <div id="pol-kriter" style="padding:.5rem 1.25rem 0"></div>
         <div id="pol-uyari" style="padding:.5rem 1.25rem 0;font-size:12px;color:var(--amber)"></div>
         <div id="pol-matris" style="overflow-x:auto;padding:.75rem 1.25rem 1.25rem">
           <div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Yükleniyor...</div>
@@ -6246,7 +6256,7 @@ async function polIstatistikYukle() {
 
 async function polHazirla(zorla) {
   if (_polYuklendi && !zorla) return;
-  await Promise.all([polPuanYukle(), polIstatistikYukle().catch(e => { console.error('Polivalans istatistik hatası:', e); })]);
+  await Promise.all([polKriterYukle(), polPuanYukle(), polIstatistikYukle().catch(e => { console.error('Polivalans istatistik hatası:', e); })]);
   _polYuklendi = true;
 }
 
@@ -6310,17 +6320,151 @@ async function polMatrisYukle() {
   const el = document.getElementById('pol-matris'); if (!el) return;
   const d = document.getElementById('pol-donem'); if (d) d.value = _polDonem;
   await polHazirla();
+  polKriterCiz();
   polMatrisCiz();
 }
 async function polYenile() {
   const el = document.getElementById('pol-matris'); if (el) el.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Yükleniyor...</div>';
-  await polHazirla(true); polMatrisCiz();
+  await polHazirla(true); polKriterCiz(); polMatrisCiz();
   if (window._polAktifOp) polDetayDoldur(window._polAktifOp);
 }
 async function polDonemDegisti(v) {
   _polDonem = v;
   ['pol-donem', 'pol-donem-detay'].forEach(id => { const e = document.getElementById(id); if (e) e.value = v; });
   await polYenile();
+}
+
+// ── Puanlama yöntemi ve kriterleri (düzenlenebilir, Supabase ayarlar: polivalans_kriter) ──
+const POL_KRITER_VARSAYILAN = {
+  yontem: 'Puanlar yönetici tarafından, personelin ilgili işlemi iş başında gösterdiği performansa göre elle verilir. İş emri kayıtlarından gelen adet ve süre bilgileri puanı destekleyen veri olarak yanında gösterilir; puan bu sayılardan otomatik hesaplanmaz. 3 ve üzeri puan "yetkin" kabul edilir; yetkin personel sayısı 1 veya daha az olan işlemler risk noktası olarak işaretlenir.',
+  seviyeler: [
+    'İşlemle ilgili eğitim almamış ve uygulama deneyimi yok; bu işi tek başına veya gözetimle yapmaz.',
+    'Temel bilgisi var; işi yalnızca yetkin bir personelin gözetiminde veya yönlendirmesiyle yapabilir.',
+    'Standart işi tek başına, yönlendirme gerektirmeden yapar; zor veya alışılmadık durumlarda destek ister.',
+    'İşi istenen kalitede ve sürede, tekrar iş çıkarmadan yapar; çıkan sorunu kendi çözer. Bu işte "yetkin" sayılır.',
+    'İşte uzman; sorunun/arızanın nedenini tespit edip giderebilir, başka personele eğitim verebilir veya yönlendirebilir.'
+  ]
+};
+let _polKriter = POL_KRITER_VARSAYILAN;
+
+async function polKriterYukle() {
+  try {
+    const r = await sbGet('ayarlar', 'anahtar=eq.polivalans_kriter');
+    const d = Array.isArray(r) && r[0] && r[0].deger;
+    if (d && d.yontem && Array.isArray(d.seviyeler) && d.seviyeler.length === 5) _polKriter = d;
+  } catch (e) { console.warn('Polivalans kriterleri okunamadı, varsayılan kullanılıyor:', e); }
+}
+
+function polKriterTabloHTML(yazdir) {
+  const k = _polKriter;
+  const td = yazdir ? 'border:1px solid #999;padding:4px 6px;font-size:11px;color:#000;vertical-align:top' : 'padding:5px 8px;font-size:12px;border-top:1px solid var(--border);vertical-align:top';
+  const bg = yazdir ? ['#e2e8f0', '#fca5a5', '#fcd34d', '#86efac', '#93c5fd'] : POL_RENK;
+  return `<table style="border-collapse:collapse;width:100%;margin-top:6px"><tbody>` +
+    k.seviyeler.map((a, i) => `<tr><td style="${td};white-space:nowrap;width:1%"><span style="display:inline-block;min-width:22px;text-align:center;background:${bg[i]};border-radius:5px;padding:1px 6px;font-weight:700">${i}</span></td>` +
+      `<td style="${td};white-space:nowrap;width:1%;font-weight:600">${POL_ETIKET[i]}</td><td style="${td}">${htmlKac(a)}</td></tr>`).join('') + '</tbody></table>';
+}
+
+function polKriterCiz() {
+  const el = document.getElementById('pol-kriter'); if (!el) return;
+  el.innerHTML = `<details style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.5rem .875rem">
+    <summary style="cursor:pointer;font-size:13px;font-weight:600">📋 Puanlama yöntemi ve kriterleri</summary>
+    <div style="font-size:12px;color:var(--muted);margin:8px 0 2px;line-height:1.5">${htmlKac(_polKriter.yontem)}</div>
+    ${polKriterTabloHTML(false)}
+    <div onclick="polKriterDuzenle()" style="display:inline-block;margin:8px 0 4px;padding:5px 12px;background:var(--card2);border:1px solid var(--border2);border-radius:6px;font-size:12px;cursor:pointer">✏️ Metni düzenle</div>
+  </details>`;
+}
+
+function polKriterDuzenle() {
+  const el = document.getElementById('pol-kriter'); if (!el) return;
+  const ta = 'width:100%;padding:8px 10px;background:var(--card2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit;box-sizing:border-box';
+  el.innerHTML = `<div style="background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:.75rem .875rem">
+    <div style="font-size:13px;font-weight:600;margin-bottom:6px">Puanlama yöntemi</div>
+    <textarea id="pol-k-yontem" rows="4" style="${ta}">${htmlKac(_polKriter.yontem)}</textarea>
+    ${_polKriter.seviyeler.map((a, i) => `<div style="font-size:12px;font-weight:600;margin:8px 0 3px">${i} · ${POL_ETIKET[i]}</div><textarea id="pol-k-${i}" rows="2" style="${ta}">${htmlKac(a)}</textarea>`).join('')}
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <div onclick="polKriterCiz()" style="flex:1;padding:8px;background:var(--card2);border:1px solid var(--border2);border-radius:6px;text-align:center;font-size:12px;cursor:pointer">İptal</div>
+      <div onclick="Promise.resolve(polKriterKaydet()).catch(e=>console.error(e))" style="flex:2;padding:8px;background:var(--accent);border-radius:6px;color:#fff;text-align:center;font-size:12px;font-weight:700;cursor:pointer">💾 Kaydet</div>
+    </div></div>`;
+}
+
+async function polKriterKaydet() {
+  const yeni = { yontem: document.getElementById('pol-k-yontem').value.trim(), seviyeler: [0, 1, 2, 3, 4].map(i => document.getElementById('pol-k-' + i).value.trim()) };
+  if (!yeni.yontem || yeni.seviyeler.some(x => !x)) { alert('Tüm alanlar dolu olmalı.'); return; }
+  try { await sbUpsertAyar('polivalans_kriter', yeni); }
+  catch (e) { alert('⚠ Kaydedilemedi: ' + e.message); return; }
+  _polKriter = yeni; polKriterCiz();
+}
+
+// ── Polivalans raporu: denetim için yazdırılabilir / PDF ──
+async function polRaporYazdir() {
+  await polHazirla(true); // her zaman güncel veriyle
+  if (_polTabloYok) { alert('Önce operator_puanlari tablosunu oluşturmak gerekiyor (Polivalans kartındaki uyarıya bak).'); return; }
+  const ekip = tumOperatorler.filter(o => o.aktif !== false);
+  if (!ekip.length || !tumIsTipleri.length) { alert('Raporlanacak veri yok.'); return; }
+  const donemAd = { '90': 'Son 3 ay', '180': 'Son 6 ay', '365': 'Son 1 yıl', '0': 'Tüm zamanlar' }[_polDonem];
+  const simdi = new Date().toLocaleString('tr-TR', { dateStyle: 'long', timeStyle: 'short' });
+  const hazirlayan = (typeof aktifOperator !== 'undefined' && aktifOperator && aktifOperator.ad_soyad) || 'Yönetici';
+  const BG = ['#e2e8f0', '#fca5a5', '#fcd34d', '#86efac', '#93c5fd'];
+  const td = 'border:1px solid #999;padding:4px 6px;font-size:11px;text-align:center;color:#000';
+  const thS = 'border:1px solid #999;padding:5px 6px;font-size:11px;background:#f1f5f9;color:#000';
+  const gets = (o, t) => (_polStat[String(o.id)] || {})[String(t.id)];
+  const rows = tumIsTipleri.map(t => ({ t, yetkin: ekip.filter(o => (_polPuan[o.id + '|' + t.id] ?? -1) >= 3).length }))
+    .sort((a, b) => a.yetkin - b.yetkin || a.t.ad.localeCompare(b.t.ad, 'tr'));
+
+  const matris = `<table style="border-collapse:collapse;width:100%"><thead><tr><th style="${thS};text-align:left">İşlem</th>` +
+    ekip.map(o => `<th style="${thS}">${htmlKac(o.ad_soyad)}</th>`).join('') + `<th style="${thS}">Yetkin (3+)</th></tr></thead><tbody>` +
+    rows.map(({ t, yetkin }) => `<tr><td style="${td};text-align:left;font-weight:600">${htmlKac(t.ad)}</td>` +
+      ekip.map(o => {
+        const p = _polPuan[o.id + '|' + t.id], c = gets(o, t);
+        return `<td style="${td};${p !== undefined ? 'background:' + BG[p] : ''}"><b>${p === undefined ? '—' : p}</b>` +
+          (c ? `<div style="font-size:9px">${c.adet}× · ${polSureFmt(c.sure)}</div>` : '') + '</td>';
+      }).join('') +
+      `<td style="${td};font-weight:700;${yetkin <= 1 ? 'background:#fecaca' : ''}">${yetkin}</td></tr>`).join('') + '</tbody></table>';
+
+  const rolTR = { yonetici: 'Yönetici', usta: 'Usta', cirak: 'Çırak', cnc: 'CNC Operatörü', muhendis: 'Mühendis', formen: 'Formen' };
+  const ozet = `<table style="border-collapse:collapse;width:100%"><thead><tr>` +
+    ['Personel', 'Görev', 'Puanlı işlem', 'Ortalama puan', 'Yetkin (3+) işlem', 'Dönemdeki iş emri', 'Toplam süre'].map(h => `<th style="${thS}">${h}</th>`).join('') + '</tr></thead><tbody>' +
+    ekip.map(o => {
+      const pu = tumIsTipleri.map(t => _polPuan[o.id + '|' + t.id]).filter(v => v !== undefined);
+      const st = Object.values(_polStat[String(o.id)] || {});
+      return `<tr><td style="${td};text-align:left">${htmlKac(o.ad_soyad)}</td><td style="${td}">${rolTR[o.rol] || o.rol || ''}</td>` +
+        `<td style="${td}">${pu.length}</td><td style="${td}">${pu.length ? (pu.reduce((a, b) => a + b, 0) / pu.length).toFixed(1).replace('.', ',') : '—'}</td>` +
+        `<td style="${td}">${pu.filter(v => v >= 3).length}</td><td style="${td}">${st.reduce((a, c) => a + c.adet, 0)}</td><td style="${td}">${polSureFmt(st.reduce((a, c) => a + c.sure, 0))}</td></tr>`;
+    }).join('') + '</tbody></table>';
+
+  const riskli = rows.filter(r => r.yetkin <= 1);
+  const riskHTML = riskli.length
+    ? `<ul style="margin:4px 0 0 18px;padding:0;font-size:11px">` + riskli.map(({ t, yetkin }) => {
+        const kim = ekip.filter(o => (_polPuan[o.id + '|' + t.id] ?? -1) >= 3).map(o => o.ad_soyad).join(', ');
+        return `<li><b>${htmlKac(t.ad)}</b> — ${yetkin === 0 ? 'yetkin (3+) personel yok' : 'yalnızca 1 yetkin personel: ' + htmlKac(kim)}</li>`;
+      }).join('') + '</ul>'
+    : '<div style="font-size:11px">Yetkin personel sayısı 1 veya altında olan işlem yok.</div>';
+  const eksikNot = (_polEksik.bos + _polEksik.eslesmeyen)
+    ? `Veri notu: dönemdeki ${_polEksik.toplam} kapalı iş emrinden ${_polEksik.bos} tanesinde işlem bilgisi boş, ${_polEksik.eslesmeyen} tanesi tanımlı işlem adlarıyla eşleşmedi; bunlar adet/süre hesabına dahil edilmemiştir.` : '';
+
+  let kap = document.getElementById('pol-rapor-baski');
+  if (!kap) { kap = document.createElement('div'); kap.id = 'pol-rapor-baski'; document.body.appendChild(kap); }
+  kap.innerHTML = `<div style="font-family:Arial,Helvetica,sans-serif;color:#000">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:8px">
+      <div><div style="font-size:18px;font-weight:700">Polivalans (Personel Yetkinlik) Matrisi</div>
+        <div style="font-size:11px">Kalıphane · Kalıp Bakım ve Onarım</div></div>
+      <div style="font-size:11px;text-align:right">Rapor tarihi: ${simdi}<br>Çalışma dönemi: ${donemAd}<br>Hazırlayan: ${htmlKac(hazirlayan)}</div>
+    </div>
+    <div style="font-size:11px;margin-bottom:8px"><b>Puan ölçeği:</b>
+      ${POL_ETIKET.map((e, i) => `<span style="display:inline-block;background:${BG[i]};border:1px solid #999;padding:1px 6px;margin:0 4px 0 6px"><b>${i}</b></span>${e}`).join(' ')}
+      <br>Ayrıntılı kriterler raporun devamındadır. Hücre altındaki "n× · süre": dönem içinde ilgili işlemin yapıldığı iş emri adedi ve toplam net süre (ortak işlerde süre ekip arasında eşit bölünmüştür).</div>
+    ${matris}
+    <div style="font-weight:700;font-size:12px;margin:12px 0 2px">Puanlama Yöntemi ve Kriterleri</div>
+    <div style="font-size:11px;line-height:1.4">${htmlKac(_polKriter.yontem)}</div>${polKriterTabloHTML(true)}
+    <div style="font-weight:700;font-size:12px;margin:12px 0 4px">Personel Özeti</div>${ozet}
+    <div style="font-weight:700;font-size:12px;margin:12px 0 2px">Risk Noktaları (yetkin personel sayısı ≤ 1)</div>${riskHTML}
+    ${eksikNot ? `<div style="font-size:10px;margin-top:8px;color:#444">${eksikNot}</div>` : ''}
+    <div style="display:flex;gap:40px;margin-top:28px;font-size:11px"><div style="flex:1;border-top:1px solid #000;padding-top:4px">Hazırlayan</div><div style="flex:1;border-top:1px solid #000;padding-top:4px">Onaylayan</div></div>
+  </div>`;
+  document.body.classList.add('pol-baski');
+  const temizle = () => { document.body.classList.remove('pol-baski'); window.removeEventListener('afterprint', temizle); };
+  window.addEventListener('afterprint', temizle);
+  setTimeout(() => window.print(), 100);
 }
 
 function polMatrisCiz() {
