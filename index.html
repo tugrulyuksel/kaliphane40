@@ -2066,6 +2066,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
           <input type="text" id="ie-edit-malzeme-serbest" placeholder="Listede yok mu? Buraya yaz..."
             style="width:100%;padding:8px 10px;background:var(--bg);border:1px dashed var(--border2);border-radius:8px;color:var(--muted);font-size:12px;font-family:inherit;margin-top:6px">
         </div>
+        <div class="fg" id="ie-edit-cl-bolum" style="display:none">
+          <label>Planlı Bakım Checklist</label>
+          <div id="ie-edit-cl-bilgi" style="font-size:11px;color:var(--muted);margin:2px 0 6px"></div>
+          <div id="ie-edit-cl-liste" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
         <div style="display:flex;gap:8px">
           <div style="flex:1;padding:9px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;text-align:center;font-size:13px"
             onclick="document.getElementById('ie-modal-duzenle').style.display='none'">İptal</div>
@@ -4672,6 +4677,20 @@ async function ieDetayAc(isEmriId) {
       }).join(' ');
     }
 
+    // Planlı bakım ise checklist sonucunu göster
+    let clBlokHtml = '';
+    if (ie.tur === 'P' || ie.tur === 'B') {
+      const kayit = await ieChecklistKaydiGetir(ie.id);
+      if (kayit && (kayit.sonuclar || []).length) {
+        clBlokHtml = '<div style="padding:.75rem;background:var(--bg);border-radius:8px;margin-top:8px">' +
+          '<div style="font-size:11px;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between"><span>CHECKLIST</span><span class="badge ' + (kayit.tamamlanan === kayit.toplam ? 'badge-green' : 'badge-amber') + '">' + kayit.tamamlanan + '/' + kayit.toplam + '</span></div>' +
+          kayit.sonuclar.map(r => '<div style="display:flex;gap:8px;align-items:flex-start;padding:3px 0;font-size:13px"><span>' + (r.tamamlandi ? '✅' : '❌') + '</span><div><span' + (r.tamamlandi ? '' : ' style="color:var(--red)"') + '>' + htmlKac(r.madde) + '</span>' +
+            (r.not ? '<div style="font-size:12px;color:var(--amber)">📝 ' + htmlKac(r.not) + '</div>' : '') + '</div></div>').join('') + '</div>';
+      } else {
+        clBlokHtml = '<div style="padding:.75rem;background:var(--bg);border-radius:8px;margin-top:8px"><div style="font-size:11px;color:var(--muted);margin-bottom:4px">CHECKLIST</div><div style="font-size:12px;color:var(--muted)">Bu iş emri için kayıtlı checklist yok. Düzenle → Planlı Bakım Checklist bölümünden girebilirsiniz.</div></div>';
+      }
+    }
+
     document.getElementById('ie-modal-icerik').innerHTML = `
       <div style="display:flex;flex-direction:column;gap:8px">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -4717,6 +4736,7 @@ async function ieDetayAc(isEmriId) {
           <div style="font-size:11px;color:var(--muted);margin-bottom:6px">KULLANILAN MALZEME</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px">${malzHtml}</div>
         </div>
+        ${clBlokHtml}
         ${ie.aciklama ? '<div style="padding:.75rem;background:var(--bg);border-radius:8px"><div style="font-size:11px;color:var(--muted);margin-bottom:4px">AÇIKLAMA</div><div style="font-size:13px">' + ie.aciklama + '</div></div>' : ''}
         ${ie.acik_kapali === 'Acik' ? '<div style="padding:.75rem;background:var(--amber-dim);border:1px solid var(--amber);border-radius:8px"><div style="font-size:13px;color:var(--amber);font-weight:600">⚠ Bu iş emri hala açık</div><div style="font-size:12px;color:var(--muted);margin-top:4px">Yönetici olarak kapatabilirsiniz</div></div>' : ''}
       </div>`;
@@ -4728,6 +4748,74 @@ async function ieDetayAc(isEmriId) {
   } catch(e) { console.warn(e); }
 }
 
+// ── İş emri düzenleme: planlı bakım checklist sonucu ──
+let _ieCl = null; // { ie, kayit, items, degisti }
+async function ieChecklistKaydiGetir(isEmriId) {
+  try {
+    const r = await sbGet('checklist_gecmisi', `is_emri_id=eq.${isEmriId}&order=tarih.desc&limit=1`);
+    return Array.isArray(r) && r[0] ? r[0] : null;
+  } catch (e) { console.warn('Checklist kaydı okunamadı:', e); return null; }
+}
+
+async function ieChecklistDuzenleYukle(ie) {
+  const bolum = document.getElementById('ie-edit-cl-bolum');
+  _ieCl = null;
+  if (!bolum) return;
+  if (!(ie.tur === 'P' || ie.tur === 'B')) { bolum.style.display = 'none'; return; }
+  bolum.style.display = 'block';
+  const bilgi = document.getElementById('ie-edit-cl-bilgi'), liste = document.getElementById('ie-edit-cl-liste');
+  liste.innerHTML = '<div style="color:var(--muted);font-size:12px">Yükleniyor...</div>';
+  const kayit = await ieChecklistKaydiGetir(ie.id);
+  let items;
+  if (kayit && (kayit.sonuclar || []).length) {
+    items = kayit.sonuclar.map(r => ({ sablon_id: r.sablon_id || null, madde: r.madde, tamamlandi: !!r.tamamlandi, not: r.not || '' }));
+    bilgi.textContent = 'Ustanın girdiği checklist. İşareti veya notu değiştirip Kaydet\'e basın.';
+  } else {
+    let sablon = [];
+    try { sablon = ie.kalip_id ? await sbGet('checklist_sablonlar', `kalip_id=eq.${ie.kalip_id}&aktif=eq.true&order=sira`) : []; } catch (e) {}
+    items = (Array.isArray(sablon) ? sablon : []).map(m => ({ sablon_id: m.id, madde: m.madde, tamamlandi: false, not: '' }));
+    bilgi.textContent = items.length
+      ? 'Bu iş emri için kayıtlı checklist yok. Kalıbın maddeleri geldi; işaretleyip Kaydet\'e basarsanız kayıt oluşur.'
+      : 'Bu kalıba checklist maddesi atanmamış (Tanımlar → Checklist Yönetimi).';
+  }
+  _ieCl = { ie, kayit, items, degisti: false };
+  ieChecklistCiz();
+}
+
+function ieChecklistCiz() {
+  const liste = document.getElementById('ie-edit-cl-liste');
+  if (!liste || !_ieCl) return;
+  liste.innerHTML = _ieCl.items.map((m, i) => `
+    <div style="display:flex;flex-direction:column;gap:4px;padding:.5rem .65rem;background:var(--bg);border:1px solid ${m.tamamlandi ? 'var(--green)' : 'var(--border)'};border-radius:8px">
+      <div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="ieChecklistToggle(${i})">
+        <div style="width:20px;height:20px;border:2px solid var(--border2);border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;background:${m.tamamlandi ? 'var(--green)' : 'transparent'}">${m.tamamlandi ? '✓' : ''}</div>
+        <span style="font-size:13px">${htmlKac(m.madde)}</span>
+      </div>
+      <input type="text" value="${htmlKac(m.not || '')}" placeholder="Not (opsiyonel)" oninput="ieChecklistNot(${i},this.value)"
+        style="padding:5px 8px;background:var(--card2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit">
+    </div>`).join('');
+}
+function ieChecklistToggle(i) { if (!_ieCl) return; _ieCl.items[i].tamamlandi = !_ieCl.items[i].tamamlandi; _ieCl.degisti = true; ieChecklistCiz(); }
+function ieChecklistNot(i, v) { if (!_ieCl) return; _ieCl.items[i].not = v.trim(); _ieCl.degisti = true; }
+
+async function ieChecklistKaydet() {
+  if (!_ieCl || !_ieCl.degisti) return;
+  const { ie, kayit, items } = _ieCl;
+  const alanlar = { sonuclar: items, toplam: items.length, tamamlanan: items.filter(x => x.tamamlandi).length, notlu: items.filter(x => x.not).length };
+  try {
+    if (kayit) {
+      await sbPatchFiltre('checklist_gecmisi', `is_emri_id=eq.${ie.id}`, alanlar);
+    } else {
+      const op = tumOperatorler.find(o => String(o.id) === String(ie.acik_eden_operator_id));
+      const r = await sbPost('checklist_gecmisi', clKayittanSatira({ id: ie.id, is_emri_no: ie.is_emri_no, kalip_id: ie.kalip_id,
+        tarih: ie.bitis_zaman || new Date().toISOString(), operator: op ? op.ad_soyad : 'Yönetici', ...alanlar }));
+      if (!Array.isArray(r)) throw new Error(JSON.stringify(r));
+    }
+    _clCache = null; _clCacheTam = false;
+    _ieCl.degisti = false;
+  } catch (e) { alert('⚠ Checklist kaydedilemedi: ' + e.message); }
+}
+
 async function ieDetayDuzenleAc() {
   const form = document.getElementById('ie-modal-duzenle');
   if (form.style.display === 'none' || !form.style.display) {
@@ -4735,6 +4823,7 @@ async function ieDetayDuzenleAc() {
       if (sonuc && sonuc[0]) {
         const ie = sonuc[0];
         window._ieEditYuklu = ie;
+        Promise.resolve(ieChecklistDuzenleYukle(ie)).catch(e => console.error('Checklist yüklenemedi:', e));
         window._ieEditYukluSure = ie.toplam_sure_dak || null;
         document.getElementById('ie-edit-tur').value = (ie.tur === 'B' ? 'P' : ie.tur) || 'C';
         ieSecimDoldur('ie-edit-problem', tumProblemler, ie.problem || '');
@@ -4862,6 +4951,7 @@ async function yoneticiIsEmriGuncelle() {
   if (bitisZaman) guncelleme.bitis_zaman = bitisZaman;
 
   await sbPatch('is_emirleri', seciiliIsEmriId, guncelleme);
+  await ieChecklistKaydet();
 
   // Eklenen ekip üyelerini kaydet
   const ekipItems = document.querySelectorAll('#ie-edit-ekip-listesi .operator-item');
