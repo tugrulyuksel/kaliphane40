@@ -1140,6 +1140,31 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
 
       </div>
 
+      <!-- POLİVALANS MATRİSİ -->
+      <div class="panel-card" style="margin-top:1rem">
+        <div class="pc-header">
+          <h3>🧩 Polivalans Matrisi</h3>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:12px;color:var(--muted)">Çalışma dönemi:</span>
+            <select id="pol-donem" style="padding:5px 8px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit" onchange="polDonemDegisti(this.value)">
+              <option value="90">Son 3 ay</option>
+              <option value="180" selected>Son 6 ay</option>
+              <option value="365">Son 1 yıl</option>
+              <option value="0">Tüm zamanlar</option>
+            </select>
+            <div onclick="polYenile()" style="padding:5px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;font-size:12px;cursor:pointer">↻ Yenile</div>
+          </div>
+        </div>
+        <div style="padding:.75rem 1.25rem 0;font-size:12px;color:var(--muted)">
+          Kutudaki sayı elle verdiğin puan: <b>0</b> bilmiyor · <b>1</b> gözetimle yapar · <b>2</b> tek başına yapar · <b>3</b> iyi yapar · <b>4</b> başkasına öğretir.
+          Altındaki küçük yazı otomatik: işi kaç iş emrinde yaptığı ve toplam süresi. Puanı değiştirmek için soldan ustayı seç. Satırlar "yetkin (3+) kişi sayısına" göre, en riskli iş en üstte sıralanır.
+        </div>
+        <div id="pol-uyari" style="padding:.5rem 1.25rem 0;font-size:12px;color:var(--amber)"></div>
+        <div id="pol-matris" style="overflow-x:auto;padding:.75rem 1.25rem 1.25rem">
+          <div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Yükleniyor...</div>
+        </div>
+      </div>
+
       <!-- Yeni Operatör Formu (gizli) -->
       <div id="yeni-operator-form" style="display:none;margin-top:1rem">
         <div class="panel-card">
@@ -4372,7 +4397,7 @@ function panelAc(id, btn){
   const b={'dashboard':'Dashboard','canli':'Anlık İzleme','is-emirleri':'İş Emirleri','planli':'Planlı Bakımlar','kaliplar':'Kalıplar','kalip-matrisi':'Kalıp Matrisi','gunluk-uretim':'Günlük Üretim Girişi','operatorler':'Operatörler & Yetki','malzemeler':'Malzeme Stok','tanimlar':'Tanımlar','raporlar':'KPI & Raporlar','veri-yonetimi':'Veri Yönetimi','gorevlerim':'Görevlerim'};
   document.getElementById('panel-baslik').textContent=b[id]||id;
   if(id === 'tanimlar') renderTanimlar();
-  else if(id === 'operatorler') renderOperatorler();
+  else if(id === 'operatorler') { renderOperatorler(); polMatrisYukle(); }
   else if(id === 'kaliplar') renderKaliplar();
   else if(id === 'planli') { renderPlanliTablo(); clGecmisYukleVeRender(); }
   else if(id === 'malzemeler') renderMalzemePanel();
@@ -6156,6 +6181,183 @@ async function kalipPasifYap(kalipId) {
   await renderKaliplar();
 }
 
+// ═══════════════════════════════════════════════════
+// POLİVALANS: elle puan (0-4) + iş emirlerinden otomatik adet/süre
+// ═══════════════════════════════════════════════════
+let _polPuan = {};          // 'opId|isTipiId' -> puan
+let _polStat = {};          // opId -> { isTipiId: {adet, sure} }
+let _polDonem = '180';
+let _polYuklendi = false, _polTabloYok = false, _polEksik = { bos: 0, eslesmeyen: 0, toplam: 0 };
+const POL_ETIKET = ['Bilmiyor', 'Gözetimle yapar', 'Tek başına yapar', 'İyi yapar', 'Başkasına öğretir'];
+const POL_RENK = ['rgba(148,163,184,.25)', 'rgba(239,68,68,.45)', 'rgba(245,158,11,.5)', 'rgba(34,197,94,.5)', 'rgba(59,130,246,.65)'];
+
+function polNorm(s) {
+  return String(s || '').toLocaleLowerCase('tr').replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ç/g, 'c').replace(/\s+/g, ' ').trim();
+}
+function polSureFmt(dak) {
+  if (!dak) return '0 sa';
+  return dak >= 60 ? (dak / 60).toFixed(1).replace('.', ',') + ' sa' : Math.round(dak) + ' dk';
+}
+
+async function polPuanYukle() {
+  try {
+    const satirlar = await sbGetHepsi('operator_puanlari', 'select=operator_id,is_tipi_id,puan&order=operator_id');
+    _polPuan = {};
+    satirlar.forEach(x => { if (x.puan !== null && x.puan !== undefined) _polPuan[x.operator_id + '|' + x.is_tipi_id] = x.puan; });
+    _polTabloYok = false;
+  } catch (e) { console.warn('Polivalans puanları okunamadı:', e); _polTabloYok = true; }
+}
+
+async function polIstatistikYukle() {
+  _polStat = {}; _polEksik = { bos: 0, eslesmeyen: 0, toplam: 0 };
+  let filtre = 'acik_kapali=eq.Kapali&select=id,yapilan_islem,toplam_sure_dak,toplam_duraklama_sn,baslangic_zaman,bitis_zaman,acik_eden_operator_id&order=id';
+  if (_polDonem !== '0') {
+    const t = new Date(Date.now() - parseInt(_polDonem) * 86400000);
+    filtre += `&baslangic_zaman=gte.${t.toISOString()}`;
+  }
+  const emirler = await sbGetHepsi('is_emirleri', filtre);
+  const ids = emirler.map(e => e.id);
+  let atamalar = [];
+  for (let i = 0; i < ids.length; i += 150) {
+    const r = await sbGet('is_emri_operatorler', `is_emri_id=in.(${ids.slice(i, i + 150).join(',')})`);
+    if (Array.isArray(r)) atamalar = atamalar.concat(r);
+  }
+  const opMap = {};
+  atamalar.forEach(a => { if (a.is_emri_id && a.operator_id) (opMap[a.is_emri_id] = opMap[a.is_emri_id] || new Set()).add(String(a.operator_id)); });
+  const tipMap = {};
+  tumIsTipleri.forEach(t => { tipMap[polNorm(t.ad)] = String(t.id); });
+  emirler.forEach(e => {
+    _polEksik.toplam++;
+    const adNorm = polNorm(e.yapilan_islem);
+    if (!adNorm) { _polEksik.bos++; return; }
+    const tipId = tipMap[adNorm];
+    if (!tipId) { _polEksik.eslesmeyen++; return; }
+    let kisiler = opMap[e.id] ? Array.from(opMap[e.id]) : (e.acik_eden_operator_id ? [String(e.acik_eden_operator_id)] : []);
+    if (!kisiler.length) return;
+    const sure = sureHesapla(e) / kisiler.length; // süre ekipte eşit bölünür, adet herkese 1 yazılır
+    kisiler.forEach(k => {
+      const o = (_polStat[k] = _polStat[k] || {});
+      const c = (o[tipId] = o[tipId] || { adet: 0, sure: 0 });
+      c.adet++; c.sure += sure;
+    });
+  });
+}
+
+async function polHazirla(zorla) {
+  if (_polYuklendi && !zorla) return;
+  await Promise.all([polPuanYukle(), polIstatistikYukle().catch(e => { console.error('Polivalans istatistik hatası:', e); })]);
+  _polYuklendi = true;
+}
+
+function polPuanSelectHTML(opId, tipId) {
+  const v = _polPuan[opId + '|' + tipId];
+  const opts = ['<option value="">—</option>'].concat(POL_ETIKET.map((e, i) => `<option value="${i}" ${v === i ? 'selected' : ''}>${i} · ${e}</option>`)).join('');
+  return `<select onchange="polPuanKaydet('${opId}','${tipId}',this.value)" title="Puan" style="padding:5px 6px;background:var(--card2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit;max-width:150px">${opts}</select>`;
+}
+
+async function polPuanKaydet(opId, tipId, deger) {
+  const anahtar = opId + '|' + tipId;
+  try {
+    if (deger === '') {
+      await sbDelete('operator_puanlari', `operator_id=eq.${encodeURIComponent(opId)}&is_tipi_id=eq.${encodeURIComponent(tipId)}`);
+      delete _polPuan[anahtar];
+    } else {
+      const r = await fetch(`${SUPA_URL}/rest/v1/operator_puanlari?on_conflict=operator_id,is_tipi_id`, {
+        method: 'POST',
+        headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({ operator_id: String(opId), is_tipi_id: String(tipId), puan: parseInt(deger), updated_at: new Date().toISOString() })
+      });
+      if (!r.ok) throw new Error(await r.text());
+      _polPuan[anahtar] = parseInt(deger);
+    }
+  } catch (e) {
+    alert('⚠ Puan kaydedilemedi: ' + e.message + '\n(operator_puanlari tablosu oluşturuldu mu?)');
+    await polPuanYukle();
+    if (window._polAktifOp) operatorDetayGoster(window._polAktifOp);
+    return;
+  }
+  polOzetGuncelle(opId);
+  polMatrisCiz();
+}
+
+function polOzetGuncelle(opId) {
+  const el = document.getElementById('pol-ozet'); if (!el) return;
+  const puanlar = tumIsTipleri.map(t => _polPuan[opId + '|' + t.id]).filter(v => v !== undefined);
+  if (!puanlar.length) { el.textContent = 'Henüz puanlanmadı'; return; }
+  const ort = puanlar.reduce((a, b) => a + b, 0) / puanlar.length;
+  el.textContent = `· ${puanlar.length} işlem puanlı · ort. ${ort.toFixed(1).replace('.', ',')} · ${puanlar.filter(v => v >= 3).length} işte yetkin (3+)`;
+}
+
+async function polDetayDoldur(opId) {
+  await polHazirla();
+  if (window._polAktifOp !== opId) return; // başka usta seçilmiş
+  const st = _polStat[String(opId)] || {};
+  tumIsTipleri.forEach(t => {
+    const el = document.getElementById('pol-st-' + t.id); if (!el) return;
+    const c = st[String(t.id)];
+    el.textContent = c ? `${c.adet} kez · ${polSureFmt(c.sure)}` : 'Bu dönemde yapmadı';
+  });
+  // select değerlerini (tablo geç yüklendiyse) senkronla
+  document.querySelectorAll('#yetki-islem-listesi select').forEach(sel => {
+    const m = /polPuanKaydet\('([^']+)','([^']+)'/.exec(sel.getAttribute('onchange') || '');
+    if (m) { const v = _polPuan[m[1] + '|' + m[2]]; sel.value = v === undefined ? '' : String(v); }
+  });
+  polOzetGuncelle(opId);
+}
+
+async function polMatrisYukle() {
+  const el = document.getElementById('pol-matris'); if (!el) return;
+  const d = document.getElementById('pol-donem'); if (d) d.value = _polDonem;
+  await polHazirla();
+  polMatrisCiz();
+}
+async function polYenile() {
+  const el = document.getElementById('pol-matris'); if (el) el.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Yükleniyor...</div>';
+  await polHazirla(true); polMatrisCiz();
+  if (window._polAktifOp) polDetayDoldur(window._polAktifOp);
+}
+async function polDonemDegisti(v) {
+  _polDonem = v;
+  ['pol-donem', 'pol-donem-detay'].forEach(id => { const e = document.getElementById(id); if (e) e.value = v; });
+  await polYenile();
+}
+
+function polMatrisCiz() {
+  const el = document.getElementById('pol-matris'), uy = document.getElementById('pol-uyari');
+  if (!el) return;
+  if (_polTabloYok) {
+    el.innerHTML = '<div style="color:var(--amber);font-size:13px;padding:1rem">⚠ operator_puanlari tablosu bulunamadı. Supabase SQL Editor\'de şu komutu çalıştırıp sayfayı yenile:<br><code style="font-size:12px">create table if not exists operator_puanlari (operator_id text not null, is_tipi_id text not null, puan integer, updated_at timestamptz default now(), primary key (operator_id, is_tipi_id)); alter table operator_puanlari disable row level security;</code></div>';
+    return;
+  }
+  const ekip = tumOperatorler.filter(o => o.aktif !== false);
+  if (!ekip.length || !tumIsTipleri.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:1rem">Veri yok</div>'; return; }
+  uy.textContent = _polEksik.bos + _polEksik.eslesmeyen
+    ? `Dikkat: bu dönemdeki ${_polEksik.toplam} kapalı iş emrinden ${_polEksik.bos} tanesinde işlem boş, ${_polEksik.eslesmeyen} tanesi listedeki işlem adlarıyla eşleşmiyor; bunlar adet/süreye dahil edilmedi.` : '';
+  const satirlar = tumIsTipleri.map(t => {
+    const yetkin = ekip.filter(o => (_polPuan[o.id + '|' + t.id] ?? -1) >= 3).length;
+    return { t, yetkin };
+  }).sort((a, b) => a.yetkin - b.yetkin || a.t.ad.localeCompare(b.t.ad, 'tr'));
+  const th = 'padding:6px 8px;font-size:12px;text-align:center;white-space:nowrap';
+  let h = `<table style="border-collapse:collapse;font-size:13px;min-width:100%"><thead><tr><th style="${th};text-align:left">İşlem</th>` +
+    ekip.map(o => `<th style="${th}" title="${htmlKac(o.ad_soyad)}">${htmlKac(o.ad_soyad.split(' ')[0])}</th>`).join('') +
+    `<th style="${th}">Yetkin (3+)</th></tr></thead><tbody>`;
+  satirlar.forEach(({ t, yetkin }) => {
+    const risk = yetkin === 0 ? 'rgba(239,68,68,.9)' : yetkin === 1 ? 'rgba(245,158,11,.95)' : 'var(--green, #22c55e)';
+    h += `<tr style="border-top:1px solid var(--border)"><td style="padding:6px 8px;font-weight:600;white-space:nowrap">${htmlKac(t.ad)}</td>`;
+    ekip.forEach(o => {
+      const p = _polPuan[o.id + '|' + t.id];
+      const c = (_polStat[String(o.id)] || {})[String(t.id)];
+      const alt = c ? `${c.adet}× · ${polSureFmt(c.sure)}` : '';
+      const kutu = p === undefined ? '<span style="color:var(--muted)">—</span>'
+        : `<span style="display:inline-block;min-width:26px;padding:2px 0;border-radius:6px;background:${POL_RENK[p]};font-weight:700">${p}</span>`;
+      h += `<td style="padding:5px 6px;text-align:center" title="${htmlKac(o.ad_soyad)} · ${htmlKac(t.ad)}${p !== undefined ? ' · ' + POL_ETIKET[p] : ''}">${kutu}<div style="font-size:10px;color:var(--muted);white-space:nowrap">${alt}</div></td>`;
+    });
+    h += `<td style="padding:5px 8px;text-align:center;font-weight:800;color:${risk}">${yetkin}${yetkin <= 1 ? ' ⚠' : ''}</td></tr>`;
+  });
+  el.innerHTML = h + '</tbody></table>';
+}
+
 // ── OPERATÖR YÖNETİMİ ──
 async function renderOperatorler() {
   const liste = document.getElementById('operator-kart-liste');
@@ -6233,9 +6435,16 @@ function operatorDetayGoster(opId) {
 
     <div class="yetki-baslik" style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:.75rem 0 .5rem">
       Yapabileceği İşlemler
+      <span id="pol-ozet" style="text-transform:none;letter-spacing:0;font-weight:500;margin-left:8px"></span>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:.5rem;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      Puanı seçince otomatik kaydedilir. Onay kutuları için Kaydet'e bas. Süre/adet dönemi:
+      <select id="pol-donem-detay" style="padding:3px 6px;background:var(--bg);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-size:11px" onchange="polDonemDegisti(this.value)">
+        <option value="90">Son 3 ay</option><option value="180">Son 6 ay</option><option value="365">Son 1 yıl</option><option value="0">Tüm zamanlar</option>
+      </select>
     </div>
     <div id="yetki-islem-listesi" style="display:flex;flex-direction:column;gap:6px;margin-bottom:1rem">
-      ${tumIsTipleri.map(it => '<div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .75rem;background:var(--bg);border-radius:8px;"><label style="font-size:13px;cursor:pointer" for="yetki-' + it.id + '">' + it.ad + '</label><input type="checkbox" id="yetki-' + it.id + '" value="' + it.id + '" class="yetki-checkbox" ' + (mevcutYetkiler.includes(it.id) ? 'checked' : '') + '></div>').join('')}
+      ${tumIsTipleri.map(it => '<div style="display:flex;align-items:center;gap:10px;padding:.5rem .75rem;background:var(--bg);border-radius:8px;"><label style="font-size:13px;cursor:pointer;flex:1;min-width:0" for="yetki-' + it.id + '">' + it.ad + '<div id="pol-st-' + it.id + '" style="font-size:11px;color:var(--muted);margin-top:2px">…</div></label>' + polPuanSelectHTML(op.id, it.id) + '<input type="checkbox" id="yetki-' + it.id + '" value="' + it.id + '" class="yetki-checkbox" ' + (mevcutYetkiler.includes(it.id) ? 'checked' : '') + '></div>').join('')}
     </div>
 
     <div style="display:flex;gap:8px">
@@ -6244,6 +6453,9 @@ function operatorDetayGoster(opId) {
       <div style="flex:2;padding:10px;background:var(--accent);border:none;border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:600"
         onclick="Promise.resolve(operatorGuncelle('${op.id}')).catch(e=>console.error(e))">Kaydet</div>
     </div>`;
+  window._polAktifOp = opId;
+  const dd = document.getElementById('pol-donem-detay'); if (dd) dd.value = _polDonem;
+  Promise.resolve(polDetayDoldur(opId)).catch(e => console.error(e));
 }
 
 async function operatorGuncelle(opId) {
