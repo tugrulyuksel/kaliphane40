@@ -6755,14 +6755,29 @@ async function renderTanimlar() {
 }
 
 async function renderMasterChecklist() {
-  const masterlar = await sbGet('checklist_sablonlar', 'order=madde') || [];
   const liste = document.getElementById('master-checklist-liste');
   if (!liste) return;
+  let masterlar = [];
+  try {
+    // Tablo 1000 satırı aşabildiği için sayfa sayfa okunur (eskiden ilk 1000 satırdan sonrası görünmüyordu)
+    masterlar = (await sbGetHepsi('checklist_sablonlar', 'order=madde,id')).filter(m => m.aktif !== false && m.madde);
+  } catch (e) {
+    console.error('Checklist maddeleri okunamadı:', e);
+    liste.innerHTML = '<div style="color:var(--red);font-size:13px;text-align:center;padding:1rem">Maddeler okunamadı, sayfayı yenileyin.</div>';
+    return;
+  }
   if (!masterlar.length) {
     liste.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Henüz madde yok. Ekleyin.</div>';
     return;
   }
-  const benzersiz = [...new Map(masterlar.map(m => [m.madde, m])).values()];
+  // Aynı madde birden çok satırda olabilir (her kalıba atanınca satır oluşur). Master satırı (kalip_id boş) varsa onu tercih et.
+  const haritaM = new Map();
+  masterlar.forEach(m => {
+    const k = m.madde.trim();
+    const mevcut = haritaM.get(k);
+    if (!mevcut || (mevcut.kalip_id && !m.kalip_id)) haritaM.set(k, m);
+  });
+  const benzersiz = [...haritaM.values()].sort((a, b) => a.madde.localeCompare(b.madde, 'tr'));
   window._masterChecklistMaddeler = benzersiz;
   liste.innerHTML = benzersiz.map(item => `
     <div class="tanim-item" data-id="${item.id}" data-madde="${item.madde.replace(/"/g,'&quot;')}">
@@ -6797,12 +6812,22 @@ async function checklistKaydet() {
   if (!kalipId) return;
   const seciliMaddeler = [...document.querySelectorAll('#checklist-atama-liste .cl-secili')]
     .map(el => el.dataset.madde);
-  await fetch(`${SUPA_URL}/rest/v1/checklist_sablonlar?kalip_id=eq.${kalipId}`, {
-    method: 'DELETE',
-    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
-  });
-  for (let i = 0; i < seciliMaddeler.length; i++) {
-    await sbPost('checklist_sablonlar', { kalip_id: kalipId, madde: seciliMaddeler[i], sira: i+1, aktif: true });
+  // Önce mevcut satırların yedeğini al; yazma başarısız olursa geri yükle (veri kaybolmasın)
+  let yedek = [];
+  try { yedek = (await sbGetHepsi('checklist_sablonlar', `kalip_id=eq.${kalipId}&order=id`)).map(({ id, ...r }) => r); }
+  catch (e) { alert('⚠ Mevcut liste okunamadı, kaydedilmedi: ' + e.message); return; }
+  try {
+    await sbDelete('checklist_sablonlar', `kalip_id=eq.${kalipId}`);
+    if (seciliMaddeler.length) {
+      const sonuc = await sbPost('checklist_sablonlar', seciliMaddeler.map((m, i) => ({ kalip_id: kalipId, madde: m, sira: i + 1, aktif: true })));
+      if (!Array.isArray(sonuc)) throw new Error(JSON.stringify(sonuc));
+    }
+  } catch (e) {
+    console.error('Checklist kaydedilemedi:', e);
+    if (yedek.length) { try { await sbPost('checklist_sablonlar', yedek); } catch (e2) { console.error('Yedek geri yüklenemedi:', e2); } }
+    alert('⚠ Kaydedilemedi, önceki liste geri yüklendi: ' + e.message);
+    await renderChecklistTanim();
+    return;
   }
   alert(`✅ ${seciliMaddeler.length} madde kaydedildi!`);
   await renderChecklistTanim();
@@ -6919,10 +6944,13 @@ async function renderChecklistTanim() {
   }
   const atananlar = await sbGet('checklist_sablonlar', `kalip_id=eq.${kalipId}&aktif=eq.true&order=sira`);
   const atananMaddeler = new Set((atananlar || []).map(a => a.madde));
+  window._clAtananYedek = atananlar || [];
   if (!window._masterChecklistMaddeler || !window._masterChecklistMaddeler.length) {
     await renderMasterChecklist();
   }
-  const masterlar = window._masterChecklistMaddeler || [];
+  const masterlar = (window._masterChecklistMaddeler || []).slice();
+  const masterAdlar = new Set(masterlar.map(m => m.madde.trim()));
+  (atananlar || []).forEach(a => { if (a.madde && !masterAdlar.has(a.madde.trim())) { masterAdlar.add(a.madde.trim()); masterlar.push({ id: a.id, madde: a.madde, ozel: true }); } });
   if (!masterlar.length) {
     if (atamaListe) atamaListe.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:1rem">Önce sol tarafta madde ekleyin.</div>';
     return;
@@ -6936,7 +6964,7 @@ async function renderChecklistTanim() {
         <div class="cl-check" style="width:20px;height:20px;border:2px solid var(--border2);border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;background:${secili?'var(--green)':'transparent'}">
           ${secili?'✓':''}
         </div>
-        <span style="font-size:14px">${item.madde}</span>
+        <span style="font-size:14px">${item.madde}</span>${item.ozel ? '<span style="font-size:11px;color:var(--amber);margin-left:auto">sadece bu kalıpta</span>' : ''}
       </div>`;
     }).join('');
   }
