@@ -2018,11 +2018,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
         </div>
         <div class="fg">
           <label>Problem</label>
-          <input type="text" id="ie-edit-problem" style="padding:8px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
+          <select id="ie-edit-problem" style="padding:8px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit"></select>
         </div>
         <div class="fg">
           <label>Yapılan İşlem</label>
-          <input type="text" id="ie-edit-islem" style="padding:8px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
+          <select id="ie-edit-islem" style="padding:8px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit"></select>
         </div>
         <div class="fg">
           <label>Açıklama / Not</label>
@@ -4088,6 +4088,19 @@ function checkToggle(el) {
   if (bar) bar.style.width = `${total ? (done/total)*100 : 0}%`;
 }
 
+// İş emri düzenleme: problem / işlem tanımlı listeden seçilir (polivalans ve raporlarda adlar tutarlı kalsın)
+function ieSecimDoldur(selectId, liste, mevcut) {
+  const sel = document.getElementById(selectId); if (!sel) return;
+  const adlar = (liste || []).map(x => x.ad);
+  const norm = x => String(x || '').trim().toLocaleLowerCase('tr');
+  const eslesen = adlar.find(a => norm(a) === norm(mevcut));
+  let h = '<option value="">— Seçilmedi —</option>' + adlar.map(a => `<option value="${htmlKac(a)}">${htmlKac(a)}</option>`).join('');
+  // Kayıttaki değer listede yoksa kaybolmasın: ayrıca göster
+  if (mevcut && !eslesen) h += `<option value="${htmlKac(mevcut)}">${htmlKac(mevcut)} (listede yok)</option>`;
+  sel.innerHTML = h;
+  sel.value = eslesen || mevcut || '';
+}
+
 function isEmriBitir() {
   // Planlı ise checklist ZORUNLU — tümü işaretli olmalı
   if (planliMod) {
@@ -4664,8 +4677,8 @@ async function ieDetayDuzenleAc() {
         window._ieEditYuklu = ie;
         window._ieEditYukluSure = ie.toplam_sure_dak || null;
         document.getElementById('ie-edit-tur').value = (ie.tur === 'B' ? 'P' : ie.tur) || 'C';
-        document.getElementById('ie-edit-problem').value = ie.problem || '';
-        document.getElementById('ie-edit-islem').value = ie.yapilan_islem || '';
+        ieSecimDoldur('ie-edit-problem', tumProblemler, ie.problem || '');
+        ieSecimDoldur('ie-edit-islem', tumIsTipleri, ie.yapilan_islem || '');
         document.getElementById('ie-edit-aciklama').value = ie.aciklama || '';
         document.getElementById('ie-edit-sure').value = ie.toplam_sure_dak || '';
         // Başlangıç ve bitiş zamanları — datetime-local formatı: YYYY-MM-DDTHH:MM
