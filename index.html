@@ -18,6 +18,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="zxing.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root {
   --bg:#0f1117;--card:#1a1d27;--card2:#21253a;
@@ -1115,6 +1116,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
                 </div>
               </div>
             </div>
+            <div class="fg" style="grid-column:span 2">
+              <label>🛡 Kritik Malzemeler <span style="font-weight:400;text-transform:none;color:var(--muted)">(tedariği uzun olanlar — kalıpta gereken adedi sen yaz, depo stoğu altına düşerse uyarır)</span></label>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <input type="text" id="kf-kritik-ara" placeholder="🔍 Ad ya da ERP kodu ile ara..." oninput="Promise.resolve(kfKritikFiltre()).catch(e=>console.error(e))"
+                  style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
+                <div id="kf-kritik-sonuclar" style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto"></div>
+                <div id="kf-kritik-secili" style="display:flex;flex-direction:column;gap:6px"></div>
+              </div>
+            </div>
             <div style="grid-column:span 2;display:flex;gap:8px">
               <div style="flex:1;padding:10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;text-align:center;font-size:13px" onclick="kalipFormIptal()">İptal</div>
               <div style="flex:2;padding:10px;background:var(--accent);border:none;border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:600" onclick="Promise.resolve(kalipKaydet()).catch(e=>console.error(e))">Kaydet</div>
@@ -1514,14 +1524,16 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
               <select id="malzeme-filtre-kat" onchange="renderMalzemeler()" style="padding:6px 10px;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12px">
                 <option value="">Tüm Kategoriler</option>
               </select>
+              <input type="file" id="erp-dosya" accept=".xls,.xlsx" style="display:none" onchange="Promise.resolve(erpDosyaSecildi(this)).catch(e=>console.error(e))">
+              <div style="padding:7px 14px;background:var(--green-dim);border:1px solid var(--green);border-radius:7px;color:var(--green);font-size:12px;font-weight:600;cursor:pointer" onclick="document.getElementById('erp-dosya').click()">📥 ERP Stok Yükle</div>
               <div style="padding:7px 14px;background:var(--accent);border:none;border-radius:7px;color:#fff;font-size:12px;font-weight:600;cursor:pointer" onclick="yeniMalzemeForm()">+ Yeni Malzeme</div>
             </div>
           </div>
           <div style="overflow-x:auto">
             <table class="data-table">
-              <thead><tr><th>Malzeme Adı</th><th>Kategori</th><th>Stok</th><th>Birim</th><th>İşlem</th></tr></thead>
+              <thead><tr><th>Malzeme Adı</th><th>ERP Kodu</th><th>Kategori</th><th>Stok</th><th>Birim</th><th>İşlem</th></tr></thead>
               <tbody id="malzeme-tablo-body">
-                <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">Yükleniyor...</td></tr>
+                <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Yükleniyor...</td></tr>
               </tbody>
             </table>
           </div>
@@ -2176,6 +2188,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
           <span style="font-size:14px;font-weight:700">⚡ Sık Kullanılan Malzemeler — Stok Durumu</span>
         </div>
         <div id="kkart-sik-malzeme-stok" style="max-height:200px;overflow-y:auto"></div>
+      </div>
+
+      <!-- Kritik Malzemeler — Stok Durumu -->
+      <div style="background:var(--card2);border:1px solid var(--border2);border-radius:10px;overflow:hidden">
+        <div style="padding:.75rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+          <span style="font-size:14px;font-weight:700">🛡 Kritik Malzemeler — Gereken / Depo</span>
+        </div>
+        <div id="kkart-kritik-malzeme" style="max-height:240px;overflow-y:auto"></div>
       </div>
 
       <!-- Kullanılan Malzemeler -->
@@ -5896,13 +5916,14 @@ async function renderMalzemeler() {
     if (filtreKat) filtre += `&kategori_id=eq.${filtreKat}`;
     const malzemeler = await sbGet('malzemeler', filtre);
     if (!malzemeler || !malzemeler.length) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">Malzeme yok</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Malzeme yok</td></tr>';
       return;
     }
     tbody.innerHTML = malzemeler.map(m => {
       const kat = tumKategoriler.find(k => k.id === m.kategori_id);
       return `<tr>
         <td>${m.malzeme_adi}</td>
+        <td style="font-size:12px;color:var(--muted)">${m.malzeme_kodu ? htmlKac(m.malzeme_kodu) : '<span style="color:var(--amber)">—</span>'}</td>
         <td>${kat ? kat.ad : '—'}</td>
         <td><span style="font-weight:600">${m.stok_miktari}</span></td>
         <td>${m.birim}</td>
@@ -6285,6 +6306,7 @@ async function renderKaliplar() {
 function yeniKalipForm() {
   duzenleKalipId = null;
   kfSeciliMalzemeler = [];
+  kfKritik = []; kfKritikRender();
   document.getElementById('kalip-form-baslik').textContent = 'Yeni Kalıp Ekle';
   ['kf-kodu','kf-adi','kf-tipi','kf-notlar','kf-son-bakim','kf-malzeme-ara'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
@@ -6310,6 +6332,7 @@ function kalipDuzenle(kalipId) {
   document.getElementById('kf-notlar').value = k.notlar || '';
   // Sık malzemeleri yükle
   kfMalzemeleriYukle(k);
+  kfKritikYukle(k);
   document.getElementById('kalip-form-kart').style.display = 'block';
   document.getElementById('kalip-form-kart').scrollIntoView({behavior:'smooth'});
 }
@@ -6318,6 +6341,7 @@ function kalipFormIptal() {
   document.getElementById('kalip-form-kart').style.display = 'none';
   duzenleKalipId = null;
   kfSeciliMalzemeler = [];
+  kfKritik = [];
 }
 
 async function kalipKaydet() {
@@ -6330,6 +6354,8 @@ async function kalipKaydet() {
   const notlar = document.getElementById('kf-notlar').value.trim() || null;
 
   if (!kodu || !adi) { alert('Kalıp kodu ve adı zorunlu.'); return; }
+  const kritikListe = kfKritikKayitListesi();
+  if (kritikListe === null) return;
 
   const veri = {
     kalip_kodu: kodu, kalip_adi: adi, kalip_tipi: tipi || null,
@@ -6337,6 +6363,9 @@ async function kalipKaydet() {
     son_bakim_tarihi: sonBakim, notlar: notlar, aktif: true,
     sik_malzemeler: kfSeciliMalzemeler
   };
+  // kritik_malzemeler sütunu SQL ile eklenmeden kayıt bozulmasın: boşsa ve kalıpta alan hiç yoksa gönderme
+  const _eskiKalip = duzenleKalipId ? tumKaliplar.find(x => x.id === duzenleKalipId) : null;
+  if (kritikListe.length || (_eskiKalip && Array.isArray(_eskiKalip.kritik_malzemeler))) veri.kritik_malzemeler = kritikListe;
 
   let kalipId = duzenleKalipId;
   if (duzenleKalipId) {
@@ -8068,13 +8097,18 @@ async function hizliMalzemeYukle(kalipId) {
 
   try {
     const kalip = tumKaliplar.find(k => k.id === kalipId);
-    const kayit = Array.isArray(kalip?.sik_malzemeler) ? kalip.sik_malzemeler : [];
+    const kayit = (Array.isArray(kalip?.sik_malzemeler) ? kalip.sik_malzemeler : []).map(x => ({ ...x }));
+    (Array.isArray(kalip?.kritik_malzemeler) ? kalip.kritik_malzemeler : []).forEach(k => {
+      const var_ = kayit.find(x => x.id === k.id);
+      if (var_) var_.kritik = true;
+      else kayit.push({ id: k.id, adi: k.adi, birim: k.birim || '', stok: 0, kritik: true });
+    });
     if (!kayit.length) { bolum.style.display = 'none'; return; }
 
     bolum.style.display = 'block';
     grid.innerHTML = kayit.map(m =>
       '<div class="malzeme-item" id="hizli-m-' + m.id + '" onclick="hizliMalzemeSec(\'' + m.id + '\',\'' + m.adi.replace(/'/g,"\\'") + '\',\'' + m.birim + '\',' + m.stok + ')" data-id="' + m.id + '">' +
-        '<div class="m-name">' + m.adi + '</div>' +
+        '<div class="m-name">' + (m.kritik ? '🛡 ' : '') + m.adi + '</div>' +
         '<div class="m-stok">' + m.birim + '</div>' +
       '</div>'
     ).join('');
@@ -8844,6 +8878,9 @@ async function kalipKimlikAc(kalipId) {
       }).join('');
     }
 
+    const kritikEl = document.getElementById('kkart-kritik-malzeme');
+    if (kritikEl) kritikEl.innerHTML = kritikKartHtml(kalip, window._tumMalzeme);
+
     // Kullanılan Malzemeler - bu kalıbın iş emirlerine bağlı malzemeleri bul
     const malzemeEl = document.getElementById('kkart-malzemeler');
     const buKalipIsEmirleri = (isEmirleri || []).map(e => e.id);
@@ -8885,6 +8922,361 @@ async function kalipKimlikAc(kalipId) {
 
 function kalipKimlikKapat() {
   document.getElementById('kalip-kimlik-modal').classList.remove('open');
+}
+
+</script>
+<script>
+// ===== ERP stok yükleme: çekirdek fonksiyonlar =====
+function erpKodTemiz(k){ return String(k==null?'':k).replace(/\s*[\r\n]+\s*/g,'').trim(); }
+function erpKodAnahtar(k){ return erpNorm(erpKodTemiz(k)).replace(/ /g,''); }  // boşluk, harf boyu, * x ∗ farkı önemsiz
+function erpNorm(s){
+  s = String(s==null?'':s).replace(/İ/g,'i').replace(/I/g,'ı').toLowerCase();
+  s = s.replace(/ç/g,'c').replace(/ğ/g,'g').replace(/ı/g,'i').replace(/ö/g,'o').replace(/ş/g,'s').replace(/ü/g,'u');
+  s = s.replace(/[\r\n]+/g,'');
+  for (let i=0;i<3;i++) s = s.replace(/(\d)\s*[x×*]\s*(\d)/g,'$1 $2');
+  s = s.replace(/[^a-z0-9]+/g,' ').trim();
+  return s;
+}
+function erpTokenler(s){
+  const set = new Set();
+  erpNorm(s).split(' ').forEach(t=>{ if (t && t!=='x') set.add(t); });
+  return set;
+}
+function erpSkor(a,b){
+  if (!a.size || !b.size) return 0;
+  let ort = 0;
+  a.forEach(t=>{ if (b.has(t)) ort++; });
+  return (2*ort)/(a.size+b.size);
+}
+// Excel satırlarından (2B dizi) ERP listesi çıkar: { anahtar: {kod, ad, miktar, birim, tok} }
+function erpSatirlariOku(satirlar){
+  let baslik=-1, iKod=-1, iAd=-1, iMik=-1, iBir=-1;
+  for (let r=0;r<Math.min(satirlar.length,30);r++){
+    const h = (satirlar[r]||[]).map(x=>erpNorm(x));
+    const k = h.indexOf('stok kodu');
+    if (k>=0 && h.indexOf('miktar')>=0){
+      baslik=r; iKod=k; iMik=h.indexOf('miktar');
+      iAd = h.findIndex(x=>x.indexOf('anma adi')>=0 || x==='stok adi');
+      iBir = h.indexOf('birim');
+      break;
+    }
+  }
+  if (baslik<0) return null;
+  const harita = {};
+  for (let r=baslik+1;r<satirlar.length;r++){
+    const s = satirlar[r]||[];
+    const kod = erpKodTemiz(s[iKod]);
+    if (!kod) continue;                       // toplam satırı vb.
+    const mik = parseFloat(String(s[iMik]).replace(',','.'));
+    if (isNaN(mik)) continue;
+    const anh = erpKodAnahtar(kod);
+    const ad = iAd>=0 ? String(s[iAd]==null?'':s[iAd]).replace(/[\r\n]+/g,' ').trim() : '';
+    const birim = iBir>=0 ? String(s[iBir]==null?'':s[iBir]).trim() : '';
+    if (harita[anh]) { harita[anh].miktar += mik; }   // aynı kod birden çok lot/depo → topla
+    else harita[anh] = { kod, ad, miktar: mik, birim, tok: erpTokenler(ad+' '+kod) };
+  }
+  return harita;
+}
+// Kodsuz malzeme için en iyi N ERP adayı
+function erpOneriBul(malzemeAdi, erpListe, kullanilmis, n){
+  const a = erpTokenler(malzemeAdi);
+  const sonuc = [];
+  for (const e of erpListe){
+    if (kullanilmis && kullanilmis.has(erpKodAnahtar(e.kod))) continue;
+    const sk = erpSkor(a, e.tok);
+    if (sk>0) sonuc.push({e, sk});
+  }
+  sonuc.sort((x,y)=>y.sk-x.sk);
+  return sonuc.slice(0,n||3);
+}
+
+
+// ===== ERP stok yükleme ekranı =====
+let _erp = null;
+
+async function tumMalzemeGetir(yenile) {
+  if (yenile || !window._tumMalzeme || !window._tumMalzeme.length) {
+    window._tumMalzeme = await sbGetHepsi('malzemeler', 'aktif=eq.true&order=malzeme_adi') || [];
+  }
+  return window._tumMalzeme;
+}
+
+async function erpDosyaSecildi(inp) {
+  const f = inp.files && inp.files[0];
+  inp.value = '';
+  if (!f) return;
+  if (typeof XLSX === 'undefined') { alert('Excel okuyucu yüklenemedi (internet bağlantısı?). Sayfayı yenileyip tekrar dene.'); return; }
+  try {
+    const buf = await f.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const satirlar = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    const harita = erpSatirlariOku(satirlar);
+    if (!harita) { alert('Dosyada "Stok Kodu" ve "Miktar" başlıkları bulunamadı. ERP stok son durum listesini yüklediğinden emin ol.'); return; }
+    const liste = Object.values(harita);
+    if (!liste.length) { alert('Dosyada stok satırı bulunamadı.'); return; }
+    const mlz = await sbGetHepsi('malzemeler', 'aktif=eq.true&order=malzeme_adi');
+    const kullanilan = new Set();
+    const eslesen = [], eslesmeyen = [];
+    mlz.forEach(m => {
+      const anh = m.malzeme_kodu ? erpKodAnahtar(m.malzeme_kodu) : '';
+      if (anh && harita[anh]) { eslesen.push({ m, e: harita[anh] }); kullanilan.add(anh); }
+      else eslesmeyen.push(m);
+    });
+    const oneriler = eslesmeyen.map(m => {
+      const o = erpOneriBul(m.malzeme_adi + ' ' + (m.malzeme_kodu || ''), liste, kullanilan, 3);
+      const iyi = o.length && o[0].sk >= 0.7 && (!o[1] || o[0].sk - o[1].sk >= 0.1);
+      return { o, iyi };
+    });
+    const gorunen = {};
+    liste.forEach(e => { gorunen[erpGorunen(e)] = erpKodAnahtar(e.kod); });
+    _erp = { harita, liste, mlz, eslesen, eslesmeyen, oneriler, gorunen, kullanilan, dosya: f.name };
+    erpModalAc();
+  } catch (e) {
+    console.error(e);
+    alert('Dosya okunamadı: ' + (e.message || e));
+  }
+}
+
+function erpGorunen(e) { return e.kod + (e.ad ? ' — ' + e.ad : ''); }
+
+function erpModalAc() {
+  const E = _erp;
+  const degisen = E.eslesen.filter(x => Number(x.m.stok_miktari) !== x.e.miktar);
+  const satirStil = 'padding:6px 8px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle';
+  let h = '';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-size:16px;font-weight:700">📥 ERP Stok Yükle</div><div onclick="erpKapat()" style="cursor:pointer;font-size:20px;color:var(--muted)">✕</div></div>';
+  h += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px">Dosya: ' + htmlKac(E.dosya) + ' · ERP\'de ' + E.liste.length + ' stok kodu · Sistemde ' + E.mlz.length + ' aktif malzeme</div>';
+
+  // 1) Kodu eşleşen — stok güncellenecek
+  h += '<div style="padding:10px;background:var(--green-dim);border:1px solid var(--green);border-radius:8px;margin-bottom:10px">';
+  h += '<div style="font-weight:700;color:var(--green);font-size:13px">✓ Koda göre eşleşen: ' + E.eslesen.length + ' malzeme — stoğu değişecek olan: ' + degisen.length + '</div>';
+  if (degisen.length) {
+    h += '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:12px;color:var(--muted)">Değişecek stokları göster</summary>';
+    h += '<div style="max-height:200px;overflow:auto;margin-top:6px"><table style="width:100%;border-collapse:collapse"><tbody>';
+    degisen.forEach(x => {
+      const birimUyari = x.e.birim && x.m.birim && erpNorm(x.e.birim) !== erpNorm(x.m.birim) && !(erpNorm(x.e.birim) === 'ad' && erpNorm(x.m.birim) === 'adet')
+        ? ' <span style="color:var(--amber)" title="Birim farklı">⚠ ERP: ' + htmlKac(x.e.birim) + '</span>' : '';
+      h += '<tr><td style="' + satirStil + '">' + htmlKac(x.m.malzeme_adi) + '<div style="color:var(--muted);font-size:11px">' + htmlKac(x.m.malzeme_kodu || '') + '</div></td>' +
+        '<td style="' + satirStil + ';white-space:nowrap;text-align:right">' + x.m.stok_miktari + ' → <b>' + x.e.miktar + '</b>' + birimUyari + '</td></tr>';
+    });
+    h += '</tbody></table></div></details>';
+  }
+  h += '</div>';
+
+  // 2) Kodu olmayan / ERP'de bulunamayan — eşleştirme
+  if (E.eslesmeyen.length) {
+    h += '<div style="padding:10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;margin-bottom:10px">';
+    h += '<div style="font-weight:700;font-size:13px;margin-bottom:4px">🔗 Kod eşleştirme: ' + E.eslesmeyen.length + ' malzeme</div>';
+    h += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Kodu boş ya da ERP listesinde bulunamayan malzemeler. Önerilen kodlar dolu geldi, kontrol et; yanlışsa değiştir, silersen eşleştirilmez (sonra elle girersin). Yazarak ERP\'de arayabilirsin.</div>';
+    h += '<div style="max-height:320px;overflow:auto"><table style="width:100%;border-collapse:collapse"><tbody>';
+    E.eslesmeyen.forEach((m, i) => {
+      const on = E.oneriler[i];
+      const en = on.o[0];
+      const val = on.iyi ? erpGorunen(en.e) : '';
+      let ipucu = '';
+      if (on.iyi) ipucu = '<span style="color:var(--green);font-size:11px">%' + Math.round(en.sk * 100) + ' benzer</span>';
+      else if (en) ipucu = '<span onclick="erpOneriKullan(' + i + ')" style="cursor:pointer;color:var(--accent);font-size:11px">en yakın: ' + htmlKac(en.e.kod) + ' (%' + Math.round(en.sk * 100) + ') ↵</span>';
+      h += '<tr><td style="' + satirStil + ';width:35%">' + htmlKac(m.malzeme_adi) +
+        (m.malzeme_kodu ? '<div style="color:var(--amber);font-size:11px">kodu: ' + htmlKac(m.malzeme_kodu) + ' (ERP\'de yok)</div>' : '') + '</td>' +
+        '<td style="' + satirStil + '"><input id="erp-in-' + i + '" list="erp-dl" value="' + htmlKac(val) + '" oninput="erpOzetGuncelle()" placeholder="ERP\'de ara..." ' +
+        'style="width:100%;padding:6px 8px;background:var(--card2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit"></td>' +
+        '<td style="' + satirStil + ';width:20%">' + ipucu + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '<datalist id="erp-dl">' + E.liste.map(e => '<option value="' + htmlKac(erpGorunen(e)) + '"></option>').join('') + '</datalist>';
+    h += '</div>';
+  }
+
+  // 3) Özet + uyarı
+  h += '<div id="erp-ozet" style="font-size:12px;margin-bottom:8px"></div>';
+  h += '<div id="erp-uyari"></div>';
+  h += '<div style="display:flex;gap:8px;margin-top:12px"><div onclick="erpKapat()" style="flex:1;padding:10px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--muted);cursor:pointer;text-align:center;font-size:13px">İptal</div>' +
+       '<div id="erp-uygula-btn" onclick="erpUygula()" style="flex:2;padding:10px;background:var(--accent);border-radius:8px;color:#fff;cursor:pointer;text-align:center;font-size:13px;font-weight:600">Onayla ve Uygula</div></div>';
+
+  let ov = document.getElementById('erp-modal');
+  if (ov) ov.remove();
+  ov = document.createElement('div');
+  ov.id = 'erp-modal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:12px';
+  ov.innerHTML = '<div style="background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:16px;width:100%;max-width:820px;max-height:92vh;overflow:auto;color:var(--text)">' + h + '</div>';
+  document.body.appendChild(ov);
+  erpOzetGuncelle();
+}
+
+function erpKapat() { const ov = document.getElementById('erp-modal'); if (ov) ov.remove(); }
+
+function erpOneriKullan(i) {
+  const en = _erp.oneriler[i].o[0];
+  const inp = document.getElementById('erp-in-' + i);
+  if (en && inp) { inp.value = erpGorunen(en.e); erpOzetGuncelle(); }
+}
+
+// Girilen eşleştirmeleri oku
+function erpSecimler() {
+  const E = _erp;
+  const atamalar = [], gecersiz = [], tekrar = [];
+  const sayac = {};
+  let bos = 0;
+  E.eslesmeyen.forEach((m, i) => {
+    const inp = document.getElementById('erp-in-' + i);
+    const v = ((inp && inp.value) || '').trim();
+    if (inp) inp.style.borderColor = '';
+    if (!v) { bos++; return; }
+    let anh = E.gorunen[v];
+    if (!anh) { const a2 = erpKodAnahtar(v); if (E.harita[a2]) anh = a2; }
+    if (!anh) { gecersiz.push(m); if (inp) inp.style.borderColor = 'var(--red)'; return; }
+    atamalar.push({ m, e: E.harita[anh], anh, inp });
+    sayac[anh] = (sayac[anh] || 0) + 1;
+  });
+  atamalar.forEach(a => {
+    if (sayac[a.anh] > 1 || E.kullanilan.has(a.anh)) { tekrar.push(a.m); if (a.inp) a.inp.style.borderColor = 'var(--red)'; }
+  });
+  return { atamalar, gecersiz, tekrar, bos };
+}
+
+function erpOzetGuncelle() {
+  const E = _erp;
+  const s = erpSecimler();
+  const secilen = new Set(s.atamalar.map(a => a.anh));
+  const yok = E.liste.filter(e => { const k = erpKodAnahtar(e.kod); return !E.kullanilan.has(k) && !secilen.has(k); });
+  let t = '<div>Yeni eşleştirilecek: <b>' + s.atamalar.length + '</b> · Eşleştirilmeden kalacak: <b>' + s.bos + '</b>';
+  if (s.gecersiz.length) t += ' · <span style="color:var(--red)">ERP\'de bulunamayan kod: ' + s.gecersiz.length + '</span>';
+  if (s.tekrar.length) t += ' · <span style="color:var(--red)">aynı koda giden birden fazla malzeme: ' + s.tekrar.length + '</span>';
+  t += '</div><div style="color:var(--muted);margin-top:2px">Excel\'de olmayan kodlu malzemelerin stoğuna dokunulmaz.</div>';
+  const ozet = document.getElementById('erp-ozet'); if (ozet) ozet.innerHTML = t;
+  const uyari = document.getElementById('erp-uyari');
+  if (uyari) {
+    uyari.innerHTML = '<details><summary style="cursor:pointer;color:var(--amber);font-size:12px;font-weight:600">⚠ ERP\'de var, sistemde karşılığı olmayan: ' + yok.length + ' kod (gerekirse elle eklenir)</summary>' +
+      '<div style="max-height:200px;overflow:auto;margin-top:6px"><table style="width:100%;border-collapse:collapse"><tbody>' +
+      yok.map(e => '<tr><td style="padding:4px 8px;border-bottom:1px solid var(--border);font-size:11px">' + htmlKac(e.kod) + '<div style="color:var(--muted)">' + htmlKac(e.ad) + '</div></td><td style="padding:4px 8px;border-bottom:1px solid var(--border);font-size:11px;text-align:right;white-space:nowrap">' + e.miktar + ' ' + htmlKac(e.birim) + '</td></tr>').join('') +
+      '</tbody></table></div></details>';
+  }
+}
+
+async function erpUygula() {
+  const E = _erp;
+  const s = erpSecimler();
+  if (s.gecersiz.length || s.tekrar.length) { alert('Kırmızı işaretli satırları düzelt (ya da boşalt): ERP\'de olmayan kod ya da aynı kodun birden fazla malzemeye verilmesi var.'); return; }
+  const isler = [];
+  E.eslesen.forEach(x => { if (Number(x.m.stok_miktari) !== x.e.miktar) isler.push({ id: x.m.id, veri: { stok_miktari: x.e.miktar } }); });
+  s.atamalar.forEach(a => isler.push({ id: a.m.id, veri: { malzeme_kodu: a.e.kod, stok_miktari: a.e.miktar } }));
+  if (!isler.length) { alert('Güncellenecek bir şey yok.'); return; }
+  if (!confirm(isler.length + ' malzemenin stoğu (ve ' + s.atamalar.length + ' malzemenin kodu) güncellenecek. Onaylıyor musun?')) return;
+  const btn = document.getElementById('erp-uygula-btn');
+  if (btn) { btn.style.pointerEvents = 'none'; btn.style.opacity = '.6'; }
+  const hatalar = [];
+  let bitti = 0;
+  for (let i = 0; i < isler.length; i += 6) {
+    await Promise.all(isler.slice(i, i + 6).map(async is => {
+      try { await sbPatchFiltre('malzemeler', 'id=eq.' + is.id, is.veri); }
+      catch (e) { hatalar.push(String(e.message || e).slice(0, 160)); }
+      bitti++;
+      if (btn) btn.textContent = 'Yazılıyor... ' + bitti + '/' + isler.length;
+    }));
+  }
+  erpKapat();
+  window._tumMalzeme = null;
+  try { await renderMalzemeler(); } catch (e) {}
+  if (hatalar.length) {
+    alert('⚠ ' + hatalar.length + ' kayıt yazılamadı.\nİlk hata: ' + hatalar[0] + '\n\nOndalıklı stokta hata çıkıyorsa Supabase SQL Editor\'de şunu çalıştır:\nalter table malzemeler alter column stok_miktari type numeric;\nSonra dosyayı tekrar yükle.');
+  } else {
+    alert('✓ ' + isler.length + ' malzeme güncellendi.');
+  }
+}
+
+// ===== Kritik malzemeler (kalıp başına, gereken adet elle girilir) =====
+let kfKritik = []; // [{id, adi, kod, birim, gereken}]
+
+function kfKritikYukle(kalip) {
+  kfKritik = Array.isArray(kalip && kalip.kritik_malzemeler) ? kalip.kritik_malzemeler.map(x => ({ ...x })) : [];
+  kfKritikRender();
+}
+
+async function kfKritikFiltre() {
+  const q = erpNorm((document.getElementById('kf-kritik-ara') || {}).value || '');
+  const el = document.getElementById('kf-kritik-sonuclar');
+  if (!el) return;
+  if (!q) { el.innerHTML = ''; return; }
+  let liste = [];
+  try { liste = await tumMalzemeGetir(); } catch (e) { liste = []; }
+  const qt = q.split(' ');
+  const bulunan = liste.filter(m => {
+    const hedef = erpNorm((m.malzeme_adi || '') + ' ' + (m.malzeme_kodu || ''));
+    return qt.every(t => hedef.indexOf(t) >= 0);
+  }).slice(0, 12);
+  if (!bulunan.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px">Bulunamadı</div>'; return; }
+  el.innerHTML = bulunan.map(m => {
+    const secili = kfKritik.some(k => k.id === m.id);
+    return '<div onclick="kfKritikEkle(\'' + m.id + '\')" style="padding:8px 10px;background:' + (secili ? 'var(--green-dim)' : 'var(--bg)') + ';border:1px solid ' + (secili ? 'var(--green)' : 'var(--border)') + ';border-radius:8px;cursor:pointer;font-size:12px;display:flex;justify-content:space-between;gap:8px">' +
+      '<div><div style="font-weight:500">' + htmlKac(m.malzeme_adi || '') + '</div><div style="color:var(--muted);font-size:11px">' + htmlKac(m.malzeme_kodu || 'kod yok') + '</div></div>' +
+      '<div style="color:var(--muted);white-space:nowrap">' + (m.stok_miktari ?? 0) + ' ' + htmlKac(m.birim || '') + '</div></div>';
+  }).join('');
+}
+
+function kfKritikEkle(id) {
+  if (kfKritik.some(k => k.id === id)) return;
+  const m = (window._tumMalzeme || []).find(x => x.id === id);
+  if (!m) return;
+  kfKritik.push({ id: m.id, adi: m.malzeme_adi, kod: m.malzeme_kodu || '', birim: m.birim || '', gereken: '' });
+  kfKritikRender();
+  kfKritikFiltre();
+}
+
+function kfKritikCikar(id) {
+  kfKritik = kfKritik.filter(k => k.id !== id);
+  kfKritikRender();
+  kfKritikFiltre();
+}
+
+function kfKritikAdet(id, v) {
+  const k = kfKritik.find(x => x.id === id);
+  if (k) k.gereken = v;
+}
+
+function kfKritikRender() {
+  const el = document.getElementById('kf-kritik-secili');
+  if (!el) return;
+  if (!kfKritik.length) { el.innerHTML = '<span style="color:var(--muted);font-size:12px">Henüz kritik malzeme eklenmedi</span>'; return; }
+  el.innerHTML = kfKritik.map(k =>
+    '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1px solid var(--amber);border-radius:8px">' +
+      '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">🛡 ' + htmlKac(k.adi) + '</div><div style="font-size:11px;color:var(--muted)">' + htmlKac(k.kod || 'kod yok') + '</div></div>' +
+      '<div style="font-size:11px;color:var(--muted)">Gereken adet</div>' +
+      '<input type="number" min="1" step="1" value="' + (k.gereken === '' || k.gereken == null ? '' : k.gereken) + '" oninput="kfKritikAdet(\'' + k.id + '\',this.value)" style="width:70px;padding:6px 8px;background:var(--card2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;font-family:inherit">' +
+      '<span onclick="kfKritikCikar(\'' + k.id + '\')" style="cursor:pointer;font-size:16px;color:var(--muted)">✕</span></div>'
+  ).join('');
+}
+
+// Kayıt için temiz liste; eksik adet varsa null döner
+function kfKritikKayitListesi() {
+  const out = [];
+  for (const k of kfKritik) {
+    const g = parseFloat(String(k.gereken).replace(',', '.'));
+    if (!(g > 0)) { alert('"' + k.adi + '" için kalıpta gereken adedi yaz.'); return null; }
+    out.push({ id: k.id, adi: k.adi, kod: k.kod || '', birim: k.birim || '', gereken: g });
+  }
+  return out;
+}
+
+// Kalıp kartı: kritik malzeme stok durumu
+function kritikKartHtml(kalip, tumMalz) {
+  const liste = Array.isArray(kalip.kritik_malzemeler) ? kalip.kritik_malzemeler : [];
+  if (!liste.length) return '<div style="padding:1rem;text-align:center;color:var(--muted);font-size:13px">Bu kalıp için tanımlı kritik malzeme yok</div>';
+  return liste.map(k => {
+    const g = (tumMalz || []).find(x => x.id === k.id);
+    const stok = g ? Number(g.stok_miktari) : null;
+    const birim = g ? (g.birim || '') : (k.birim || '');
+    let renk = 'var(--amber)', etiket = 'Stok bilinmiyor';
+    if (stok !== null) {
+      if (stok < k.gereken) { renk = 'var(--red)'; etiket = 'EKSİK'; }
+      else if (stok === k.gereken) { renk = 'var(--amber)'; etiket = 'Sınırda'; }
+      else { renk = 'var(--green)'; etiket = 'Yeterli'; }
+    }
+    return '<div style="padding:.625rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px">' +
+      '<div style="font-size:13px">' + htmlKac(k.adi) + (!g ? ' <span style="color:var(--muted);font-size:11px">(pasif/silinmiş)</span>' : '') + '<div style="font-size:11px;color:var(--muted)">' + htmlKac(k.kod || '') + '</div></div>' +
+      '<div style="text-align:right;white-space:nowrap"><div style="font-size:13px;font-weight:700;color:' + renk + '">Depoda ' + (stok === null ? '—' : stok) + ' ' + htmlKac(birim) + '</div>' +
+      '<div style="font-size:11px;color:var(--muted)">Gereken ' + k.gereken + ' · <span style="color:' + renk + '">' + etiket + '</span></div></div></div>';
+  }).join('');
 }
 
 </script>
