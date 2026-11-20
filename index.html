@@ -1117,7 +1117,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-
               </div>
             </div>
             <div class="fg" style="grid-column:span 2">
-              <label>🛡 Kritik Malzemeler <span style="font-weight:400;text-transform:none;color:var(--muted)">(tedariği uzun olanlar — kalıpta gereken adedi sen yaz, depo stoğu altına düşerse uyarır)</span></label>
+              <label>🛡 Kritik Malzemeler <span style="font-weight:400;text-transform:none;color:var(--muted)">(tedariği uzun olanlar — ara, minimum stok adedini yaz, ＋ Ekle de; depo bu adedin altına düşerse uyarır)</span></label>
               <div style="display:flex;flex-direction:column;gap:8px">
                 <input type="text" id="kf-kritik-ara" placeholder="🔍 Ad ya da ERP kodu ile ara..." oninput="Promise.resolve(kfKritikFiltre()).catch(e=>console.error(e))"
                   style="padding:10px 12px;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
@@ -9208,9 +9208,14 @@ async function kfKritikFiltre() {
   if (!bulunan.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px">Bulunamadı</div>'; return; }
   el.innerHTML = bulunan.map(m => {
     const secili = kfKritik.some(k => k.id === m.id);
-    return '<div onclick="kfKritikEkle(\'' + m.id + '\')" style="padding:8px 10px;background:' + (secili ? 'var(--green-dim)' : 'var(--bg)') + ';border:1px solid ' + (secili ? 'var(--green)' : 'var(--border)') + ';border-radius:8px;cursor:pointer;font-size:12px;display:flex;justify-content:space-between;gap:8px">' +
-      '<div><div style="font-weight:500">' + htmlKac(m.malzeme_adi || '') + '</div><div style="color:var(--muted);font-size:11px">' + htmlKac(m.malzeme_kodu || 'kod yok') + '</div></div>' +
-      '<div style="color:var(--muted);white-space:nowrap">' + (m.stok_miktari ?? 0) + ' ' + htmlKac(m.birim || '') + '</div></div>';
+    const kayitli = kfKritik.find(k => k.id === m.id);
+    return '<div style="padding:8px 10px;background:' + (secili ? 'var(--green-dim)' : 'var(--bg)') + ';border:1px solid ' + (secili ? 'var(--green)' : 'var(--border)') + ';border-radius:8px;font-size:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">' +
+      '<div style="flex:1;min-width:140px"><div style="font-weight:500">' + htmlKac(m.malzeme_adi || '') + '</div><div style="color:var(--muted);font-size:11px">' + htmlKac(m.malzeme_kodu || 'kod yok') + ' · depoda ' + (m.stok_miktari ?? 0) + ' ' + htmlKac(m.birim || '') + '</div></div>' +
+      (secili
+        ? '<div style="color:var(--green);font-weight:600">✓ Eklendi (min. ' + kayitli.gereken + ')</div>'
+        : '<input type="number" min="1" step="1" id="kf-kr-adet-' + m.id + '" placeholder="Min. adet" style="width:90px;padding:6px 8px;background:var(--card2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;font-family:inherit">' +
+          '<div onclick="kfKritikEkle(\'' + m.id + '\')" style="padding:6px 12px;background:var(--accent);border-radius:6px;color:#fff;font-weight:600;cursor:pointer;white-space:nowrap">＋ Ekle</div>') +
+      '</div>';
   }).join('');
 }
 
@@ -9218,7 +9223,10 @@ function kfKritikEkle(id) {
   if (kfKritik.some(k => k.id === id)) return;
   const m = (window._tumMalzeme || []).find(x => x.id === id);
   if (!m) return;
-  kfKritik.push({ id: m.id, adi: m.malzeme_adi, kod: m.malzeme_kodu || '', birim: m.birim || '', gereken: '' });
+  const inp = document.getElementById('kf-kr-adet-' + id);
+  const g = parseFloat(String((inp && inp.value) || '').replace(',', '.'));
+  if (!(g > 0)) { alert('Önce bu kalıpta olması gereken minimum adedi yaz.'); if (inp) inp.focus(); return; }
+  kfKritik.push({ id: m.id, adi: m.malzeme_adi, kod: m.malzeme_kodu || '', birim: m.birim || '', gereken: g });
   kfKritikRender();
   kfKritikFiltre();
 }
@@ -9241,7 +9249,7 @@ function kfKritikRender() {
   el.innerHTML = kfKritik.map(k =>
     '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1px solid var(--amber);border-radius:8px">' +
       '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">🛡 ' + htmlKac(k.adi) + '</div><div style="font-size:11px;color:var(--muted)">' + htmlKac(k.kod || 'kod yok') + '</div></div>' +
-      '<div style="font-size:11px;color:var(--muted)">Gereken adet</div>' +
+      '<div style="font-size:11px;color:var(--muted)">Min. adet</div>' +
       '<input type="number" min="1" step="1" value="' + (k.gereken === '' || k.gereken == null ? '' : k.gereken) + '" oninput="kfKritikAdet(\'' + k.id + '\',this.value)" style="width:70px;padding:6px 8px;background:var(--card2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;font-family:inherit">' +
       '<span onclick="kfKritikCikar(\'' + k.id + '\')" style="cursor:pointer;font-size:16px;color:var(--muted)">✕</span></div>'
   ).join('');
